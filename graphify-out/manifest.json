@@ -1,0 +1,212 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1794948093.4986966,
+    "seen": 1794948384.8310597,
+    "ast_hash": "bd63b0dbbd3bfce39887de2909218b1f",
+    "semantic_hash": "bd63b0dbbd3bfce39887de2909218b1f"
+  },
+  "CLAUDE.md": {
+    "mtime": 1794948093.4916563,
+    "seen": 1794948384.831065,
+    "ast_hash": "dfe5fa7939121e96d61b54077cc9ab84",
+    "semantic_hash": "dfe5fa7939121e96d61b54077cc9ab84"
+  },
+  "package.json": {
+    "mtime": 1794959019.457394,
+    "seen": 1794959402.5894215,
+    "ast_hash": "e5090b1efea4102e104d81697f6712a4",
+    "semantic_hash": ""
+  },
+  "src/cars/CarModel3D.js": {
+    "mtime": 1794961391.7544208,
+    "seen": 1794961414.640785,
+    "ast_hash": "08982b2e848a7d829f85e05e5a573d1b",
+    "semantic_hash": ""
+  },
+  "src/config/constants.js": {
+    "mtime": 1794953868.9921303,
+    "seen": 1794954080.3812623,
+    "ast_hash": "e27b579c1092f682ecd2a561f41bf125",
+    "semantic_hash": ""
+  },
+  "src/core/GameLoop.js": {
+    "mtime": 1794950782.9422622,
+    "seen": 1794950944.4156783,
+    "ast_hash": "407be972f23fb6c1f29e906828877560",
+    "semantic_hash": ""
+  },
+  "src/core/WorldState.js": {
+    "mtime": 1794959435.179731,
+    "seen": 1794961414.6407926,
+    "ast_hash": "e7d784c0badc0a1f2f5f08374e70633c",
+    "semantic_hash": ""
+  },
+  "src/input/InputManager.js": {
+    "mtime": 1794955408.8378787,
+    "seen": 1794955678.9461036,
+    "ast_hash": "4658e3f87d91b5f6d92901860aa90fd8",
+    "semantic_hash": ""
+  },
+  "src/main.js": {
+    "mtime": 1794959435.2228463,
+    "seen": 1794961414.6407955,
+    "ast_hash": "1668537733aba6cda0b5166d90624e06",
+    "semantic_hash": ""
+  },
+  "src/physics/CarPhysics.js": {
+    "mtime": 1794958557.4821868,
+    "seen": 1794958756.9608698,
+    "ast_hash": "ec7775b8b129b23e22ee245e5a2bc68f",
+    "semantic_hash": ""
+  },
+  "src/rendering/SceneManager.js": {
+    "mtime": 1794958787.9096193,
+    "seen": 1794959402.5894525,
+    "ast_hash": "2202826d5c45d9023696f675be52ea3c",
+    "semantic_hash": ""
+  },
+  "src/tracks/TrackBuilder.js": {
+    "mtime": 1794954803.701752,
+    "seen": 1794954901.5419133,
+    "ast_hash": "8801c76d64673c279a38d4ed6ba47199",
+    "semantic_hash": ""
+  },
+  "src/tracks/test_track.js": {
+    "mtime": 1794952342.449489,
+    "seen": 1794952632.8208113,
+    "ast_hash": "b5f3a0d171ccbde7e3b99cef191aa1c6",
+    "semantic_hash": ""
+  },
+  "PROMPT/prompt-antigravity-gioco-f1.md": {
+    "mtime": 1794948456.2787554,
+    "seen": 1794950944.415688,
+    "ast_hash": "cf482c2fa562c4988b57c12c296d138c",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1794959435.034662,
+    "seen": 1794961414.640818,
+    "ast_hash": "211ed6be40749e3577a374c9c543c060",
+    "semantic_hash": ""
+  },
+  "src/rendering/CameraController.js": {
+    "mtime": 1794961392.8274093,
+    "seen": 1794961414.640805,
+    "ast_hash": "a7a2f5bde494819fc8c2d6be7f835c23",
+    "semantic_hash": ""
+  },
+  "src/physics/Collisions.js": {
+    "mtime": 1794954727.0911484,
+    "seen": 1794954901.5419075,
+    "ast_hash": "c7679ce102bc7240a37ef31e5b5b679b",
+    "semantic_hash": ""
+  },
+  "src/tracks/TrackSurface.js": {
+    "mtime": 1794953468.5008767,
+    "seen": 1794953557.0523188,
+    "ast_hash": "93ef8f3d30247ca073e39c18a390bad9",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/monza.js": {
+    "mtime": 1794953466.9291224,
+    "seen": 1794953557.0523195,
+    "ast_hash": "c7604d9d96cea9bb7f7a958f3199657b",
+    "semantic_hash": ""
+  },
+  "src/ui/TrackMapHud.js": {
+    "mtime": 1794953568.0614297,
+    "seen": 1794954080.3812826,
+    "ast_hash": "db58f62533f27e92abfaf6ba640183b6",
+    "semantic_hash": ""
+  },
+  "src/race/TimingSystem.js": {
+    "mtime": 1794957300.0323174,
+    "seen": 1794958107.6128757,
+    "ast_hash": "48aa7335638f9c26128f114fd965d221",
+    "semantic_hash": ""
+  },
+  "src/ui/HudOverlay.js": {
+    "mtime": 1794959435.4948037,
+    "seen": 1794961414.6408126,
+    "ast_hash": "a437265929a4675570a0ac0d9945878a",
+    "semantic_hash": ""
+  },
+  "src/physics/AeroAndTires.js": {
+    "mtime": 1794955701.6313138,
+    "seen": 1794956530.1916544,
+    "ast_hash": "bf98ec8886d6f834841369b46ea38a97",
+    "semantic_hash": ""
+  },
+  "src/physics/Suspension.js": {
+    "mtime": 1794953871.5744846,
+    "seen": 1794954080.3812726,
+    "ast_hash": "2911bd9595a61f897fcfb69461132cae",
+    "semantic_hash": ""
+  },
+  "src/ai/BotController.js": {
+    "mtime": 1794956551.5284927,
+    "seen": 1794957279.5369823,
+    "ast_hash": "f2e3314e6d78f105b503ad8f2cbe1403",
+    "semantic_hash": ""
+  },
+  "src/config/f1_2026_data.js": {
+    "mtime": 1794954698.6359546,
+    "seen": 1794954901.5418997,
+    "ast_hash": "97260e91c204ab3ff48bba000bba45f6",
+    "semantic_hash": ""
+  },
+  "src/race/RaceManager.js": {
+    "mtime": 1794959435.4099674,
+    "seen": 1794961414.6408029,
+    "ast_hash": "651900a577c667447f2405371a47a923",
+    "semantic_hash": ""
+  },
+  "src/cars/CarSpecs.js": {
+    "mtime": 1794958308.8791146,
+    "seen": 1794958756.96086,
+    "ast_hash": "d76d60a6586d34f470c88c764cd21efe",
+    "semantic_hash": ""
+  },
+  "src/config/difficulty.js": {
+    "mtime": 1794955294.712389,
+    "seen": 1794955678.9460988,
+    "ast_hash": "43f44068b817d4e77bffcbb8ae1db14a",
+    "semantic_hash": ""
+  },
+  "src/ui/MenuManager.js": {
+    "mtime": 1794959435.5633202,
+    "seen": 1794961414.6408134,
+    "ast_hash": "cb0388fa53f6b362bc393d11a63c2c25",
+    "semantic_hash": ""
+  },
+  "src/race/QualifyingManager.js": {
+    "mtime": 1794959435.3397944,
+    "seen": 1794961414.640802,
+    "ast_hash": "52181c11f953bb004c2e2d020280d297",
+    "semantic_hash": ""
+  },
+  "src/career/CareerStorage.js": {
+    "mtime": 1794958562.5677302,
+    "seen": 1794958756.9608567,
+    "ast_hash": "b558de179a844df6650b1a7854031211",
+    "semantic_hash": ""
+  },
+  "src/rendering/GarageScene3D.js": {
+    "mtime": 1794958559.490304,
+    "seen": 1794958756.9608784,
+    "ast_hash": "e5c64bd10a2e109e9dccea6e553616b3",
+    "semantic_hash": ""
+  },
+  "src/network/RoomManager.js": {
+    "mtime": 1794959297.9079745,
+    "seen": 1794959402.5894406,
+    "ast_hash": "eb3fd1e3fa152f6e9c0685d55f51a18f",
+    "semantic_hash": ""
+  },
+  "package-lock.json": {
+    "mtime": 1794959019.4780376,
+    "seen": 1794959402.5894647,
+    "ast_hash": "16dd49ffef7e01656e1669d2a07378bb",
+    "semantic_hash": ""
+  }
+}

@@ -1,0 +1,122 @@
+/**
+ * Database ufficiale della griglia di Formula 1 2026 (Step 6):
+ * 11 scuderie, 22 piloti, numeri di gara ufficiali, codici e colori livrea/caschi.
+ */
+
+export const RACE_TOTAL_LAPS = 10;
+
+export const F1_2026_TEAMS = {
+  mclaren: {
+    id: 'mclaren',
+    name: 'McLaren',
+    primaryColor: '#ff8000',
+    secondaryColor: '#181b20',
+    wingColor: '#ff8000',
+    pace: 0.995,
+  },
+  ferrari: {
+    id: 'ferrari',
+    name: 'Scuderia Ferrari',
+    primaryColor: '#dc0000',
+    secondaryColor: '#111318',
+    wingColor: '#f8fafc',
+    pace: 0.995,
+  },
+  red_bull: {
+    id: 'red_bull',
+    name: 'Red Bull Racing',
+    primaryColor: '#1e3a8a',
+    secondaryColor: '#dc2626',
+    wingColor: '#eab308',
+    pace: 0.992,
+  },
+  mercedes: {
+    id: 'mercedes',
+    name: 'Mercedes-AMG',
+    primaryColor: '#94a3b8',
+    secondaryColor: '#0f172a',
+    wingColor: '#00d2be',
+    pace: 0.988,
+  },
+  aston_martin: {
+    id: 'aston_martin',
+    name: 'Aston Martin',
+    primaryColor: '#006f62',
+    secondaryColor: '#0a2e28',
+    wingColor: '#bef264',
+    pace: 0.978,
+  },
+  williams: {
+    id: 'williams',
+    name: 'Williams',
+    primaryColor: '#005aff',
+    secondaryColor: '#0f172a',
+    wingColor: '#38bdf8',
+    pace: 0.974,
+  },
+  alpine: {
+    id: 'alpine',
+    name: 'Alpine',
+    primaryColor: '#0090ff',
+    secondaryColor: '#1e293b',
+    wingColor: '#ec4899',
+    pace: 0.968,
+  },
+  racing_bulls: {
+    id: 'racing_bulls',
+    name: 'Racing Bulls',
+    primaryColor: '#2563eb',
+    secondaryColor: '#0f172a',
+    wingColor: '#f8fafc',
+    pace: 0.966,
+  },
+  haas: {
+    id: 'haas',
+    name: 'Haas F1 Team',
+    primaryColor: '#f1f5f9',
+    secondaryColor: '#18181b',
+    wingColor: '#dc2626',
+    pace: 0.962,
+  },
+  audi: {
+    id: 'audi',
+    name: 'Audi F1 Team',
+    primaryColor: '#e11d48',
+    secondaryColor: '#18181b',
+    wingColor: '#cbd5e1',
+    pace: 0.960,
+  },
+  cadillac: {
+    id: 'cadillac',
+    name: 'Cadillac F1 Team',
+    primaryColor: '#eab308',
+    secondaryColor: '#1e293b',
+    wingColor: '#f8fafc',
+    pace: 0.956,
+  },
+};
+
+export const F1_2026_DRIVERS = [
+  { id: 'norris', name: 'Lando Norris', code: 'NOR', number: 1, teamId: 'mclaren', helmetColor: '#bef264', skill: 0.99 },
+  { id: 'piastri', name: 'Oscar Piastri', code: 'PIA', number: 81, teamId: 'mclaren', helmetColor: '#f97316', skill: 0.985 },
+  { id: 'leclerc', name: 'Charles Leclerc', code: 'LEC', number: 16, teamId: 'ferrari', helmetColor: '#ef4444', skill: 0.99 },
+  { id: 'hamilton', name: 'Lewis Hamilton', code: 'HAM', number: 44, teamId: 'ferrari', helmetColor: '#a855f7', skill: 0.988 },
+  { id: 'verstappen', name: 'Max Verstappen', code: 'VER', number: 3, teamId: 'red_bull', helmetColor: '#facc15', skill: 0.995 },
+  { id: 'hadjar', name: 'Isack Hadjar', code: 'HAD', number: 6, teamId: 'red_bull', helmetColor: '#38bdf8', skill: 0.965 },
+  { id: 'russell', name: 'George Russell', code: 'RUS', number: 63, teamId: 'mercedes', helmetColor: '#00d2be', skill: 0.985 },
+  { id: 'antonelli', name: 'Kimi Antonelli', code: 'ANT', number: 12, teamId: 'mercedes', helmetColor: '#60a5fa', skill: 0.975 },
+  { id: 'alonso', name: 'Fernando Alonso', code: 'ALO', number: 14, teamId: 'aston_martin', helmetColor: '#38bdf8', skill: 0.98 },
+  { id: 'stroll', name: 'Lance Stroll', code: 'STR', number: 18, teamId: 'aston_martin', helmetColor: '#22c55e', skill: 0.955 },
+  { id: 'albon', name: 'Alexander Albon', code: 'ALB', number: 23, teamId: 'williams', helmetColor: '#3b82f6', skill: 0.972 },
+  { id: 'sainz', name: 'Carlos Sainz', code: 'SAI', number: 55, teamId: 'williams', helmetColor: '#dc2626', skill: 0.982 },
+  { id: 'gasly', name: 'Pierre Gasly', code: 'GAS', number: 10, teamId: 'alpine', helmetColor: '#ec4899', skill: 0.97 },
+  { id: 'colapinto', name: 'Franco Colapinto', code: 'COL', number: 43, teamId: 'alpine', helmetColor: '#38bdf8', skill: 0.96 },
+  { id: 'lawson', name: 'Liam Lawson', code: 'LAW', number: 30, teamId: 'racing_bulls', helmetColor: '#f8fafc', skill: 0.965 },
+  { id: 'lindblad', name: 'Arvid Lindblad', code: 'LIN', number: 41, teamId: 'racing_bulls', helmetColor: '#f59e0b', skill: 0.952 },
+  { id: 'ocon', name: 'Esteban Ocon', code: 'OCO', number: 31, teamId: 'haas', helmetColor: '#ef4444', skill: 0.968 },
+  { id: 'bearman', name: 'Oliver Bearman', code: 'BEA', number: 87, teamId: 'haas', helmetColor: '#fb7185', skill: 0.962 },
+  { id: 'hulkenberg', name: 'Nico Hülkenberg', code: 'HUL', number: 27, teamId: 'audi', helmetColor: '#f8fafc', skill: 0.968 },
+  { id: 'bortoleto', name: 'Gabriel Bortoleto', code: 'BOR', number: 5, teamId: 'audi', helmetColor: '#22c55e', skill: 0.958 },
+  { id: 'perez', name: 'Sergio Pérez', code: 'PER', number: 11, teamId: 'cadillac', helmetColor: '#facc15', skill: 0.968 },
+  { id: 'bottas', name: 'Valtteri Bottas', code: 'BOT', number: 77, teamId: 'cadillac', helmetColor: '#60a5fa', skill: 0.966 },
+];
