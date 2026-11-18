@@ -24,8 +24,8 @@
     "semantic_hash": ""
   },
   "src/config/constants.js": {
-    "mtime": 1795022592.0603395,
-    "seen": 1795022623.9665065,
+    "mtime": 1795022673.55589,
+    "seen": 1795034802.6087239,
     "ast_hash": "4b8fbf253c1b5ea0bdf2609f34c95f66",
     "semantic_hash": ""
   },
@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "src/main.js": {
-    "mtime": 1795020006.8286638,
-    "seen": 1795021275.718129,
-    "ast_hash": "ec44bb2898c17c30e9b8d480b66cf262",
+    "mtime": 1795037057.6346416,
+    "seen": 1795037355.2494352,
+    "ast_hash": "ca80496914650a6eee5c38849811d08a",
     "semantic_hash": ""
   },
   "src/physics/CarPhysics.js": {
@@ -60,14 +60,14 @@
     "semantic_hash": ""
   },
   "src/rendering/SceneManager.js": {
-    "mtime": 1795019782.492058,
-    "seen": 1795019915.5442028,
-    "ast_hash": "4ecd08c29ff07069c8228f6f6afe7a55",
+    "mtime": 1795036057.9476624,
+    "seen": 1795036937.3915665,
+    "ast_hash": "8d8adbe5e479bb8552212f79c262942d",
     "semantic_hash": ""
   },
   "src/tracks/TrackBuilder.js": {
-    "mtime": 1795022563.4637637,
-    "seen": 1795022623.966525,
+    "mtime": 1795022673.9031968,
+    "seen": 1795034802.608746,
     "ast_hash": "df5ad7ef9d7855176170689850827257",
     "semantic_hash": ""
   },
@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1795021435.6763852,
-    "seen": 1795021555.7539275,
-    "ast_hash": "851fcaa6c777fa48d065b4ca6e5f5025",
+    "mtime": 1795041913.9659772,
+    "seen": 1795041931.9420016,
+    "ast_hash": "1992f074ddef1169ca2762a313d980f3",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
@@ -102,8 +102,8 @@
     "semantic_hash": ""
   },
   "src/tracks/TrackSurface.js": {
-    "mtime": 1795022473.4105306,
-    "seen": 1795022623.966526,
+    "mtime": 1795022673.985485,
+    "seen": 1795034802.6087468,
     "ast_hash": "8f9a08cc6c5598235ca7aa1d3684b518",
     "semantic_hash": ""
   },
@@ -114,8 +114,8 @@
     "semantic_hash": ""
   },
   "src/ui/TrackMapHud.js": {
-    "mtime": 1795022596.1275697,
-    "seen": 1795022623.9665537,
+    "mtime": 1795022674.0567496,
+    "seen": 1795034802.608778,
     "ast_hash": "b1de3304eeab14316e15d63dc3924be9",
     "semantic_hash": ""
   },
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "src/ui/HudOverlay.js": {
-    "mtime": 1794959435.4948037,
-    "seen": 1794961414.6408126,
-    "ast_hash": "a437265929a4675570a0ac0d9945878a",
+    "mtime": 1795037057.7826188,
+    "seen": 1795037355.249478,
+    "ast_hash": "0e7b2e45be3562341b4a81b145469bee",
     "semantic_hash": ""
   },
   "src/physics/AeroAndTires.js": {
@@ -156,8 +156,8 @@
     "semantic_hash": ""
   },
   "src/race/RaceManager.js": {
-    "mtime": 1795022590.7610335,
-    "seen": 1795022623.96652,
+    "mtime": 1795022673.785549,
+    "seen": 1795034802.60874,
     "ast_hash": "ad9088bfb56e85a7d57a138305f8e850",
     "semantic_hash": ""
   },
@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "src/ui/MenuManager.js": {
-    "mtime": 1795019849.446891,
-    "seen": 1795019915.5442173,
-    "ast_hash": "d6a3bb56e973c4dc173ea1ea09e45673",
+    "mtime": 1795041915.3376765,
+    "seen": 1795041931.9419923,
+    "ast_hash": "06c62d03fe0d314c37a058bb8cfd6148",
     "semantic_hash": ""
   },
   "src/race/QualifyingManager.js": {
@@ -192,9 +192,9 @@
     "semantic_hash": ""
   },
   "src/rendering/GarageScene3D.js": {
-    "mtime": 1794958559.490304,
-    "seen": 1794958756.9608784,
-    "ast_hash": "e5c64bd10a2e109e9dccea6e553616b3",
+    "mtime": 1795036057.860791,
+    "seen": 1795036937.3915646,
+    "ast_hash": "13b45c083b6cba61a0de130cf14f83c6",
     "semantic_hash": ""
   },
   "src/network/RoomManager.js": {
@@ -357,6 +357,24 @@
     "mtime": 1795022523.1784983,
     "seen": 1795022623.9665492,
     "ast_hash": "3a2f1fe2e23c5d5b3637d0945bd96597",
+    "semantic_hash": ""
+  },
+  "src/ui/UiTheme.js": {
+    "mtime": 1795041156.6838224,
+    "seen": 1795041931.941996,
+    "ast_hash": "a135e2131b22c513590ad4116d59752d",
+    "semantic_hash": ""
+  },
+  "PROMPT/prompt-antigravity-gioco-f1-modifiche.md": {
+    "mtime": 1795033948.4727948,
+    "seen": 1795034802.608783,
+    "ast_hash": "b77b511fabe97a11190638a9aaceeb0c",
+    "semantic_hash": ""
+  },
+  "src/ui/ModalManager.js": {
+    "mtime": 1795037336.9446487,
+    "seen": 1795037355.2494802,
+    "ast_hash": "c39286a09e8799b615da560ef62aebbd",
     "semantic_hash": ""
   },
   "package-lock.json": {

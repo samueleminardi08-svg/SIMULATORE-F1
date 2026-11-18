@@ -17,7 +17,12 @@ export class SceneManager {
     /** @type {Map<string, ReturnType<typeof createF1CarMesh>>} */
     this.carMeshes = new Map();
     this._currentWeather = 'dry';
+    this._previewWeather = null;
     this.isGarageMode = true;
+    this._garageViewMode = 'home';
+    this._trackOrbitAngle = 0.45;
+    this._trackCamPos = new THREE.Vector3(240, 140, 240);
+    this._trackCamLook = new THREE.Vector3(0, 0, 0);
     this._lastRenderMs = performance.now();
 
     // 1. Renderer WebGL
@@ -41,7 +46,7 @@ export class SceneManager {
       62,
       window.innerWidth / window.innerHeight,
       0.1,
-      3500
+      6500
     );
     this.cameraController = new CameraController(this.camera);
 
@@ -256,24 +261,34 @@ export class SceneManager {
     return this.cameraController.getCurrentMode();
   }
 
-  setGarageMode(isOpen, appearance = null, viewMode = 'main') {
+  setGarageMode(isOpen, appearance = null, viewMode = 'home') {
     this.isGarageMode = Boolean(isOpen);
-    this.garageScene.group.visible = this.isGarageMode;
-    this.trackGroup.visible = !this.isGarageMode;
+    this._garageViewMode = viewMode || 'home';
+    const isTrackPreview = this.isGarageMode && this._garageViewMode === 'track';
+
+    this.garageScene.group.visible = this.isGarageMode && !isTrackPreview;
+    this.trackGroup.visible = !this.isGarageMode || isTrackPreview;
 
     if (appearance) {
       this.garageScene.updateAppearance(appearance);
     }
     if (viewMode) {
-      this.garageScene.setViewMode(viewMode);
+      this.garageScene.setViewMode(this._garageViewMode);
     }
 
-    if (this.isGarageMode) {
-      this.scene.background.setHex(0x0b1324);
-      this.scene.fog.color.setHex(0x0b1324);
-      this.scene.fog.density = 0.008;
-      this.sunLight.intensity = 0.85;
-      this.hemiLight.intensity = 1.05;
+    if (isTrackPreview) {
+      this._currentWeather = null;
+      this._updateWeatherVisuals(this._previewWeather || this._lastRenderedWeather || 'dry');
+      if (this._rainPoints) this._rainPoints.visible = false;
+      for (const carModel of this.carMeshes.values()) {
+        carModel.root.visible = false;
+      }
+    } else if (this.isGarageMode) {
+      this.scene.background.setHex(0x07090e);
+      this.scene.fog.color.setHex(0x07090e);
+      this.scene.fog.density = 0.022;
+      this.sunLight.intensity = 0.65;
+      this.hemiLight.intensity = 0.85;
       if (this._rainPoints) this._rainPoints.visible = false;
       for (const carModel of this.carMeshes.values()) {
         carModel.root.visible = false;
@@ -284,6 +299,23 @@ export class SceneManager {
       for (const carModel of this.carMeshes.values()) {
         carModel.root.visible = true;
       }
+    }
+  }
+
+  rotateGarageOrbit(deltaYaw = 0, deltaPitch = 0) {
+    this.garageScene.rotateOrbit(deltaYaw, deltaPitch);
+  }
+
+  zoomGarageOrbit(deltaZoom = 0) {
+    this.garageScene.zoomOrbit(deltaZoom);
+  }
+
+  setWeatherPreview(weatherId = 'dry') {
+    this._previewWeather = weatherId === 'rain' ? 'rain' : 'dry';
+    if (this.isGarageMode && this._garageViewMode === 'track') {
+      this._currentWeather = null;
+      this._updateWeatherVisuals(this._previewWeather);
+      if (this._rainPoints) this._rainPoints.visible = false;
     }
   }
 
@@ -327,12 +359,18 @@ export class SceneManager {
     this.trackGroup = builtTrack.group;
     this.trackSurface = builtTrack.trackSurface;
     this.asphaltMaterial = builtTrack.asphaltMaterial;
-    this.trackGroup.visible = !this.isGarageMode;
+    const isTrackPreview = this.isGarageMode && this._garageViewMode === 'track';
+    this.trackGroup.visible = !this.isGarageMode || isTrackPreview;
     this.scene.add(this.trackGroup);
 
     this._currentWeather = null;
-    if (!this.isGarageMode) {
-      this._updateWeatherVisuals(this._lastRenderedWeather || 'dry');
+    if (!this.isGarageMode || isTrackPreview) {
+      this._updateWeatherVisuals(
+        isTrackPreview
+          ? this._previewWeather || this._lastRenderedWeather || 'dry'
+          : this._lastRenderedWeather || 'dry'
+      );
+      if (isTrackPreview && this._rainPoints) this._rainPoints.visible = false;
     }
   }
 
@@ -345,9 +383,48 @@ export class SceneManager {
     const nowMs = performance.now();
     const renderDt = Math.min(0.05, Math.max(0.001, (nowMs - this._lastRenderMs) / 1000));
     this._lastRenderMs = nowMs;
-    this._lastRenderedWeather = worldState.weather || 'dry';
+    if (!this.isGarageMode) {
+      this._lastRenderedWeather = worldState.weather || 'dry';
+    }
 
     if (this.isGarageMode) {
+      if (this._garageViewMode === 'track') {
+        this.garageScene.group.visible = false;
+        this.trackGroup.visible = true;
+        const b = this.trackSurface?.bounds || {
+          minX: -400,
+          maxX: 400,
+          minY: 0,
+          maxY: 10,
+          minZ: -400,
+          maxZ: 400,
+        };
+        const cx = (b.minX + b.maxX) * 0.5;
+        const cy = (b.minY + b.maxY) * 0.5;
+        const cz = (b.minZ + b.maxZ) * 0.5;
+        const span = Math.max(250, b.maxX - b.minX, b.maxZ - b.minZ);
+        const orbitRadius = Math.max(260, Math.min(920, span * 0.42));
+        const camHeight = Math.max(115, Math.min(340, span * 0.165));
+
+        this._trackOrbitAngle += renderDt * 0.08;
+        const targetPos = new THREE.Vector3(
+          cx + Math.cos(this._trackOrbitAngle) * orbitRadius,
+          cy + camHeight,
+          cz + Math.sin(this._trackOrbitAngle) * orbitRadius
+        );
+        const targetLook = new THREE.Vector3(cx, cy + 4, cz);
+        const lerpAlpha = Math.min(1, renderDt * 3.5);
+        this._trackCamPos.lerp(targetPos, lerpAlpha);
+        this._trackCamLook.lerp(targetLook, lerpAlpha);
+        this.camera.position.copy(this._trackCamPos);
+        this.camera.lookAt(this._trackCamLook);
+
+        this.sunLight.position.set(cx + 220, 320, cz + 160);
+        this.sunLight.target.position.set(cx, cy, cz);
+        this.renderer.render(this.scene, this.camera);
+        return;
+      }
+
       this.garageScene.group.visible = true;
       this.trackGroup.visible = false;
       this.garageScene.updateCamera(this.camera, renderDt);

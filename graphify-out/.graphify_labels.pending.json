@@ -9,8 +9,10 @@
   "7": "initGame",
   "8": "main.js",
   "9": "test_track.js",
-  "10": "TrackMapHud",
   "11": "WorldState.js",
   "12": "vite.config.js",
-  "13": "TimingSystem.js"
+  "13": "TrackBuilder.js",
+  "14": "Prompt per Antigravity — Gioco di F1: modifiche a interfaccia, animazioni e fisica",
+  "15": "ModalManager",
+  "16": "UiTheme.js"
 }

@@ -6,6 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gioco F1 3D — Step 11 (Calendario F1 2026)</title>
   <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
   <script type="importmap">
     {
       "imports": {
@@ -16,6 +22,38 @@
     }
   </script>
   <style>
+    :root {
+      --f1-font-display: 'Chakra Petch', 'Segoe UI', sans-serif;
+      --f1-font-ui: 'Plus Jakarta Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --f1-font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+      --f1-bg-base: #07090e;
+      --f1-card-bg: rgba(13, 17, 25, 0.88);
+      --f1-carbon-pattern:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.022) 0%, transparent 55%),
+        repeating-linear-gradient(
+          45deg,
+          rgba(255, 255, 255, 0.026) 0px,
+          rgba(255, 255, 255, 0.026) 1px,
+          transparent 1px,
+          transparent 5px
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(0, 0, 0, 0.24) 0px,
+          rgba(0, 0, 0, 0.24) 1px,
+          transparent 1px,
+          transparent 5px
+        );
+      --f1-accent-red: #e10600;
+      --f1-accent-blue: #38bdf8;
+      --f1-team-tint: #dc0000;
+      --f1-border-subtle: rgba(255, 255, 255, 0.14);
+      --f1-selected-bg: #ffffff;
+      --f1-selected-fg: #090b10;
+      --f1-radius-card: clamp(8px, 0.65vw, 14px);
+      --f1-radius-panel: clamp(10px, 0.78vw, 16px);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -28,8 +66,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #0b0e14;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--f1-bg-base);
+      font-family: var(--f1-font-ui);
+      font-size: clamp(13px, 0.85vw, 18px);
       color: #ffffff;
     }
 
@@ -41,12 +80,13 @@
 
     .hud-card {
       position: fixed;
-      background: rgba(13, 17, 25, 0.84);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-left: 4px solid #e10600;
-      border-radius: 8px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+      background: var(--f1-card-bg);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-left: 4px solid var(--f1-accent-red);
+      border-radius: var(--f1-radius-card);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
       pointer-events: none;
     }
 
@@ -220,7 +260,7 @@
     .lap-time-val {
       text-align: right;
       font-weight: 700;
-      font-family: 'Consolas', 'Courier New', monospace;
+      font-family: var(--f1-font-mono);
       font-variant-numeric: tabular-nums;
       color: #f8fafc;
     }
@@ -347,7 +387,7 @@
     }
 
     .driver-delta {
-      font-family: 'Consolas', 'Courier New', monospace;
+      font-family: var(--f1-font-mono);
       font-weight: 700;
       font-variant-numeric: tabular-nums;
       padding: 1px 5px;
@@ -435,7 +475,7 @@
     .sector-card-time {
       font-size: 12px;
       font-weight: 800;
-      font-family: 'Consolas', 'Courier New', monospace;
+      font-family: var(--f1-font-mono);
       font-variant-numeric: tabular-nums;
       color: #f8fafc;
     }
@@ -474,7 +514,7 @@
     .center-lap-time {
       font-size: 20px;
       font-weight: 800;
-      font-family: 'Consolas', 'Courier New', monospace;
+      font-family: var(--f1-font-mono);
       font-variant-numeric: tabular-nums;
       color: #ffffff;
       line-height: 1.1;
@@ -483,7 +523,7 @@
     .center-delta {
       font-size: 12px;
       font-weight: 800;
-      font-family: 'Consolas', 'Courier New', monospace;
+      font-family: var(--f1-font-mono);
       font-variant-numeric: tabular-nums;
       margin-top: 2px;
       padding: 1px 6px;
@@ -726,74 +766,200 @@
     .start-status.waiting { color: #fca5a5; }
     .start-status.go { color: #4ade80; }
 
-    /* Modale fine gara 10 giri */
-    #race-finish-modal {
+    /* Sistema Unico Pop-up & Modali Centrati (Step 3) */
+    .f1-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(6, 9, 15, 0.82);
-      backdrop-filter: blur(8px);
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 50;
+      padding: clamp(16px, 3vh, 42px) clamp(16px, 3vw, 48px);
+      background: rgba(4, 6, 12, 0.80);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 90;
+      pointer-events: auto;
+      overflow-y: auto;
     }
 
-    .finish-card {
-      background: #0f172a;
+    .f1-modal-dialog {
+      position: relative;
+      margin: auto;
+      background: var(--f1-card-bg);
+      background-image: var(--f1-carbon-pattern);
       border: 1px solid rgba(255, 255, 255, 0.16);
-      border-top: 4px solid #e10600;
-      border-radius: 10px;
-      padding: 20px 24px;
-      width: min(760px, 92vw);
-      max-height: 86vh;
+      border-top: 3px solid var(--f1-accent-red);
+      border-radius: var(--f1-radius-panel);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.88);
+      width: min(520px, 92vw);
+      max-height: min(88vh, 900px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #f8fafc;
+    }
+
+    .f1-modal-dialog--compact {
+      width: min(460px, 92vw);
+    }
+
+    .f1-modal-dialog--wide {
+      width: min(840px, 92vw);
+    }
+
+    .f1-modal-dialog--cyan {
+      border-top-color: var(--f1-accent-blue);
+    }
+
+    .f1-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: clamp(14px, 1.5vh, 22px) clamp(18px, 1.8vw, 30px) clamp(10px, 1.1vh, 16px);
+      border-bottom: 1.5px solid rgba(56, 189, 248, 0.65);
+      background: rgba(8, 11, 18, 0.65);
+      flex-shrink: 0;
+    }
+
+    .f1-modal-title,
+    .finish-title {
+      font-family: var(--f1-font-display);
+      font-size: clamp(18px, 1.3vw, 26px);
+      font-weight: 700;
+      font-style: italic;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #ffffff;
+      line-height: 1.15;
+    }
+
+    .f1-modal-close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+    }
+
+    .f1-modal-close-btn:hover,
+    .f1-modal-close-btn:focus-visible {
+      background: var(--f1-accent-red);
+      border-color: #fca5a5;
+      color: #ffffff;
+      outline: none;
+    }
+
+    .f1-modal-body {
+      padding: clamp(14px, 1.6vh, 24px) clamp(18px, 1.8vw, 30px);
       display: flex;
       flex-direction: column;
       gap: 12px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+      overflow-y: auto;
+      min-height: 0;
+      flex: 1;
     }
 
-    .finish-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #ffffff;
+    .f1-modal-footer {
+      padding: clamp(10px, 1.2vh, 16px) clamp(18px, 1.8vw, 30px);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(7, 10, 16, 0.72);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .f1-modal-hints {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .f1-modal-hints kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      margin-right: 4px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #090b10;
+      font-family: var(--f1-font-display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .f1-modal-dialog :focus-visible {
+      outline: 2px solid var(--f1-accent-blue);
+      outline-offset: 2px;
     }
 
     .finish-summary {
       font-size: 13px;
+      font-weight: 600;
       color: #cbd5e1;
     }
 
     .finish-table-wrap {
       overflow-y: auto;
-      max-height: 52vh;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
+      max-height: 48vh;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      background: rgba(7, 10, 16, 0.58);
     }
 
     .finish-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
+      font-size: 12.5px;
     }
 
     .finish-table th,
     .finish-table td {
-      padding: 6px 10px;
+      padding: 7px 12px;
       text-align: left;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
+    .finish-table td:first-child,
+    .finish-table td:nth-child(4),
+    .finish-table td:nth-child(5) {
+      font-family: var(--f1-font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
     .finish-table th {
-      background: #1e293b;
+      background: rgba(15, 23, 42, 0.96);
       color: #94a3b8;
-      font-size: 10px;
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       position: sticky;
       top: 0;
+      z-index: 2;
     }
 
     .finish-row-local {
-      background: rgba(225, 6, 0, 0.22);
+      background: rgba(225, 6, 0, 0.24);
       font-weight: 700;
     }
 
@@ -802,43 +968,75 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      margin-right: 6px;
+      margin-right: 7px;
     }
 
     .finish-actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
+      margin-left: auto;
     }
 
-    #finish-open-menu-btn {
-      background: #1e293b;
+    .f1-modal-action-sec {
+      background: rgba(255, 255, 255, 0.08);
       color: #f8fafc;
-      border: 1px solid #475569;
-      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
       padding: 9px 16px;
+      font-family: var(--f1-font-display);
       font-size: 13px;
       font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
       cursor: pointer;
     }
 
-    #finish-open-menu-btn:hover {
-      background: #334155;
+    .f1-modal-action-sec:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.5);
     }
 
-    #restart-race-btn {
-      background: #e10600;
+    .f1-modal-action-pri {
+      background: linear-gradient(135deg, #e10600 0%, #b91c1c 100%);
       color: #ffffff;
-      border: none;
-      border-radius: 6px;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
       padding: 9px 18px;
+      font-family: var(--f1-font-display);
       font-size: 13px;
       font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
     }
 
-    #restart-race-btn:hover {
-      background: #dc2626;
+    .f1-modal-action-pri:hover {
+      filter: brightness(1.12);
+    }
+
+    .f1-modal-action-quali {
+      background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%);
+      color: #ffffff;
+      border: 1px solid #d8b4fe;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .f1-modal-action-quali:hover {
+      filter: brightness(1.12);
+    }
+
+    .f1-modal-action-quali:disabled,
+    .f1-modal-action-pri:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
 
     /* Banner Track Limits Direzione Gara (Step 8) */
@@ -882,51 +1080,9 @@
       font-weight: 800;
     }
 
-    /* Modale Qualifiche Q1 / Q2 / Q3 & Griglia (Step 8) */
-    #qualifying-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(6, 9, 15, 0.82);
-      backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 48;
-    }
-
     .quali-row-elim {
       background: rgba(239, 68, 68, 0.14);
       color: #fca5a5;
-    }
-
-    #quali-skip-to-race-btn {
-      background: #1e293b;
-      color: #f8fafc;
-      border: 1px solid #475569;
-      border-radius: 6px;
-      padding: 9px 16px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    #quali-skip-to-race-btn:hover {
-      background: #334155;
-    }
-
-    #quali-next-btn {
-      background: #7e22ce;
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      padding: 9px 18px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    #quali-next-btn:hover {
-      background: #9333ea;
     }
 
     /* Garage 3D Showroom Menu (Stile "Crazy Grand Prix") */
@@ -950,36 +1106,183 @@
       pointer-events: none;
     }
 
-    /* Barra superiore */
-    .gp-top-bar {
+    #f1-lowpoly-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.78;
+      -webkit-mask-image: radial-gradient(ellipse 68% 64% at 50% 54%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.85) 65%, #000000 100%);
+      mask-image: radial-gradient(ellipse 68% 64% at 50% 54%, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.85) 65%, #000000 100%);
+      transition: opacity 0.25s ease;
+    }
+
+    body[data-gp-active-tab="team"] #f1-lowpoly-bg {
+      opacity: 0.94;
+      -webkit-mask-image: radial-gradient(ellipse 42% 36% at 52% 62%, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.16) 46%, rgba(0, 0, 0, 0.88) 76%, #000000 100%), linear-gradient(180deg, #000000 0%, rgba(0, 0, 0, 0.95) 48%, rgba(0, 0, 0, 0.18) 68%, transparent 82%);
+      -webkit-mask-composite: source-in;
+      mask-image: radial-gradient(ellipse 42% 36% at 52% 62%, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.16) 46%, rgba(0, 0, 0, 0.88) 76%, #000000 100%), linear-gradient(180deg, #000000 0%, rgba(0, 0, 0, 0.95) 48%, rgba(0, 0, 0, 0.18) 68%, transparent 82%);
+      mask-composite: intersect;
+    }
+
+    body[data-gp-active-tab="track"] #f1-lowpoly-bg {
+      opacity: 0.86;
+      -webkit-mask-image: linear-gradient(112deg, #000000 0%, rgba(0, 0, 0, 0.9) 34%, rgba(0, 0, 0, 0.18) 64%, rgba(0, 0, 0, 0.04) 92%);
+      mask-image: linear-gradient(112deg, #000000 0%, rgba(0, 0, 0, 0.9) 34%, rgba(0, 0, 0, 0.18) 64%, rgba(0, 0, 0, 0.04) 92%);
+    }
+
+    /* Barra suggerimenti comandi mouse / tastiera in basso a destra (stile floating console F1) */
+    #f1-key-hints-bar {
+      position: fixed;
+      right: clamp(16px, 2vw, 40px);
+      bottom: clamp(12px, 1.4vh, 22px);
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: clamp(12px, 1.1vw, 22px);
+      padding: 4px 6px;
+      background: transparent;
+      border: none;
+      backdrop-filter: none;
+      pointer-events: none;
+      z-index: 65;
+    }
+
+    .f1-hint-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--f1-font-display);
+      font-size: clamp(11px, 0.72vw, 14px);
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    }
+
+    .f1-hint-key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: rgba(20, 25, 36, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+      font-family: var(--f1-font-display);
+      font-size: clamp(10px, 0.65vw, 13px);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+    }
+
+    .f1-hint-key[data-hint-role="primary"] {
+      background: #16a34a;
+      border-color: #4ade80;
+      color: #ffffff;
+    }
+
+    .f1-hint-key[data-hint-role="back"] {
+      background: #dc2626;
+      border-color: #f87171;
+      color: #ffffff;
+    }
+
+    /* Header Bar fissa superiore — Step 2 Navigation Bar + Player Status */
+    .f1-header-bar {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      padding: 10px 14px;
-      pointer-events: none;
+      align-items: center;
+      gap: 10px;
+      padding: clamp(8px, 1vh, 14px) clamp(14px, 2vw, 42px);
+      background: linear-gradient(180deg, rgba(6, 8, 13, 0.96) 0%, rgba(10, 14, 22, 0.84) 100%);
+      border-bottom: 1.5px solid var(--f1-accent-red);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(12px);
+      pointer-events: auto;
+      z-index: 20;
+      flex-wrap: wrap;
+    }
+
+    .f1-top-tabs {
+      display: flex;
+      align-items: center;
+      gap: clamp(3px, 0.45vw, 10px);
+      flex-wrap: wrap;
+    }
+
+    .f1-tab-btn {
+      position: relative;
+      height: clamp(30px, 2.5vh, 38px);
+      padding: 0 clamp(8px, 0.8vw, 16px);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      color: rgba(248, 250, 252, 0.84);
+      font-family: var(--f1-font-display);
+      font-size: clamp(11px, 0.74vw, 15px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+      white-space: nowrap;
+    }
+
+    .f1-tab-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .f1-tab-btn.is-active {
+      background: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
+      font-weight: 800;
+      box-shadow: 0 4px 18px rgba(255, 255, 255, 0.28);
+    }
+
+    #menu-resume-btn {
+      display: none;
+      background: rgba(21, 128, 61, 0.85);
+      border-color: #86efac;
+      color: #ffffff;
+    }
+
+    #menu-resume-btn:hover {
+      background: #16a34a;
+      border-color: #bbf7d0;
     }
 
     .gp-top-box {
-      background: rgba(12, 16, 24, 0.72);
-      border: 1.5px solid rgba(255, 255, 255, 0.65);
-      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.5);
+      background: rgba(16, 20, 29, 0.85);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-radius: var(--f1-radius-card);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
       pointer-events: auto;
     }
 
     .gp-cash-box {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 6px 14px;
-      font-size: 24px;
+      gap: 7px;
+      padding: 3px 10px;
+      font-family: var(--f1-font-mono);
+      font-size: clamp(12px, 0.85vw, 18px);
       font-weight: 800;
       color: #ffffff;
       font-variant-numeric: tabular-nums;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.03em;
+      border-left: 3px solid var(--f1-accent-red);
     }
 
     .gp-cash-icon {
-      font-size: 22px;
+      font-size: 16px;
       line-height: 1;
     }
 
@@ -992,8 +1295,8 @@
     #gp-free-cash-btn {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 4px 12px;
+      gap: 8px;
+      padding: 4px 10px;
       color: #ffffff;
       cursor: pointer;
       font-family: inherit;
@@ -1001,14 +1304,14 @@
     }
 
     #gp-free-cash-btn:hover {
-      background: rgba(30, 41, 59, 0.88);
+      background: rgba(30, 41, 59, 0.92);
       border-color: #4ade80;
     }
 
     .gp-free-cash-text {
       display: flex;
       flex-direction: column;
-      font-size: 13px;
+      font-size: 10px;
       font-weight: 800;
       line-height: 1.05;
       text-transform: uppercase;
@@ -1018,9 +1321,9 @@
     .gp-play-tri {
       width: 0;
       height: 0;
-      border-top: 11px solid transparent;
-      border-bottom: 11px solid transparent;
-      border-left: 18px solid #84cc16;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 13px solid #84cc16;
       filter: drop-shadow(0 0 4px rgba(132, 204, 22, 0.6));
     }
 
@@ -1030,93 +1333,158 @@
       justify-content: center;
       padding: 4px 10px;
       color: #f8fafc;
-      font-size: 18px;
+      font-size: 15px;
       cursor: pointer;
     }
 
     #gp-snapshot-btn:hover {
-      background: rgba(30, 41, 59, 0.9);
+      background: rgba(30, 41, 59, 0.92);
+      border-color: var(--f1-accent-blue);
     }
 
     .gp-stats-box {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
-      padding: 3px 10px;
-      font-size: 13px;
+      align-items: flex-end;
+      padding: 3px 9px;
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
       font-weight: 800;
-      line-height: 1.15;
+      line-height: 1.25;
       color: #f8fafc;
       font-variant-numeric: tabular-nums;
-      min-width: 44px;
+      min-width: 56px;
+    }
+
+    .gp-stat-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .gp-stat-row span {
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
     }
 
     .gp-profile-box {
       display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 6px 3px 10px;
+      min-width: 142px;
+      cursor: pointer;
+      color: inherit;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.14s ease, background 0.14s ease;
+    }
+
+    .gp-profile-meta {
+      display: flex;
       flex-direction: column;
       justify-content: center;
+      min-width: 0;
+    }
+
+    .gp-profile-helmet-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
+      background: var(--f1-accent-red);
+      color: #ffffff;
+      display: inline-flex;
       align-items: center;
-      padding: 3px 16px;
-      min-width: 148px;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    .gp-profile-box:hover {
+      background: rgba(30, 41, 59, 0.92);
+      border-color: rgba(56, 189, 248, 0.65);
     }
 
     #gp-profile-name {
-      color: #ef4444;
-      font-size: 15px;
-      font-weight: 800;
+      font-family: var(--f1-font-display);
+      color: #ffffff;
+      font-size: clamp(12px, 0.8vw, 17px);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       line-height: 1.15;
     }
 
     #gp-profile-sub {
-      color: #f8fafc;
-      font-size: 11px;
+      color: var(--f1-accent-blue);
+      font-size: clamp(9px, 0.56vw, 12px);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.06em;
     }
 
-    /* Area centrale Showroom + Pannelli contestuali (Screenshot 2 e 3) */
+    /* Area centrale Showroom + Schermate principali */
     .gp-stage-layer {
       position: relative;
       flex: 1;
+      min-height: 0;
       pointer-events: none;
     }
 
-    /* Overlay VEHICLE (Screenshot 3): Paint sx, Upgrades centro-alto, Liveries dx */
+    /* Overlay VEHICLE (Paint sx, Upgrades centro-alto, Liveries dx) */
     #gp-vehicle-overlay {
       display: none;
       position: absolute;
-      inset: 6px 12px 10px 12px;
+      inset: 14px clamp(18px, 2.5vw, 48px) 68px clamp(18px, 2.5vw, 48px);
       justify-content: space-between;
       align-items: flex-start;
       pointer-events: none;
     }
 
-    .gp-paint-col {
-      width: 210px;
+    .gp-paint-col,
+    .gp-liveries-col {
+      width: clamp(220px, 16vw, 270px);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--f1-card-bg);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-top: 2px solid var(--f1-accent-red);
+      border-radius: var(--f1-radius-panel);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.68);
       pointer-events: auto;
     }
 
     .gp-panel-heading {
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: 1px;
+      font-family: var(--f1-font-display);
+      font-size: clamp(18px, 1.25vw, 26px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
       color: #ffffff;
       text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
       text-align: center;
       text-transform: uppercase;
-      font-variant: small-caps;
+      border-bottom: 1.5px solid rgba(56, 189, 248, 0.72);
+      padding-bottom: 5px;
     }
 
     .gp-slider-bar {
       position: relative;
-      height: 30px;
-      border: 1.5px solid rgba(255, 255, 255, 0.65);
-      background: rgba(15, 20, 28, 0.78);
+      height: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 6px;
+      background: rgba(11, 15, 24, 0.86);
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -1134,10 +1502,11 @@
     .gp-slider-label {
       position: relative;
       z-index: 1;
-      font-size: 13px;
-      font-weight: 800;
+      font-family: var(--f1-font-display);
+      font-size: 12px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.08em;
       color: #ffffff;
       text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
       pointer-events: none;
@@ -1154,29 +1523,43 @@
     }
 
     .gp-subtle-btn {
-      background: rgba(15, 23, 42, 0.78);
-      border: 1px solid rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
       color: #e2e8f0;
+      font-family: var(--f1-font-display);
       font-size: 11px;
       font-weight: 700;
-      padding: 5px 8px;
+      letter-spacing: 0.06em;
+      padding: 7px 10px;
       cursor: pointer;
       text-transform: uppercase;
+      transition: background 0.14s ease, border-color 0.14s ease;
     }
 
     .gp-subtle-btn:hover {
-      background: rgba(30, 41, 59, 0.95);
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.55);
+      color: #ffffff;
     }
 
     /* Upgrades Top-Center */
     .gp-upgrades-wrap {
       flex: 1;
-      max-width: 660px;
-      margin: 0 16px;
+      max-width: 680px;
+      margin: 0 18px;
+      padding: 12px 18px;
+      background: var(--f1-card-bg);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-top: 2px solid var(--f1-accent-blue);
+      border-radius: var(--f1-radius-panel);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.68);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       pointer-events: auto;
     }
 
@@ -1187,17 +1570,20 @@
     }
 
     .gp-arrow-nav {
-      background: none;
-      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
       color: #ffffff;
-      font-size: 22px;
+      font-size: 16px;
       cursor: pointer;
-      padding: 0 6px;
-      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+      padding: 4px 10px;
+      transition: background 0.14s ease, border-color 0.14s ease;
     }
 
     .gp-arrow-nav:hover {
-      color: #facc15;
+      background: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
     }
 
     #career-upgrades-grid {
@@ -1208,73 +1594,75 @@
     }
 
     .gp-gold-btn {
-      background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
-      border: 1.5px solid #fde68a;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 4px 12px rgba(0, 0, 0, 0.65);
+      background: rgba(18, 24, 36, 0.92);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
       color: #ffffff;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
       cursor: pointer;
       font-family: inherit;
-      transition: transform 0.1s ease, filter 0.12s ease;
+      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
     }
 
     .gp-gold-btn:hover:not(:disabled) {
-      filter: brightness(1.12);
-      transform: translateY(-1px);
+      background: var(--f1-selected-bg);
+      background-image: none;
+      border-color: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      transform: translateY(-2px);
+    }
+
+    .gp-gold-btn:hover:not(:disabled) .gp-upg-meta {
+      background: rgba(9, 11, 16, 0.12);
+      color: var(--f1-accent-red);
     }
 
     .gp-gold-btn:disabled {
-      background: linear-gradient(180deg, #475569 0%, #1e293b 100%);
-      border-color: #64748b;
-      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.55);
+      border-color: rgba(148, 163, 184, 0.2);
+      color: #64748b;
       cursor: not-allowed;
     }
 
     .gp-upg-card-btn {
-      padding: 7px 6px 5px 6px;
+      padding: 8px 8px 6px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      min-height: 62px;
-      gap: 3px;
+      min-height: 66px;
+      gap: 4px;
     }
 
     .gp-upg-name {
+      font-family: var(--f1-font-display);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.05em;
       line-height: 1.08;
     }
 
     .gp-upg-meta {
+      font-family: var(--f1-font-mono);
       font-size: 10px;
       font-weight: 700;
-      color: #fef3c7;
-      background: rgba(0, 0, 0, 0.35);
-      padding: 1px 6px;
-      border-radius: 3px;
+      color: var(--f1-accent-blue);
+      background: rgba(0, 0, 0, 0.42);
+      padding: 2px 6px;
+      border-radius: 4px;
     }
 
     #career-feedback-msg {
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 700;
       color: #86efac;
-      background: rgba(12, 16, 24, 0.78);
+      background: rgba(9, 12, 18, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       padding: 3px 10px;
-      border-radius: 4px;
+      border-radius: 6px;
       min-height: 22px;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    }
-
-    /* Liveries Right */
-    .gp-liveries-col {
-      width: 215px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: auto;
     }
 
     .gp-livery-arrows {
@@ -1284,113 +1672,94 @@
 
     .gp-livery-arrow-btn {
       flex: 1;
-      height: 44px;
-      background: rgba(15, 20, 28, 0.72);
-      border: 1.5px solid rgba(255, 255, 255, 0.65);
+      height: 40px;
+      background: rgba(15, 20, 29, 0.86);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 6px;
       color: #ffffff;
-      font-size: 24px;
+      font-size: 18px;
       cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
     }
 
     .gp-livery-arrow-btn:hover {
-      background: rgba(30, 41, 59, 0.9);
-      border-color: #facc15;
+      background: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
     }
 
     .gp-livery-name-tag {
       text-align: center;
-      font-size: 11px;
-      font-weight: 800;
-      color: #e2e8f0;
-      background: rgba(15, 20, 28, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      padding: 4px 6px;
+      font-family: var(--f1-font-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #f8fafc;
+      background: rgba(7, 10, 16, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      padding: 5px 8px;
       text-transform: uppercase;
     }
 
     .gp-action-gold-btn {
-      height: 40px;
-      font-size: 16px;
-      font-weight: 800;
+      height: 38px;
+      font-family: var(--f1-font-display);
+      font-size: 14px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.08em;
     }
 
     .gp-action-gold-btn.is-active {
-      box-shadow: 0 0 12px rgba(250, 204, 21, 0.85);
-      border-color: #ffffff;
+      background: var(--f1-accent-red);
+      border-color: #fca5a5;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(225, 6, 0, 0.65);
     }
 
-    /* Customize Stack (Screenshot 2): vertical stack above CUSTOMIZE button */
+    /* Customize Stack: colonna sinistra affiancata alla card centrale senza sovrapposizioni */
     #gp-customize-stack {
       display: none;
       position: absolute;
-      bottom: 8px;
-      left: 38%;
+      bottom: 12px;
+      left: calc(50% - 298px);
       transform: translateX(-50%);
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
       width: 170px;
       pointer-events: auto;
     }
 
     .gp-stack-btn {
-      height: 36px;
-      background: rgba(15, 20, 28, 0.78);
-      border: 1.5px solid rgba(255, 255, 255, 0.75);
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 800;
+      height: clamp(36px, 2.8vh, 46px);
+      background: rgba(15, 20, 29, 0.88);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-family: var(--f1-font-display);
+      font-size: clamp(13px, 0.85vw, 17px);
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.08em;
       cursor: pointer;
     }
 
-    .gp-stack-btn:hover,
+    .gp-stack-btn:hover {
+      background: rgba(30, 41, 59, 0.94);
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #ffffff;
+    }
+
     .gp-stack-btn.is-selected {
-      background: rgba(225, 6, 0, 0.65);
-      border-color: #ffffff;
+      background: var(--f1-selected-bg);
+      border-color: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      box-shadow: 0 4px 16px rgba(255, 255, 255, 0.22);
     }
 
-    /* Finestre pop-up compatte per RACE / CUSTOMIZE Subcard / SETTINGS */
-    .gp-popup-card {
-      display: none;
-      position: absolute;
-      bottom: 10px;
-      background: rgba(12, 17, 26, 0.9);
-      border: 1.5px solid rgba(255, 255, 255, 0.65);
-      border-top: 3px solid #e10600;
-      padding: 14px 16px;
-      flex-direction: column;
-      gap: 10px;
-      width: min(450px, 90vw);
-      max-height: 62vh;
-      overflow-y: auto;
-      pointer-events: auto;
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75);
-    }
-
-    #gp-race-popup {
-      left: 18px;
-    }
-
-    #gp-customize-subcard {
-      left: 52%;
-      transform: translateX(-50%);
-      bottom: 14px;
-      width: min(400px, 90vw);
-    }
-
-    #gp-settings-popup {
-      right: 18px;
-    }
-
-    #gp-multiplayer-popup {
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(490px, 92vw);
-      border-top-color: #38bdf8;
-    }
+    /* Controlli specifici Multiplayer / Modali secondarie */
 
     .mp-status-bar {
       display: flex;
@@ -1485,11 +1854,15 @@
     }
 
     .menu-section-label {
-      font-size: 11px;
-      font-weight: 800;
+      font-family: var(--f1-font-display);
+      font-size: clamp(11px, 0.7vw, 15px);
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.7px;
-      color: #94a3b8;
+      letter-spacing: 0.08em;
+      color: #cbd5e1;
+      border-bottom: 1.5px solid rgba(56, 189, 248, 0.65);
+      padding-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     .menu-btn-group {
@@ -1501,26 +1874,29 @@
     .menu-choice-btn {
       flex: 1;
       min-width: 110px;
-      background: rgba(30, 41, 59, 0.82);
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(18, 23, 34, 0.85);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid var(--f1-border-subtle);
+      border-radius: 6px;
       color: #cbd5e1;
-      padding: 8px 10px;
-      font-size: 12px;
+      padding: clamp(7px, 0.55vh, 11px) clamp(10px, 0.8vw, 14px);
+      font-size: clamp(12px, 0.72vw, 15px);
       font-weight: 700;
       cursor: pointer;
       text-align: center;
     }
 
     .menu-choice-btn:hover {
-      background: rgba(51, 65, 85, 0.95);
+      background: rgba(34, 42, 58, 0.95);
+      border-color: rgba(255, 255, 255, 0.45);
       color: #ffffff;
     }
 
     .menu-choice-btn.is-selected {
-      background: rgba(225, 6, 0, 0.32);
-      border-color: #ef4444;
-      color: #ffffff;
-      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5);
+      background: var(--f1-selected-bg);
+      border-color: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      box-shadow: 0 2px 12px rgba(255, 255, 255, 0.25);
     }
 
     .menu-desc-box {
@@ -1605,63 +1981,923 @@
     }
 
     #menu-start-btn {
-      background: linear-gradient(180deg, #e10600 0%, #991b1b 100%);
-      border: 1.5px solid #fca5a5;
+      flex: 1;
+      background: linear-gradient(135deg, #e10600 0%, #b91c1c 100%);
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
       color: #ffffff;
-      padding: 10px 18px;
-      font-size: 15px;
-      font-weight: 800;
+      padding: 12px 18px;
+      font-family: var(--f1-font-display);
+      font-size: clamp(14px, 0.95vw, 18px);
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.08em;
       cursor: pointer;
+      box-shadow: 0 8px 22px rgba(225, 6, 0, 0.32);
+      transition: transform 0.14s ease, filter 0.14s ease;
     }
 
     #menu-start-btn:hover {
       filter: brightness(1.12);
-    }
-
-    /* Barra inferiore 5 bottoni stile Crazy Grand Prix */
-    .gp-bottom-bar {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: clamp(8px, 2vw, 28px);
-      padding: 10px 18px 18px 18px;
-      pointer-events: none;
-    }
-
-    .gp-nav-btn {
-      min-width: clamp(102px, 13.5vw, 170px);
-      height: 44px;
-      background: rgba(12, 16, 24, 0.68);
-      border: 1.5px solid rgba(255, 255, 255, 0.82);
-      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.55);
-      color: #ffffff;
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      cursor: pointer;
-      pointer-events: auto;
-      transition: background 0.14s ease, border-color 0.14s ease, transform 0.1s ease;
-    }
-
-    .gp-nav-btn:hover {
-      background: rgba(30, 41, 59, 0.88);
-      border-color: #ffffff;
       transform: translateY(-1px);
     }
 
-    .gp-nav-btn.is-active {
-      background: rgba(225, 6, 0, 0.45);
-      border-color: #facc15;
+    /* ========== STEP 2: SCHERMATA 1 — HOME ========== */
+    #f1-screen-home {
+      display: flex;
+      position: absolute;
+      inset: 0;
+      padding: clamp(16px, 2.2vh, 32px) clamp(18px, 2.5vw, 48px) clamp(58px, 6vh, 74px) clamp(18px, 2.5vw, 48px);
+      flex-direction: column;
+      justify-content: space-between;
+      gap: clamp(14px, 1.8vh, 24px);
+      pointer-events: none;
+      overflow-y: auto;
     }
 
-    #menu-resume-btn {
+    .f1-home-main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.36fr) minmax(0, 1fr);
+      gap: clamp(14px, 1.6vw, 26px);
+      align-items: stretch;
+      max-width: 1520px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .f1-glass-panel {
+      position: relative;
+      background: rgba(12, 15, 22, 0.88);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--f1-radius-panel);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.68);
+      padding: clamp(16px, 1.8vh, 26px) clamp(18px, 1.8vw, 30px);
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .f1-home-career-card {
+      border: 2px solid #ffffff;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 20px 52px rgba(0, 0, 0, 0.72), 0 0 28px rgba(255, 255, 255, 0.08);
+    }
+
+    .f1-career-white-header {
+      background: #ffffff;
+      color: #090b10;
+      padding: clamp(12px, 1.4vh, 18px) clamp(18px, 1.8vw, 28px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--f1-team-tint, var(--f1-accent-red));
+    }
+
+    .f1-career-white-title {
+      font-family: var(--f1-font-display);
+      font-size: clamp(22px, 1.85vw, 34px);
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #090b10;
+      line-height: 1;
+    }
+
+    .f1-career-white-pill {
+      background: #090b10;
+      color: #ffffff;
+      font-family: var(--f1-font-display);
+      font-size: clamp(10px, 0.65vw, 12px);
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .f1-career-card-body {
+      padding: clamp(14px, 1.6vh, 22px) clamp(18px, 1.8vw, 28px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .f1-home-quick-session-card {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-top: 2px solid rgba(255, 255, 255, 0.34);
+    }
+
+    .f1-quick-session-footer {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .f1-card-badge-bottom-right {
+      width: 44px;
+      border-radius: 8px;
+      background: #d01020;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 6px 16px rgba(208, 16, 32, 0.42);
+    }
+
+    .f1-eyebrow {
+      font-family: var(--f1-font-display);
+      font-size: clamp(11px, 0.72vw, 14px);
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--f1-accent-blue);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .f1-screen-heading {
+      font-family: var(--f1-font-display);
+      font-size: clamp(24px, 2vw, 38px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #ffffff;
+      line-height: 1.05;
+      margin-top: 2px;
+    }
+
+    .f1-title-rule {
+      width: clamp(120px, 15vw, 260px);
+      height: 1.5px;
+      background: var(--f1-accent-blue);
+      margin-top: 6px;
+      border-radius: 2px;
+    }
+
+    .f1-home-career-hero {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    #home-team-emblem {
+      width: 58px;
+      height: 58px;
+      flex-shrink: 0;
+    }
+
+    .f1-home-team-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    #home-career-team-name {
+      font-family: var(--f1-font-display);
+      font-size: clamp(18px, 1.35vw, 26px);
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #ffffff;
+      letter-spacing: 0.04em;
+    }
+
+    #home-career-driver-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .f1-home-gp-banner {
+      display: grid;
+      grid-template-columns: 145px 1fr;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 14px;
+      background: rgba(7, 10, 16, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-left: 3px solid var(--f1-accent-red);
+      border-radius: 10px;
+    }
+
+    #home-next-track-svg {
+      width: 145px;
+      height: 82px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #home-next-gp-title {
+      font-family: var(--f1-font-display);
+      font-size: clamp(16px, 1.15vw, 22px);
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    #home-next-track-meta {
+      font-family: var(--f1-font-mono);
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+
+    .f1-primary-cta {
+      width: 100%;
+      background: linear-gradient(135deg, #e10600 0%, #b91c1c 100%);
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      color: #ffffff;
+      padding: 12px 20px;
+      font-family: var(--f1-font-display);
+      font-size: clamp(15px, 1vw, 20px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(225, 6, 0, 0.32);
+      transition: transform 0.14s ease, filter 0.14s ease;
+    }
+
+    .f1-primary-cta:hover {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    .f1-secondary-cta {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #f8fafc;
+      padding: 8px 14px;
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .f1-secondary-cta:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .f1-home-quick-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: clamp(10px, 1.2vw, 20px);
+      max-width: 1520px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .f1-home-quick-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+      min-height: clamp(102px, 11.6vh, 136px);
+      padding: clamp(12px, 1.4vh, 18px) clamp(14px, 1.4vw, 22px);
+      background: rgba(14, 17, 25, 0.90);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      backdrop-filter: blur(12px);
+      text-align: left;
+      color: #ffffff;
+      cursor: pointer;
+      pointer-events: auto;
+      overflow: hidden;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+
+    .f1-home-quick-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.72);
+      background: rgba(22, 28, 42, 0.95);
+    }
+
+    .f1-home-quick-card.is-selected,
+    .f1-home-quick-card:focus-visible {
+      background: var(--f1-selected-bg);
+      background-image: none;
+      color: var(--f1-selected-fg);
+      border: 2px solid #ffffff;
+      box-shadow: 0 10px 28px rgba(255, 255, 255, 0.22);
+      outline: none;
+    }
+
+    .f1-home-quick-card.is-selected .f1-quick-card-tag,
+    .f1-home-quick-card:focus-visible .f1-quick-card-tag {
+      color: var(--f1-accent-red);
+    }
+
+    .f1-home-quick-card.is-selected .f1-quick-card-sub,
+    .f1-home-quick-card:focus-visible .f1-quick-card-sub {
+      color: #475569;
+    }
+
+    .f1-quick-corner-icon {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      top: auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      background: #d01020;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(208, 16, 32, 0.42);
+      pointer-events: none;
+    }
+
+    .f1-quick-corner-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .f1-quick-card-tag {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--f1-accent-blue);
+    }
+
+    .f1-quick-card-title {
+      font-family: var(--f1-font-display);
+      font-size: clamp(16px, 1.18vw, 23px);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .f1-quick-card-sub {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      padding-right: 46px;
+    }
+
+    /* ========== STEP 2: SCHERMATA 2 — TEAM SELECT ========== */
+    #f1-screen-team {
       display: none;
-      background: rgba(21, 128, 61, 0.72);
-      border-color: #86efac;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #f1-team-orbit-zone {
+      position: absolute;
+      inset: 0 0 clamp(176px, 19vh, 224px) 0;
+      cursor: grab;
+      pointer-events: auto;
+      z-index: 1;
+    }
+
+    #f1-team-orbit-zone.is-dragging {
+      cursor: grabbing;
+    }
+
+    .f1-team-hero-overlay {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: clamp(22px, 2.8vh, 42px) clamp(24px, 3vw, 56px) 0 clamp(24px, 3vw, 56px);
+      pointer-events: none;
+    }
+
+    .f1-team-hero-left {
+      max-width: min(620px, 54vw);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+      background: transparent;
+      border: none;
+      backdrop-filter: none;
+      padding: 4px 0;
+    }
+
+    .f1-team-label {
+      font-family: var(--f1-font-display);
+      font-size: clamp(12px, 0.85vw, 16px);
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+
+    .f1-team-rule {
+      width: clamp(210px, 20vw, 340px);
+      height: 1.5px;
+      background: var(--f1-accent-blue);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+    }
+
+    .f1-team-hero-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 2px;
+    }
+
+    #team-hero-emblem {
+      width: 56px;
+      height: 56px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.7));
+    }
+
+    #team-hero-name {
+      font-family: var(--f1-font-display);
+      font-size: clamp(28px, 2.9vw, 54px);
+      font-weight: 700;
+      line-height: 0.98;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
+    }
+
+    #team-hero-pace {
+      font-family: var(--f1-font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--f1-accent-blue);
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    }
+
+    .f1-drivers-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .f1-driver-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: rgba(11, 14, 22, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(8px);
+      color: #e2e8f0;
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
+
+    .f1-driver-pill:hover {
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+
+    .f1-driver-pill.is-selected {
+      background: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
+    }
+
+    .f1-driver-num {
+      font-family: var(--f1-font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--f1-accent-red);
+    }
+
+    .f1-team-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .f1-orbit-hint-pill {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(11, 14, 22, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(8px);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+    }
+
+    /* ========== STEP 2: SCHERMATA 3 — TRACK SELECT ========== */
+    #f1-screen-track {
+      display: none;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .f1-track-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(7, 9, 14, 0.68) 0%,
+        rgba(7, 9, 14, 0.12) 44%,
+        rgba(7, 9, 14, 0.84) 100%
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .f1-track-header-overlay {
+      position: relative;
+      z-index: 4;
+      padding: clamp(10px, 1.6vh, 26px) clamp(20px, 2.8vw, 52px) 0;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(3px, 0.6vh, 8px);
+      pointer-events: none;
+    }
+
+    .f1-weather-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .f1-weather-tab {
+      padding: 5px 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: rgba(248, 250, 252, 0.82);
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+
+    .f1-weather-tab:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .f1-weather-tab.is-selected {
+      background: var(--f1-selected-bg);
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.24);
+    }
+
+    .f1-track-rule {
+      width: min(560px, 48vw);
+      height: 1.5px;
+      background: var(--f1-accent-blue);
+      margin: 4px 0 6px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+    }
+
+    #track-hero-name {
+      font-family: var(--f1-font-display);
+      font-size: clamp(22px, 3.8vh, 50px);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.85);
+    }
+
+    #track-hero-sub {
+      font-family: var(--f1-font-display);
+      font-size: clamp(12px, 0.85vw, 15px);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-top: 3px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    }
+
+    #f1-track-info-panel {
+      position: relative;
+      z-index: 4;
+      margin: clamp(8px, 1.2vh, 18px) 0 0 clamp(20px, 2.8vw, 52px);
+      width: clamp(320px, 25vw, 410px);
+      max-height: calc(100vh - clamp(260px, 34vh, 340px));
+      overflow-y: auto;
+      background: rgba(11, 14, 21, 0.86);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--f1-radius-panel);
+      backdrop-filter: blur(14px);
+      padding: clamp(10px, 1.4vh, 16px) clamp(14px, 1.4vw, 18px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(6px, 0.9vh, 10px);
+      pointer-events: auto;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.76);
+    }
+
+    #track-detail-svg {
+      width: 100%;
+      height: clamp(82px, 13.5vh, 176px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(8, 11, 17, 0.86);
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 16px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px;
+    }
+
+    .f1-sector-legend {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+      padding: 0 4px;
+    }
+
+    .f1-sector-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .f1-track-stats-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .f1-track-stat-cell {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 0;
+      padding: clamp(3px, 0.55vh, 6px) 2px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .f1-track-stat-cell:last-child {
+      border-bottom: none;
+    }
+
+    #track-screen-start-btn {
+      padding: clamp(8px, 1.1vh, 12px) 16px;
+      font-size: clamp(13px, 0.95vw, 18px);
+      flex-shrink: 0;
+    }
+
+    .f1-track-stat-label {
+      font-family: var(--f1-font-ui);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: #94a3b8;
+    }
+
+    .f1-track-stat-val {
+      font-family: var(--f1-font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    /* ========== CAROSELLI ORIZZONTALI INFERIORI (Team & Track) ========== */
+    .f1-carousel-dock {
+      position: absolute;
+      left: clamp(18px, 2.5vw, 48px);
+      right: clamp(18px, 2.5vw, 48px);
+      bottom: clamp(54px, 5.8vh, 72px);
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .f1-carousel-arrow {
+      width: 36px;
+      height: clamp(86px, 9.6vh, 108px);
+      border-radius: 10px;
+      background: rgba(11, 14, 22, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .f1-carousel-arrow:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+
+    .f1-carousel-strip {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      scrollbar-width: none;
+      padding: 8px 4px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .f1-carousel-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .f1-carousel-card {
+      flex: 0 0 auto;
+      width: clamp(174px, 11.8vw, 224px);
+      height: clamp(94px, 10.2vh, 116px);
+      border-radius: 9px;
+      background: rgba(14, 17, 25, 0.90);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #cbd5e1;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .f1-carousel-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.58);
+      color: #ffffff;
+    }
+
+    .f1-carousel-card:focus {
+      outline: none;
+    }
+
+    .f1-track-card {
+      width: clamp(196px, 12.8vw, 236px);
+    }
+
+    .f1-team-card {
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+      padding: 10px 12px 11px;
+    }
+
+    .f1-team-card-bar {
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+
+    .f1-team-card-emblem {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+    }
+
+    .f1-team-card.is-selected {
+      background: var(--f1-selected-bg);
+      background-image: none;
+      color: var(--f1-selected-fg);
+      border-color: var(--f1-selected-bg);
+      box-shadow: 0 12px 32px rgba(255, 255, 255, 0.24), 0 8px 24px rgba(0, 0, 0, 0.65);
+      transform: translateY(-4px) scale(1.06);
+      z-index: 2;
+    }
+
+    .f1-team-card.is-selected .f1-card-sub {
+      color: #475569;
+    }
+
+    .f1-track-card.is-selected {
+      background-color: rgba(16, 22, 38, 0.96);
+      background-image: var(--f1-carbon-pattern);
+      color: #ffffff;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 10px 28px rgba(255, 255, 255, 0.18), 0 8px 22px rgba(0, 0, 0, 0.65);
+      transform: translateY(-3px);
+      z-index: 2;
+    }
+
+    .f1-track-card.is-selected .f1-card-title {
+      color: #ffffff;
+    }
+
+    .f1-track-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .f1-track-card-top .f1-card-title {
+      font-size: 12.5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .f1-track-card-top .f1-card-sub {
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .f1-card-title {
+      font-family: var(--f1-font-display);
+      font-size: 13.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-card-sub {
+      font-family: var(--f1-font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    .f1-track-card-svg {
+      width: 100%;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(248, 250, 252, 0.56);
+    }
+
+    .f1-track-card.is-selected .f1-track-card-svg {
+      color: #ffffff;
     }
 
     .career-reward-box {
@@ -1673,6 +2909,21 @@
       font-size: 12px;
       color: #fef08a;
       font-weight: 700;
+    }
+
+    @media (max-width: 960px) {
+      .f1-home-main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .f1-home-quick-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      #f1-track-info-panel {
+        width: calc(100% - 36px);
+        margin-left: 18px;
+      }
     }
   </style>
 </head>
@@ -1812,69 +3063,104 @@
     </div>
   </div>
 
-  <!-- Modale Fine Gara / Sessione -->
-  <div id="race-finish-modal">
-    <div class="finish-card">
-      <div id="race-finish-title" class="finish-title">Bandiera a Scacchi — Fine Gara (10 Giri)</div>
-      <div id="race-finish-summary" class="finish-summary"></div>
-      <div id="race-career-reward-box" class="career-reward-box"></div>
-      <div class="finish-table-wrap">
-        <table class="finish-table">
-          <thead>
-            <tr>
-              <th>Pos</th>
-              <th>Pilota</th>
-              <th>Scuderia</th>
-              <th>Miglior Giro</th>
-              <th>Tempo / Distacco</th>
-            </tr>
-          </thead>
-          <tbody id="race-finish-table-body"></tbody>
-        </table>
+  <!-- Modale Unificata: Fine Gara / Sessione -->
+  <div id="race-finish-modal" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="race-finish-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-modal-dialog--wide">
+      <div class="f1-modal-header">
+        <div id="race-finish-title" class="finish-title">Bandiera a Scacchi — Fine Gara (10 Giri)</div>
+        <button id="race-finish-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Torna al Menu (Esc)" aria-label="Chiudi">✕</button>
       </div>
-      <div class="finish-actions">
-        <button id="finish-open-menu-btn" type="button">Menu Sessione</button>
-        <button id="restart-race-btn" type="button">Ricomincia Sessione</button>
+      <div class="f1-modal-body">
+        <div id="race-finish-summary" class="finish-summary"></div>
+        <div id="race-career-reward-box" class="career-reward-box"></div>
+        <div class="finish-table-wrap">
+          <table class="finish-table">
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Pilota</th>
+                <th>Scuderia</th>
+                <th>Miglior Giro</th>
+                <th>Tempo / Distacco</th>
+              </tr>
+            </thead>
+            <tbody id="race-finish-table-body"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Modale Riepilogo Qualifiche Q1/Q2/Q3 e Griglia Finale (Step 8) -->
-  <div id="qualifying-modal">
-    <div class="finish-card">
-      <div id="quali-modal-title" class="finish-title">Fine Qualifica 1 (Q1)</div>
-      <div id="quali-modal-summary" class="finish-summary"></div>
-      <div class="finish-table-wrap">
-        <table class="finish-table">
-          <thead>
-            <tr>
-              <th>Pos</th>
-              <th>Pilota</th>
-              <th>Scuderia</th>
-              <th>Miglior Giro</th>
-              <th>Distacco / Stato</th>
-            </tr>
-          </thead>
-          <tbody id="quali-modal-table-body"></tbody>
-        </table>
-      </div>
-      <div class="finish-actions">
-        <button id="quali-skip-to-race-btn" type="button">Salta Qualifiche → Gara</button>
-        <button id="quali-next-btn" type="button">Avanza a Q2</button>
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>↑/↓</kbd>Scorri</span>
+          <span><kbd>Invio</kbd>Ricomincia</span>
+          <span><kbd>Esc</kbd>Menu</span>
+        </div>
+        <div class="finish-actions">
+          <button id="finish-open-menu-btn" class="f1-modal-action-sec" type="button">Menu Sessione</button>
+          <button id="restart-race-btn" class="f1-modal-action-pri" type="button" data-modal-primary>Ricomincia Sessione</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Showroom Garage 3D & Menu Principale (Stile Screenshot) -->
+  <!-- Modale Unificata: Riepilogo Qualifiche Q1/Q2/Q3 e Griglia Finale -->
+  <div id="qualifying-modal" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="quali-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-modal-dialog--wide">
+      <div class="f1-modal-header">
+        <div id="quali-modal-title" class="finish-title">Fine Qualifica 1 (Q1)</div>
+        <button id="quali-modal-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Apri Menu (Esc)" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="f1-modal-body">
+        <div id="quali-modal-summary" class="finish-summary"></div>
+        <div class="finish-table-wrap">
+          <table class="finish-table">
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Pilota</th>
+                <th>Scuderia</th>
+                <th>Miglior Giro</th>
+                <th>Distacco / Stato</th>
+              </tr>
+            </thead>
+            <tbody id="quali-modal-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>↑/↓</kbd>Scorri</span>
+          <span><kbd>Invio</kbd>Avanza</span>
+          <span><kbd>Esc</kbd>Menu</span>
+        </div>
+        <div class="finish-actions">
+          <button id="quali-skip-to-race-btn" class="f1-modal-action-sec" type="button">Salta Qualifiche → Gara</button>
+          <button id="quali-next-btn" class="f1-modal-action-quali" type="button" data-modal-primary>Avanza a Q2</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Showroom Garage 3D & Menu Principale (Step 1 — Design System 4K) -->
   <div id="session-menu-modal">
-    <!-- Top Bar -->
-    <div class="gp-top-bar">
-      <div class="gp-top-box gp-cash-box">
-        <span id="career-money-badge">$200.000</span>
-        <span class="gp-cash-icon">💵</span>
-      </div>
+    <div id="f1-lowpoly-bg" aria-hidden="true"></div>
+    <!-- Top Header Navigation Bar (Step 2) -->
+    <header class="f1-header-bar">
+      <nav class="f1-top-tabs" aria-label="Navigazione Principale">
+        <button type="button" class="f1-tab-btn is-active" data-gp-tab="home">HOME</button>
+        <button type="button" class="f1-tab-btn" data-gp-tab="team">TEAM SELECT</button>
+        <button type="button" class="f1-tab-btn" data-gp-tab="track">TRACK SELECT</button>
+        <button type="button" class="f1-tab-btn" data-gp-tab="vehicle">GARAGE &amp; UPGRADE</button>
+        <button type="button" class="f1-tab-btn" data-gp-tab="multiplayer">MULTIPLAYER</button>
+        <button type="button" class="f1-tab-btn" data-gp-tab="settings">IMPOSTAZIONI</button>
+        <button id="menu-resume-btn" class="f1-tab-btn" type="button">TORNA IN PISTA ▶</button>
+      </nav>
 
       <div class="gp-top-right">
+        <div class="gp-top-box gp-cash-box" title="Saldo Carriera Virtuale">
+          <span id="career-money-badge">$200.000</span>
+          <span class="gp-cash-icon">💵</span>
+        </div>
+
         <button id="gp-free-cash-btn" class="gp-top-box" type="button" title="Aggiungi $250.000 per testare gli upgrade">
           <div class="gp-free-cash-text"><span>FREE</span><span>CASH!</span></div>
           <span class="gp-play-tri"></span>
@@ -1883,20 +3169,269 @@
         <button id="gp-snapshot-btn" class="gp-top-box" type="button" title="Ruota / Vista Showroom">🖼️</button>
 
         <div class="gp-top-box gp-stats-box" title="Gare disputate / Vittorie">
-          <span id="gp-races-val">0</span>
-          <span id="gp-wins-val">0</span>
+          <span class="gp-stat-row">GARE <span id="gp-races-val">0</span></span>
+          <span class="gp-stat-row">VITT <span id="gp-wins-val">0</span></span>
         </div>
 
-        <div class="gp-top-box gp-profile-box">
-          <span id="gp-profile-name">Pilota F1</span>
-          <span id="gp-profile-sub">% 0 WIN RATE</span>
-        </div>
+        <button id="gp-profile-trigger" class="gp-top-box gp-profile-box" type="button" title="Modifica Nome Pilota &amp; Salvataggio Carriera">
+          <span class="gp-profile-meta">
+            <span id="gp-profile-name">Pilota F1</span>
+            <span id="gp-profile-sub">SCUDERIA FERRARI</span>
+          </span>
+          <span class="gp-profile-helmet-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 3a8 8 0 0 0-8 8v5.5A2.5 2.5 0 0 0 6.5 19H18a3 3 0 0 0 3-3v-2.2a3 3 0 0 0-2.1-2.86l-4.2-.84V9.5h4.8A8.02 8.02 0 0 0 12 3Zm-1 8h7.5v2.2H11V11Z"/>
+            </svg>
+          </span>
+        </button>
       </div>
-    </div>
+    </header>
 
-    <!-- Area centrale sovrapposta al Garage 3D -->
+    <!-- Area centrale Showroom + Schermate principali Step 2 -->
     <div class="gp-stage-layer">
-      <!-- 1. Overlay VEHICLE (Paint sx, Upgrades top-center, Liveries dx) -->
+      <!-- SCHERMATA 1: HOME -->
+      <section id="f1-screen-home" aria-label="Home Principale">
+        <div class="f1-home-main-grid">
+          <!-- Card Principale Sinistra: CARRIERA F1 2026 (Header bianco su stile F1) -->
+          <div class="f1-glass-panel f1-home-career-card">
+            <div class="f1-career-white-header">
+              <div class="f1-career-white-title">CARRIERA F1 2026</div>
+              <span class="f1-career-white-pill">CAMPIONATO ATTIVO</span>
+            </div>
+
+            <div class="f1-career-card-body">
+              <div class="f1-home-career-hero">
+                <div id="home-team-emblem"></div>
+                <div class="f1-home-team-meta">
+                  <div id="home-career-team-name">Scuderia Ferrari</div>
+                  <div id="home-career-driver-name">Pilota: Pilota F1 • Upgrade Lv 0/20</div>
+                </div>
+                <button id="home-change-team-btn" class="f1-secondary-cta" type="button">CAMBIA TEAM</button>
+              </div>
+
+              <div class="f1-home-gp-banner">
+                <div id="home-next-track-svg"></div>
+                <div>
+                  <div class="menu-section-label">Prossimo Gran Premio in Calendario</div>
+                  <div id="home-next-gp-title">R01 • Gran Premio d'Australia</div>
+                  <div id="home-next-track-meta">5.278 KM • 14 CURVE • ALBERT PARK</div>
+                </div>
+              </div>
+
+              <div id="gp-career-format-wrap" class="menu-section">
+                <div class="menu-section-label">Formato Evento Carriera</div>
+                <div class="menu-btn-group">
+                  <button type="button" class="menu-choice-btn is-selected" data-career-format="qualifying">Qualifiche Q1–Q3 + Gara</button>
+                  <button type="button" class="menu-choice-btn" data-career-format="race">Gara Diretta (10 Giri)</button>
+                </div>
+              </div>
+
+              <button id="home-start-career-btn" class="f1-primary-cta" type="button">AVVIA WEEKEND CARRIERA ▶</button>
+            </div>
+          </div>
+
+          <!-- Card Secondaria Destra: SESSIONE RAPIDA & PROVE LIBERE -->
+          <div class="f1-glass-panel f1-home-quick-session-card">
+            <div>
+              <div class="f1-eyebrow">GARA SINGOLA • PROVE • WEEKEND</div>
+              <div class="f1-screen-heading" style="font-size: clamp(20px, 1.65vw, 31px);">SESSIONE RAPIDA &amp; PROVE LIBERE</div>
+              <div class="f1-title-rule"></div>
+            </div>
+
+            <div class="menu-section">
+              <div class="menu-section-label">Modalità Sessione Rapida</div>
+              <div class="menu-btn-group">
+                <button type="button" class="menu-choice-btn is-selected" data-menu-mode="qualifying">Qualifiche Q1–Q3</button>
+                <button type="button" class="menu-choice-btn" data-menu-mode="practice">Prove Libere</button>
+                <button type="button" class="menu-choice-btn" data-menu-mode="race">Gara 10 Giri</button>
+              </div>
+            </div>
+
+            <div id="menu-practice-options" style="display: none;">
+              <div class="menu-btn-group">
+                <button type="button" class="menu-choice-btn is-selected" data-menu-bots="false">Da Solo</button>
+                <button type="button" class="menu-choice-btn" data-menu-bots="true">Con Bot (22)</button>
+              </div>
+              <div class="menu-btn-group">
+                <button type="button" class="menu-choice-btn is-selected" data-menu-carlevel="base">Auto Base</button>
+                <button type="button" class="menu-choice-btn" data-menu-carlevel="max">Auto MAX</button>
+              </div>
+              <div class="menu-btn-group">
+                <button type="button" class="menu-choice-btn is-selected" data-menu-laptype="infinite">Giri Infiniti (∞)</button>
+                <button type="button" class="menu-choice-btn" data-menu-laptype="finite">Giri Finiti</button>
+              </div>
+              <div id="menu-finite-laps-wrap">
+                <label for="menu-finite-laps-input">Giri:</label>
+                <input id="menu-finite-laps-input" type="number" min="1" max="99" value="5" />
+              </div>
+            </div>
+
+            <div class="menu-section">
+              <div class="menu-section-label">Circuito Selezionato</div>
+              <div style="display: flex; gap: 8px; align-items: stretch;">
+                <select id="menu-track-select" style="flex: 1;"></select>
+                <button id="home-go-track-btn" class="f1-secondary-cta" type="button" title="Apri Track Select 3D">MAPPA 3D</button>
+              </div>
+            </div>
+
+            <div class="f1-quick-session-footer">
+              <button id="menu-start-btn" type="button">SCENDI IN PISTA ▶</button>
+              <span class="f1-card-badge-bottom-right" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                  <line x1="4" y1="22" x2="4" y2="15"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Riga inferiore 4 Card Azioni Rapide con icona rossa in basso a destra -->
+        <div class="f1-home-quick-grid">
+          <button type="button" class="f1-home-quick-card" data-quick-tab="team">
+            <span class="f1-quick-corner-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm0 4.5l4 1.5v3.5c0 2.86-1.72 5.61-4 6.66-2.28-1.05-4-3.8-4-6.66V8l4-1.5z"/>
+              </svg>
+            </span>
+            <span class="f1-quick-card-tag">SCUDERIA &amp; PILOTI</span>
+            <span class="f1-quick-card-title">TEAM SELECT</span>
+            <span id="quick-team-val" class="f1-quick-card-sub">Scuderia Ferrari • 11 Team 2026</span>
+          </button>
+
+          <button type="button" class="f1-home-quick-card" data-quick-tab="track">
+            <span class="f1-quick-corner-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 17c0-4 3-9 8-9s5 3 8 1c0 5-2 9-7 9H4z"/>
+                <circle cx="8" cy="17" r="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="f1-quick-card-tag">24 CIRCUITI 1:1 METRI</span>
+            <span class="f1-quick-card-title">TRACK SELECT</span>
+            <span id="quick-track-val" class="f1-quick-card-sub">Albert Park Circuit • Asciutto</span>
+          </button>
+
+          <button type="button" class="f1-home-quick-card" data-quick-tab="multiplayer">
+            <span class="f1-quick-corner-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+              </svg>
+            </span>
+            <span class="f1-quick-card-tag">ONLINE ROOMS P2P</span>
+            <span class="f1-quick-card-title">MULTIPLAYER</span>
+            <span id="quick-mp-val" class="f1-quick-card-sub">Crea stanza o unisciti con codice</span>
+          </button>
+
+          <button type="button" class="f1-home-quick-card" data-quick-tab="vehicle">
+            <span class="f1-quick-corner-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+              </svg>
+            </span>
+            <span class="f1-quick-card-tag">VERNICE • R&amp;D • LIVREE</span>
+            <span class="f1-quick-card-title">GARAGE &amp; UPGRADE</span>
+            <span id="quick-garage-val" class="f1-quick-card-sub">Personalizza assetto e livrea 3D</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- SCHERMATA 2: TEAM SELECT -->
+      <section id="f1-screen-team" aria-label="Team Select">
+        <div id="f1-team-orbit-zone" title="Trascina per ruotare a 360° • Rotella per zoom"></div>
+
+        <div class="f1-team-hero-overlay">
+          <div class="f1-team-hero-left">
+            <div class="f1-team-label">TEAM SELECT</div>
+            <div class="f1-team-rule"></div>
+
+            <div class="f1-team-hero-brand">
+              <div id="team-hero-emblem"></div>
+              <div>
+                <div id="team-hero-name">Scuderia Ferrari</div>
+                <div id="team-hero-pace">PRESTAZIONI TELAIO: 99.5%</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="menu-section-label" style="margin-bottom: 5px; border-bottom-color: rgba(56,189,248,0.4);">Piloti Ufficiali 2026</div>
+              <div id="team-drivers-list" class="f1-drivers-row"></div>
+            </div>
+
+            <div class="f1-team-actions-row">
+              <button id="team-goto-garage-btn" class="f1-secondary-cta" type="button">GARAGE &amp; UPGRADE</button>
+              <button id="team-open-profile-btn" class="f1-secondary-cta" type="button">PROFILO &amp; SALVATAGGIO</button>
+            </div>
+          </div>
+
+          <div class="f1-orbit-hint-pill">
+            <span>TRASCINA AUTO 360° • ROTELLA ZOOM</span>
+            <button id="team-reset-cam-btn" class="f1-secondary-cta" type="button" style="padding: 4px 10px; font-size: 11px;">RESET VISTA</button>
+          </div>
+        </div>
+
+        <div class="f1-carousel-dock" aria-label="Carosello Scuderie 2026">
+          <button id="team-carousel-prev" class="f1-carousel-arrow" type="button" title="Scuderia precedente">◄</button>
+          <div id="f1-team-carousel" class="f1-carousel-strip"></div>
+          <button id="team-carousel-next" class="f1-carousel-arrow" type="button" title="Scuderia successiva">►</button>
+        </div>
+      </section>
+
+      <!-- SCHERMATA 3: TRACK SELECT -->
+      <section id="f1-screen-track" aria-label="Track Select">
+        <div class="f1-track-scrim" aria-hidden="true"></div>
+
+        <div class="f1-track-header-overlay">
+          <div class="f1-weather-tabs" role="group" aria-label="Condizioni Meteo Circuito">
+            <button type="button" class="f1-weather-tab is-selected" data-menu-weather="dry">ASCIUTTO</button>
+            <button type="button" class="f1-weather-tab" data-menu-weather="rain">PIOGGIA</button>
+          </div>
+
+          <div class="f1-track-rule"></div>
+
+          <div>
+            <div id="track-hero-name">Albert Park Circuit</div>
+            <div id="track-hero-sub">R01 • Melbourne, Australia • Gran Premio d'Australia</div>
+          </div>
+        </div>
+
+        <aside id="f1-track-info-panel">
+          <div id="track-detail-svg"></div>
+          <div class="f1-sector-legend">
+            <span><i class="f1-sector-dot" style="background: #e10600;"></i>S1</span>
+            <span><i class="f1-sector-dot" style="background: #38bdf8;"></i>S2</span>
+            <span><i class="f1-sector-dot" style="background: #facc15;"></i>S3</span>
+          </div>
+
+          <div class="f1-track-stats-grid">
+            <div class="f1-track-stat-cell">
+              <span class="f1-track-stat-label">Lunghezza Circuito</span>
+              <span id="track-stat-length" class="f1-track-stat-val">5.278 km</span>
+            </div>
+            <div class="f1-track-stat-cell">
+              <span class="f1-track-stat-label">Curve</span>
+              <span id="track-stat-corners" class="f1-track-stat-val">14</span>
+            </div>
+            <div class="f1-track-stat-cell">
+              <span class="f1-track-stat-label">Larghezza Pista</span>
+              <span id="track-stat-width" class="f1-track-stat-val">14.0 m</span>
+            </div>
+            <div class="f1-track-stat-cell">
+              <span class="f1-track-stat-label">Distanza Gara</span>
+              <span id="track-stat-laps" class="f1-track-stat-val">10 Giri</span>
+            </div>
+          </div>
+
+          <button id="track-screen-start-btn" class="f1-primary-cta" type="button">SCENDI IN PISTA QUI ▶</button>
+        </aside>
+
+        <div class="f1-carousel-dock" aria-label="Carosello Circuiti F1 2026">
+          <button id="track-carousel-prev" class="f1-carousel-arrow" type="button" title="Circuito precedente">◄</button>
+          <div id="f1-track-carousel" class="f1-carousel-strip"></div>
+          <button id="track-carousel-next" class="f1-carousel-arrow" type="button" title="Circuito successivo">►</button>
+        </div>
+      </section>
+
+      <!-- 4. Overlay GARAGE & UPGRADE (Paint sx, Upgrades centro-alto, Liveries dx) -->
       <div id="gp-vehicle-overlay">
         <div class="gp-paint-col">
           <div class="gp-panel-heading">PAINT</div>
@@ -1950,26 +3485,30 @@
         </div>
       </div>
 
-      <!-- 2. Stack Verticale CUSTOMIZE (Screenshot 2) -->
-      <div id="gp-customize-stack">
-        <button type="button" class="gp-stack-btn" data-custom-sub="team">TEAM</button>
-        <button type="button" class="gp-stack-btn" data-custom-sub="driver">DRIVER</button>
-        <button type="button" class="gp-stack-btn" data-custom-sub="profile">PROFILE</button>
-      </div>
+    </div>
 
-      <!-- Sotto-pannelli di CUSTOMIZE -->
-      <div id="gp-customize-subcard" class="gp-popup-card">
+    <div id="f1-key-hints-bar" aria-label="Suggerimenti comandi"></div>
+  </div>
+
+  <!-- Modale Unificata: PROFILO / TEAM / PILOTA -->
+  <div id="gp-customize-subcard" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="gp-profile-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-modal-dialog--compact">
+      <div class="f1-modal-header">
+        <span id="gp-profile-modal-title" class="f1-modal-title">Profilo Pilota &amp; Carriera</span>
+        <button id="gp-profile-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Chiudi (Esc)" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="f1-modal-body">
         <div id="gp-sub-team" class="menu-section">
           <div class="menu-section-label">Scuderia Carriera 2026</div>
           <select id="career-team-select"></select>
         </div>
 
-        <div id="gp-sub-driver" class="menu-section" style="display: none;">
+        <div id="gp-sub-driver" class="menu-section">
           <div class="menu-section-label">Pilota Rapido (Gara / Libere / Weekend)</div>
           <select id="menu-driver-select"></select>
         </div>
 
-        <div id="gp-sub-profile" class="menu-section" style="display: none;">
+        <div id="gp-sub-profile" class="menu-section">
           <div class="menu-section-label">Nome Pilota (Profilo Carriera)</div>
           <input id="career-player-name" type="text" maxlength="24" placeholder="Inserisci il tuo nome..." value="Pilota F1" />
           <div id="career-stats-summary" class="career-stats-line">
@@ -1983,56 +3522,24 @@
           </div>
         </div>
       </div>
-
-      <!-- 3. Popup RACE -->
-      <div id="gp-race-popup" class="gp-popup-card">
-        <div class="menu-section">
-          <div class="menu-section-label">Modalità di Gioco</div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-menu-mode="career">Carriera</button>
-            <button type="button" class="menu-choice-btn" data-menu-mode="qualifying">Weekend Q1–Q3</button>
-            <button type="button" class="menu-choice-btn" data-menu-mode="practice">Prove Libere</button>
-            <button type="button" class="menu-choice-btn" data-menu-mode="race">Gara 10 Giri</button>
-          </div>
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>↑/↓</kbd>Naviga</span>
+          <span><kbd>Esc</kbd>Chiudi</span>
         </div>
-
-        <div id="gp-career-format-wrap" class="menu-section">
-          <div class="menu-section-label">Formato Evento Carriera</div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-career-format="qualifying">Qualifiche Q1–Q3 + Gara</button>
-            <button type="button" class="menu-choice-btn" data-career-format="race">Gara Diretta (10 Giri)</button>
-          </div>
-        </div>
-
-        <div id="menu-practice-options" style="display: none;">
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-menu-bots="false">Da Solo</button>
-            <button type="button" class="menu-choice-btn" data-menu-bots="true">Con Bot (22)</button>
-          </div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-menu-carlevel="base">Auto Base</button>
-            <button type="button" class="menu-choice-btn" data-menu-carlevel="max">Auto MAX</button>
-          </div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-menu-laptype="infinite">Giri Infiniti (∞)</button>
-            <button type="button" class="menu-choice-btn" data-menu-laptype="finite">Giri Finiti</button>
-          </div>
-          <div id="menu-finite-laps-wrap">
-            <label for="menu-finite-laps-input">Giri:</label>
-            <input id="menu-finite-laps-input" type="number" min="1" max="99" value="5" />
-          </div>
-        </div>
-
-        <div class="menu-section">
-          <div class="menu-section-label">Circuito Calendario F1 2026</div>
-          <select id="menu-track-select"></select>
-        </div>
-
-        <button id="menu-start-btn" type="button">SCENDI IN PISTA ▶</button>
+        <button type="button" class="f1-modal-action-sec" data-modal-close data-modal-primary>Fatto</button>
       </div>
+    </div>
+  </div>
 
-      <!-- 4. Popup SETTINGS -->
-      <div id="gp-settings-popup" class="gp-popup-card">
+  <!-- Modale Unificata: IMPOSTAZIONI -->
+  <div id="gp-settings-popup" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="gp-settings-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog">
+      <div class="f1-modal-header">
+        <span id="gp-settings-modal-title" class="f1-modal-title">Impostazioni &amp; Fisica</span>
+        <button id="gp-settings-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Torna a Home (Esc)" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="f1-modal-body">
         <div class="menu-section">
           <div class="menu-section-label">Livello di Difficoltà (Fisica + Velocità Bot)</div>
           <div class="menu-btn-group">
@@ -2051,8 +3558,25 @@
           </div>
         </div>
       </div>
-      <!-- 5. Popup MULTIPLAYER (Step 10 PeerJS Codice Stanza) -->
-      <div id="gp-multiplayer-popup" class="gp-popup-card">
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>←/→</kbd>Cambia Opzione</span>
+          <span><kbd>↑/↓</kbd>Sezione</span>
+          <span><kbd>Esc</kbd>Chiudi</span>
+        </div>
+        <button type="button" class="f1-modal-action-sec" data-modal-close data-modal-primary>Conferma</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Unificata: MULTIPLAYER -->
+  <div id="gp-multiplayer-popup" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="gp-mp-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-modal-dialog--cyan">
+      <div class="f1-modal-header">
+        <span id="gp-mp-modal-title" class="f1-modal-title">Multiplayer Online P2P</span>
+        <button id="gp-mp-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Torna a Home (Esc)" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="f1-modal-body">
         <div class="mp-status-bar">
           <span id="mp-status-badge">Modalità offline</span>
         </div>
@@ -2087,21 +3611,19 @@
             <button type="button" class="menu-choice-btn is-selected" data-mp-format="qualifying">Qualifiche Q1–Q3 + Gara 10 Giri</button>
             <button type="button" class="menu-choice-btn" data-mp-format="race">Gara Diretta (10 Giri)</button>
           </div>
-          <button id="mp-start-session-btn" class="mp-start-btn" type="button">AVVIA PARTITA ONLINE ▶</button>
+          <button id="mp-start-session-btn" class="mp-start-btn" type="button" data-modal-primary>AVVIA PARTITA ONLINE ▶</button>
         </div>
 
         <button id="mp-leave-room-btn" class="career-sec-btn is-danger" type="button" style="display: none;">Esci dalla Stanza</button>
       </div>
-    </div>
-
-    <!-- Barra inferiore con i pulsanti principali -->
-    <div class="gp-bottom-bar">
-      <button type="button" class="gp-nav-btn" data-gp-tab="race">RACE</button>
-      <button type="button" class="gp-nav-btn" data-gp-tab="customize">CUSTOMIZE</button>
-      <button type="button" class="gp-nav-btn" data-gp-tab="vehicle">VEHICLE</button>
-      <button type="button" class="gp-nav-btn" data-gp-tab="multiplayer">MULTIPLAYER</button>
-      <button type="button" class="gp-nav-btn" data-gp-tab="settings">SETTINGS</button>
-      <button id="menu-resume-btn" class="gp-nav-btn" type="button">RESUME</button>
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>↑/↓</kbd>Naviga</span>
+          <span><kbd>←/→</kbd>Formato</span>
+          <span><kbd>Esc</kbd>Chiudi</span>
+        </div>
+        <button type="button" class="f1-modal-action-sec" data-modal-close>Chiudi</button>
+      </div>
     </div>
   </div>
 

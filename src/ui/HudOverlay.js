@@ -15,6 +15,7 @@ import { getDifficultyConfig } from '../config/difficulty.js';
 import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { formatCurrencyEUR } from '../career/CareerStorage.js';
 import { formatDeltaTime, formatLapTime, formatSectorTime } from '../race/TimingSystem.js';
+import { ModalManager } from './ModalManager.js';
 
 function getRpmBarColor(rpmRatio) {
   if (rpmRatio >= 0.88) return '#a855f7'; // Viola cambiata
@@ -43,6 +44,9 @@ function formatTimerMMSS(seconds) {
 export class HudOverlay {
   constructor(options = {}) {
     this.onCareerRaceFinished = options.onCareerRaceFinished || null;
+    this.onFinishModalClose = options.onFinishModalClose || null;
+    this.onQualiModalClose = options.onQualiModalClose || null;
+    this.modalManager = options.modalManager || new ModalManager();
     this._careerWalletAmount = null;
     this._roomCode = '';
     this._roomRole = 'offline';
@@ -104,11 +108,46 @@ export class HudOverlay {
     this.qualiModalTableBodyEl = document.getElementById('quali-modal-table-body');
     this.qualiNextBtnEl = document.getElementById('quali-next-btn');
     this.qualiSkipToRaceBtnEl = document.getElementById('quali-skip-to-race-btn');
+    this._finishDismissed = false;
     this._lastQualiModalKey = '';
+    this._activeQualiModalKey = '';
+    this._dismissedQualiModalKey = '';
 
     this._sectorCards = [];
     this._driverRowElements = [];
     this._buildSectorCards();
+    this._registerModals();
+  }
+
+  _registerModals() {
+    this.modalManager.register('race-finish-modal', {
+      element: this.raceFinishModalEl,
+      onClose: () => {
+        this._finishShown = false;
+        this._finishDismissed = true;
+        if (this.careerRewardBoxEl) {
+          this.careerRewardBoxEl.style.display = 'none';
+        }
+        if (this.onFinishModalClose) {
+          this.onFinishModalClose();
+        }
+      },
+    });
+
+    this.modalManager.register('qualifying-modal', {
+      element: this.qualiModalEl,
+      onClose: () => {
+        this._dismissedQualiModalKey = this._activeQualiModalKey;
+        this._lastQualiModalKey = '';
+        if (this.onQualiModalClose) {
+          this.onQualiModalClose();
+        }
+      },
+    });
+  }
+
+  resetDismissedModals() {
+    this._dismissedQualiModalKey = '';
   }
 
   setTrackName(name) {
@@ -330,11 +369,12 @@ export class HudOverlay {
     }
   }
 
-  hideRaceFinish() {
+  hideRaceFinish(keepDismissed = false) {
     this._finishShown = false;
-    if (this.raceFinishModalEl) {
-      this.raceFinishModalEl.style.display = 'none';
+    if (!keepDismissed) {
+      this._finishDismissed = false;
     }
+    this.modalManager.syncVisibility('race-finish-modal', false);
     if (this.careerRewardBoxEl) {
       this.careerRewardBoxEl.style.display = 'none';
     }
@@ -342,9 +382,7 @@ export class HudOverlay {
 
   hideQualifyingModal() {
     this._lastQualiModalKey = '';
-    if (this.qualiModalEl) {
-      this.qualiModalEl.style.display = 'none';
-    }
+    this.modalManager.syncVisibility('qualifying-modal', false);
   }
 
   _updateRaceOverlays(worldState, localPlayerId) {
@@ -377,13 +415,21 @@ export class HudOverlay {
       }
     }
 
-    if (race.status !== 'finished' && this._finishShown) {
-      this.hideRaceFinish();
+    if (race.status !== 'finished') {
+      this._finishDismissed = false;
+      if (this._finishShown) {
+        this.hideRaceFinish();
+      }
     }
 
-    if (race.status === 'finished' && !this._finishShown && this.raceFinishModalEl) {
+    if (
+      race.status === 'finished' &&
+      !this._finishShown &&
+      !this._finishDismissed &&
+      this.raceFinishModalEl
+    ) {
       this._finishShown = true;
-      this.raceFinishModalEl.style.display = 'flex';
+      this.modalManager.syncVisibility('race-finish-modal', true);
 
       const playerCar = worldState.getCar(localPlayerId);
       const winner = race.standings[0];
@@ -657,6 +703,8 @@ export class HudOverlay {
     }
 
     if (q.status === 'running') {
+      this._dismissedQualiModalKey = '';
+      this._activeQualiModalKey = '';
       this.hideQualifyingModal();
       return;
     }
@@ -664,9 +712,14 @@ export class HudOverlay {
     const reqCount = q.skipVotes?.requiredPlayers?.length || 1;
     const appCount = q.skipVotes?.approvedBy?.length || 0;
     const modalKey = `${q.stageId}:${q.status}:${q.playerEliminated}:${q.standings.length}:${q.finalGrid.length}:${appCount}/${reqCount}:${this._roomRole}`;
-    if (this.qualiModalEl) {
-      this.qualiModalEl.style.display = 'flex';
+    this._activeQualiModalKey = modalKey;
+
+    if (this._dismissedQualiModalKey && modalKey === this._dismissedQualiModalKey) {
+      this.modalManager.syncVisibility('qualifying-modal', false);
+      return;
     }
+
+    this.modalManager.syncVisibility('qualifying-modal', true);
     if (modalKey === this._lastQualiModalKey) {
       return;
     }

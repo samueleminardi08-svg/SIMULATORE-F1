@@ -8,6 +8,14 @@
 import { getDifficultyConfig } from '../config/difficulty.js';
 import { F1_2026_DRIVERS, F1_2026_TEAMS } from '../config/f1_2026_data.js';
 import { CALENDAR_2026_TRACKS, getTrackById } from '../tracks/calendar2026/index.js';
+import { ModalManager } from './ModalManager.js';
+import {
+  generateTeamEmblemSvg,
+  generateTrackOutlineSvg,
+  getTrackCornersCount,
+  renderKeyHints,
+  setThemeTeamTint,
+} from './UiTheme.js';
 import {
   UPGRADE_CATEGORIES,
   UPGRADE_MAX_LEVEL,
@@ -53,8 +61,12 @@ export class MenuManager {
     onCareerChange = null,
     onShowroomUpdate = null,
     onToggleCameraRotate = null,
+    onOrbitRotate = null,
+    onOrbitZoom = null,
+    onWeatherChange = null,
     onTrackChange = null,
     roomManager = null,
+    modalManager = null,
     onStartMultiplayerSession = null,
   }) {
     this.onStartSession = onStartSession;
@@ -62,46 +74,100 @@ export class MenuManager {
     this.onCareerChange = onCareerChange;
     this.onShowroomUpdate = onShowroomUpdate;
     this.onToggleCameraRotate = onToggleCameraRotate;
+    this.onOrbitRotate = onOrbitRotate;
+    this.onOrbitZoom = onOrbitZoom;
+    this.onWeatherChange = onWeatherChange;
     this.onTrackChange = onTrackChange;
     this.roomManager = roomManager;
+    this.modalManager = modalManager || new ModalManager();
     this.onStartMultiplayerSession = onStartMultiplayerSession;
 
     this.careerState = careerState || loadCareerState();
     this.isOpen = true;
     this.hasActiveSession = false;
-    this.activeTab = null; // null | 'race' | 'customize' | 'vehicle' | 'multiplayer' | 'settings'
-    this.customizeSub = 'team'; // 'team' | 'driver' | 'profile'
+    this.activeTab = 'home'; // 'home' | 'team' | 'track' | 'vehicle' | 'multiplayer' | 'settings'
+    this.profileModalOpen = false;
+    this.quickMode = 'qualifying'; // Modalità selezionata nella card Sessione Rapida ('qualifying' | 'practice' | 'race')
     this.mpFormat = 'qualifying';
     this.upgradeWindowOffset = 0; // 0 => [engine, brakes, tires, aero], 1 => [brakes, tires, aero, suspension]
     this.isCameraRotating = false;
+    this._lastCarouselTab = null;
+    this._lastCarouselTeamId = null;
+    this._lastCarouselTrackId = null;
+    this._homeQuickFocusIdx = -1;
 
     this.modalEl = document.getElementById('session-menu-modal');
 
-    // Top bar
+    // Header Bar & Player Badge
     this.careerMoneyBadgeEl = document.getElementById('career-money-badge');
     this.freeCashBtn = document.getElementById('gp-free-cash-btn');
     this.snapshotBtn = document.getElementById('gp-snapshot-btn');
     this.racesValEl = document.getElementById('gp-races-val');
     this.winsValEl = document.getElementById('gp-wins-val');
+    this.profileTriggerBtn = document.getElementById('gp-profile-trigger');
     this.profileNameEl = document.getElementById('gp-profile-name');
     this.profileSubEl = document.getElementById('gp-profile-sub');
 
-    // Bottom navigation
+    // Top Navigation Tabs & Resume
     this.navButtons = [...document.querySelectorAll('[data-gp-tab]')];
     this.resumeBtn = document.getElementById('menu-resume-btn');
     this.openMenuHudBtn = document.getElementById('hud-open-menu-btn');
 
-    // Overlays
+    // Screen Containers (Step 2)
+    this.homeScreenEl = document.getElementById('f1-screen-home');
+    this.teamScreenEl = document.getElementById('f1-screen-team');
+    this.trackScreenEl = document.getElementById('f1-screen-track');
+
+    // Screen 1: HOME
+    this.homeTeamEmblemEl = document.getElementById('home-team-emblem');
+    this.homeCareerTeamNameEl = document.getElementById('home-career-team-name');
+    this.homeCareerDriverNameEl = document.getElementById('home-career-driver-name');
+    this.homeChangeTeamBtn = document.getElementById('home-change-team-btn');
+    this.homeNextTrackSvgEl = document.getElementById('home-next-track-svg');
+    this.homeNextGpTitleEl = document.getElementById('home-next-gp-title');
+    this.homeNextTrackMetaEl = document.getElementById('home-next-track-meta');
+    this.homeStartCareerBtn = document.getElementById('home-start-career-btn');
+    this.homeGoTrackBtn = document.getElementById('home-go-track-btn');
+    this.quickTabBtns = [...document.querySelectorAll('[data-quick-tab]')];
+    this.quickTeamValEl = document.getElementById('quick-team-val');
+    this.quickTrackValEl = document.getElementById('quick-track-val');
+    this.quickMpValEl = document.getElementById('quick-mp-val');
+    this.quickGarageValEl = document.getElementById('quick-garage-val');
+
+    // Screen 2: TEAM SELECT
+    this.teamOrbitZoneEl = document.getElementById('f1-team-orbit-zone');
+    this.teamHeroEmblemEl = document.getElementById('team-hero-emblem');
+    this.teamHeroNameEl = document.getElementById('team-hero-name');
+    this.teamHeroPaceEl = document.getElementById('team-hero-pace');
+    this.teamDriversListEl = document.getElementById('team-drivers-list');
+    this.teamGotoGarageBtn = document.getElementById('team-goto-garage-btn');
+    this.teamOpenProfileBtn = document.getElementById('team-open-profile-btn');
+    this.teamResetCamBtn = document.getElementById('team-reset-cam-btn');
+    this.teamCarouselEl = document.getElementById('f1-team-carousel');
+    this.teamCarouselPrevBtn = document.getElementById('team-carousel-prev');
+    this.teamCarouselNextBtn = document.getElementById('team-carousel-next');
+
+    // Screen 3: TRACK SELECT
+    this.trackHeroNameEl = document.getElementById('track-hero-name');
+    this.trackHeroSubEl = document.getElementById('track-hero-sub');
+    this.trackDetailSvgEl = document.getElementById('track-detail-svg');
+    this.trackStatLengthEl = document.getElementById('track-stat-length');
+    this.trackStatCornersEl = document.getElementById('track-stat-corners');
+    this.trackStatWidthEl = document.getElementById('track-stat-width');
+    this.trackStatLapsEl = document.getElementById('track-stat-laps');
+    this.trackScreenStartBtn = document.getElementById('track-screen-start-btn');
+    this.trackCarouselEl = document.getElementById('f1-track-carousel');
+    this.trackCarouselPrevBtn = document.getElementById('track-carousel-prev');
+    this.trackCarouselNextBtn = document.getElementById('track-carousel-next');
+
+    // Overlays & Popups
     this.vehicleOverlayEl = document.getElementById('gp-vehicle-overlay');
-    this.customizeStackEl = document.getElementById('gp-customize-stack');
     this.customizeSubcardEl = document.getElementById('gp-customize-subcard');
-    this.customizeStackBtns = [...document.querySelectorAll('[data-custom-sub]')];
-    this.subTeamEl = document.getElementById('gp-sub-team');
-    this.subDriverEl = document.getElementById('gp-sub-driver');
-    this.subProfileEl = document.getElementById('gp-sub-profile');
-    this.racePopupEl = document.getElementById('gp-race-popup');
+    this.profileCloseBtn = document.getElementById('gp-profile-close-btn');
     this.settingsPopupEl = document.getElementById('gp-settings-popup');
+    this.settingsCloseBtn = document.getElementById('gp-settings-close-btn');
     this.mpPopupEl = document.getElementById('gp-multiplayer-popup');
+    this.mpCloseBtn = document.getElementById('gp-mp-close-btn');
 
     // Multiplayer Lobby controls (Step 10)
     this.mpStatusBadgeEl = document.getElementById('mp-status-badge');
@@ -184,8 +250,40 @@ export class MenuManager {
     this._populateDrivers();
     this._populateCareerTeams();
     this._populateTracks();
+    this._populateCarousels();
+    this._registerModals();
     this._bindEvents();
     this._syncUI();
+  }
+
+  _registerModals() {
+    this.modalManager.register('gp-customize-subcard', {
+      element: this.customizeSubcardEl,
+      onClose: () => {
+        if (this.profileModalOpen) {
+          this.profileModalOpen = false;
+          this._syncUI();
+        }
+      },
+    });
+
+    this.modalManager.register('gp-settings-popup', {
+      element: this.settingsPopupEl,
+      onClose: () => {
+        if (this.activeTab === 'settings') {
+          this.setActiveTab('home');
+        }
+      },
+    });
+
+    this.modalManager.register('gp-multiplayer-popup', {
+      element: this.mpPopupEl,
+      onClose: () => {
+        if (this.activeTab === 'multiplayer') {
+          this.setActiveTab('home');
+        }
+      },
+    });
   }
 
   _populateTracks() {
@@ -229,6 +327,52 @@ export class MenuManager {
     this.careerTeamSelectEl.value = this.careerState.teamId;
   }
 
+  _populateCarousels() {
+    if (this.teamCarouselEl) {
+      this.teamCarouselEl.innerHTML = Object.values(F1_2026_TEAMS)
+        .map((team) => {
+          const teamDrivers = F1_2026_DRIVERS.filter((d) => d.teamId === team.id)
+            .map((d) => d.code)
+            .join(' • ');
+          const pacePct = Math.round((team.pace ?? 0.96) * 100);
+          return `
+            <button type="button" class="f1-carousel-card f1-team-card" data-team-card="${team.id}">
+              <span class="f1-team-card-bar" style="background: linear-gradient(90deg, ${team.primaryColor} 65%, ${team.secondaryColor} 100%);"></span>
+              <span class="f1-team-card-emblem">${generateTeamEmblemSvg(team)}</span>
+              <div style="width: 100%;">
+                <div class="f1-card-title">${team.name}</div>
+                <div class="f1-card-sub">${teamDrivers || '2026'} • ${pacePct}%</div>
+              </div>
+            </button>
+          `;
+        })
+        .join('');
+    }
+
+    if (this.trackCarouselEl) {
+      this.trackCarouselEl.innerHTML = CALENDAR_2026_TRACKS.map((track) => {
+        const outlineSvg = generateTrackOutlineSvg(track.controlPoints, {
+          width: 170,
+          height: 54,
+          padding: 5,
+          strokeColor: 'currentColor',
+          strokeWidth: 4.0,
+          showStartDot: true,
+        });
+        const kmStr = (track.officialLength / 1000).toFixed(2);
+        return `
+          <button type="button" class="f1-carousel-card f1-track-card" data-track-card="${track.id}">
+            <div class="f1-track-card-top">
+              <span class="f1-card-title">${track.country || track.city || track.name}</span>
+              <span class="f1-card-sub">R${String(track.round).padStart(2, '0')} • ${kmStr} KM</span>
+            </div>
+            <div class="f1-track-card-svg">${outlineSvg}</div>
+          </button>
+        `;
+      }).join('');
+    }
+  }
+
   _setCareerFeedback(msg, isError = false) {
     if (!this.careerFeedbackEl) return;
     this.careerFeedbackEl.textContent = msg;
@@ -254,7 +398,58 @@ export class MenuManager {
   }
 
   getShowcaseViewMode() {
-    return this.activeTab === 'vehicle' ? 'vehicle' : 'main';
+    if (this.activeTab === 'vehicle') return 'vehicle';
+    if (this.activeTab === 'team') return 'team';
+    if (this.activeTab === 'track') return 'track';
+    return 'home';
+  }
+
+  setActiveTab(tab = 'home') {
+    const allowed = new Set(['home', 'team', 'track', 'vehicle', 'multiplayer', 'settings']);
+    this.activeTab = allowed.has(tab) ? tab : 'home';
+    this.profileModalOpen = false;
+    this._setHomeQuickFocus(-1);
+    this._syncUI();
+  }
+
+  _setHomeQuickFocus(nextIdx) {
+    if (!Array.isArray(this.quickTabBtns) || this.quickTabBtns.length === 0) {
+      this._homeQuickFocusIdx = -1;
+      return;
+    }
+    const len = this.quickTabBtns.length;
+    const resolved = nextIdx < 0 ? -1 : ((nextIdx % len) + len) % len;
+    this._homeQuickFocusIdx = resolved;
+    this.quickTabBtns.forEach((btn, idx) => {
+      btn.classList.toggle('is-selected', idx === resolved);
+    });
+    if (resolved >= 0) {
+      this.quickTabBtns[resolved]?.focus({ preventScroll: true });
+    }
+  }
+
+  handleEscapeKey() {
+    if (this.modalManager.handleEscape()) {
+      return;
+    }
+    if (!this.isOpen) {
+      if (this.hasActiveSession) {
+        this.open();
+      }
+      return;
+    }
+    if (this.profileModalOpen) {
+      this.profileModalOpen = false;
+      this._syncUI();
+      return;
+    }
+    if (this.activeTab !== 'home') {
+      this.setActiveTab('home');
+      return;
+    }
+    if (this.hasActiveSession) {
+      this.toggle();
+    }
   }
 
   _notifyShowroom() {
@@ -286,13 +481,15 @@ export class MenuManager {
     this._syncUI();
   }
 
-  _cycleTeam(delta) {
-    const idx = Math.max(0, TEAM_IDS.indexOf(this.careerState.teamId));
-    const nextIdx = (idx + delta + TEAM_IDS.length) % TEAM_IDS.length;
-    const nextTeamId = TEAM_IDS[nextIdx];
-    const team = F1_2026_TEAMS[nextTeamId];
+  _selectTeamById(rawTeamId, feedbackMsg = null) {
+    const team = F1_2026_TEAMS[rawTeamId] || F1_2026_TEAMS.ferrari;
     const teamRgb = hexToRgb(team.primaryColor);
-    let next = updateCareerProfile(this.careerState, { teamId: nextTeamId });
+    const repDriver = getRepresentativeDriverForTeam(team.id);
+    if (repDriver?.id) {
+      this.state.playerDriverId = repDriver.id;
+    }
+
+    let next = updateCareerProfile(this.careerState, { teamId: team.id });
     next = updateCareerPaint(next, {
       r: teamRgb.r,
       g: teamRgb.g,
@@ -300,25 +497,255 @@ export class MenuManager {
       useCustomPaint: false,
     });
     this._commitCareerState(next);
-    this._setCareerFeedback(`Livrea: ${team.name}`);
+    if (feedbackMsg) {
+      this._setCareerFeedback(feedbackMsg);
+    }
+  }
+
+  _cycleTeam(delta) {
+    if (
+      typeof document !== 'undefined' &&
+      document.activeElement &&
+      this.teamCarouselEl?.contains(document.activeElement) &&
+      typeof document.activeElement.blur === 'function'
+    ) {
+      document.activeElement.blur();
+    }
+    const idx = Math.max(0, TEAM_IDS.indexOf(this.careerState.teamId));
+    const nextIdx = (idx + delta + TEAM_IDS.length) % TEAM_IDS.length;
+    const nextTeam = F1_2026_TEAMS[TEAM_IDS[nextIdx]];
+    this._selectTeamById(nextTeam.id, `Livrea: ${nextTeam.name}`);
+  }
+
+  _cycleTrack(delta) {
+    if (
+      typeof document !== 'undefined' &&
+      document.activeElement &&
+      this.trackCarouselEl?.contains(document.activeElement) &&
+      typeof document.activeElement.blur === 'function'
+    ) {
+      document.activeElement.blur();
+    }
+    const idx = Math.max(
+      0,
+      CALENDAR_2026_TRACKS.findIndex((t) => t.id === this.state.trackId)
+    );
+    const nextIdx = (idx + delta + CALENDAR_2026_TRACKS.length) % CALENDAR_2026_TRACKS.length;
+    this._handleTrackSelection(CALENDAR_2026_TRACKS[nextIdx].id);
+  }
+
+  _launchSession(forcedMode = null) {
+    if (forcedMode) {
+      this.state.mode = forcedMode;
+    }
+    if (this.careerNameInputEl) {
+      const typed = this.careerNameInputEl.value.trim();
+      if (typed && typed !== this.careerState.playerName) {
+        this.careerState = updateCareerProfile(this.careerState, { playerName: typed });
+      }
+    }
+    this.hasActiveSession = true;
+    this.profileModalOpen = false;
+    this.activeTab = 'home';
+    this.close();
+    this.onStartSession(this.buildSessionConfig());
   }
 
   _bindEvents() {
-    // 4 Bottom Navigation Tabs
+    // Header Navigation Tabs
     this.navButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        const tab = btn.dataset.gpTab;
-        this.activeTab = this.activeTab === tab ? null : tab;
-        this._syncUI();
+        this.setActiveTab(btn.dataset.gpTab);
       });
     });
 
-    // Customize Vertical Stack
-    this.customizeStackBtns.forEach((btn) => {
+    // Home Quick Action Cards & Shortcut Buttons
+    this.quickTabBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.customizeSub = btn.dataset.customSub;
+        this.setActiveTab(btn.dataset.quickTab);
+      });
+    });
+    if (this.homeChangeTeamBtn) {
+      this.homeChangeTeamBtn.addEventListener('click', () => this.setActiveTab('team'));
+    }
+    if (this.homeGoTrackBtn) {
+      this.homeGoTrackBtn.addEventListener('click', () => this.setActiveTab('track'));
+    }
+    if (this.teamGotoGarageBtn) {
+      this.teamGotoGarageBtn.addEventListener('click', () => this.setActiveTab('vehicle'));
+    }
+
+    // Profile Modal Triggers (chiusura delegata al ModalManager unificato)
+    const openProfileModal = () => {
+      this.profileModalOpen = !this.profileModalOpen;
+      this._syncUI();
+    };
+    if (this.profileTriggerBtn) {
+      this.profileTriggerBtn.addEventListener('click', openProfileModal);
+    }
+    if (this.teamOpenProfileBtn) {
+      this.teamOpenProfileBtn.addEventListener('click', () => {
+        this.profileModalOpen = true;
         this._syncUI();
       });
+    }
+
+    // Interactive 360° Team Orbit Drag & Wheel Zoom
+    if (this.teamOrbitZoneEl) {
+      let isDragging = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      this.teamOrbitZoneEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isDragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        this.teamOrbitZoneEl.classList.add('is-dragging');
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !this.isOpen || this.activeTab !== 'team') return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        if (this.onOrbitRotate) {
+          this.onOrbitRotate(dx * 0.0085, dy * 0.006);
+        }
+      });
+
+      const stopDrag = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        this.teamOrbitZoneEl.classList.remove('is-dragging');
+      };
+      window.addEventListener('mouseup', stopDrag);
+      window.addEventListener('blur', stopDrag);
+
+      this.teamOrbitZoneEl.addEventListener(
+        'wheel',
+        (e) => {
+          if (!this.isOpen || this.activeTab !== 'team') return;
+          e.preventDefault();
+          if (this.onOrbitZoom) {
+            this.onOrbitZoom(Math.sign(e.deltaY) * 0.45);
+          }
+        },
+        { passive: false }
+      );
+    }
+
+    if (this.teamResetCamBtn) {
+      this.teamResetCamBtn.addEventListener('click', () => {
+        this._notifyShowroom();
+        this.onShowroomUpdate?.(this.isOpen, this.getShowcaseAppearance(), 'home');
+        this.onShowroomUpdate?.(this.isOpen, this.getShowcaseAppearance(), 'team');
+      });
+    }
+
+    // Team & Track Carousels
+    if (this.teamCarouselEl) {
+      this.teamCarouselEl.addEventListener('click', (event) => {
+        const card = event.target.closest('[data-team-card]');
+        if (!card) return;
+        this._selectTeamById(card.dataset.teamCard);
+      });
+    }
+    if (this.teamCarouselPrevBtn) {
+      this.teamCarouselPrevBtn.addEventListener('click', () => this._cycleTeam(-1));
+    }
+    if (this.teamCarouselNextBtn) {
+      this.teamCarouselNextBtn.addEventListener('click', () => this._cycleTeam(1));
+    }
+
+    if (this.teamDriversListEl) {
+      this.teamDriversListEl.addEventListener('click', (event) => {
+        const pill = event.target.closest('[data-driver-id]');
+        if (!pill) return;
+        this.state.playerDriverId = pill.dataset.driverId;
+        this._syncUI();
+      });
+    }
+
+    if (this.trackCarouselEl) {
+      this.trackCarouselEl.addEventListener('click', (event) => {
+        const card = event.target.closest('[data-track-card]');
+        if (!card) return;
+        this._handleTrackSelection(card.dataset.trackCard);
+      });
+    }
+    if (this.trackCarouselPrevBtn) {
+      this.trackCarouselPrevBtn.addEventListener('click', () => this._cycleTrack(-1));
+    }
+    if (this.trackCarouselNextBtn) {
+      this.trackCarouselNextBtn.addEventListener('click', () => this._cycleTrack(1));
+    }
+
+    // Menu Keyboard Navigation (← / → su Home, Team & Track; ↑ / ↓ meteo Track; Enter conferma/avvia)
+    window.addEventListener('keydown', (event) => {
+      if (!this.isOpen || this.profileModalOpen || this.modalManager.hasOpenModal()) return;
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+      if (event.code === 'ArrowLeft') {
+        if (this.activeTab === 'team') {
+          event.preventDefault();
+          this._cycleTeam(-1);
+        } else if (this.activeTab === 'track') {
+          event.preventDefault();
+          this._cycleTrack(-1);
+        } else if (this.activeTab === 'home') {
+          event.preventDefault();
+          const startIdx = this._homeQuickFocusIdx < 0 ? this.quickTabBtns.length - 1 : this._homeQuickFocusIdx - 1;
+          this._setHomeQuickFocus(startIdx);
+        }
+      } else if (event.code === 'ArrowRight') {
+        if (this.activeTab === 'team') {
+          event.preventDefault();
+          this._cycleTeam(1);
+        } else if (this.activeTab === 'track') {
+          event.preventDefault();
+          this._cycleTrack(1);
+        } else if (this.activeTab === 'home') {
+          event.preventDefault();
+          const startIdx = this._homeQuickFocusIdx < 0 ? 0 : this._homeQuickFocusIdx + 1;
+          this._setHomeQuickFocus(startIdx);
+        }
+      } else if (event.code === 'ArrowUp' || event.code === 'ArrowDown') {
+        if (this.activeTab === 'track') {
+          event.preventDefault();
+          this.state.weather = this.state.weather === 'dry' ? 'rain' : 'dry';
+          if (this.onWeatherChange) {
+            this.onWeatherChange(this.state.weather);
+          }
+          this._syncUI();
+        } else if (this.activeTab === 'home' && event.code === 'ArrowUp' && this._homeQuickFocusIdx >= 0) {
+          event.preventDefault();
+          this._setHomeQuickFocus(-1);
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+        }
+      } else if (event.code === 'Enter' && tag !== 'BUTTON') {
+        if (this.activeTab === 'team') {
+          event.preventDefault();
+          this.setActiveTab('home');
+        } else if (this.activeTab === 'track') {
+          event.preventDefault();
+          this._launchSession(this.state.mode);
+        } else if (this.activeTab === 'home') {
+          event.preventDefault();
+          if (this._homeQuickFocusIdx >= 0) {
+            const tabTarget = this.quickTabBtns[this._homeQuickFocusIdx]?.dataset?.quickTab;
+            if (tabTarget) {
+              this.setActiveTab(tabTarget);
+              return;
+            }
+          }
+          this._launchSession('career');
+        }
+      }
     });
 
     // Free Cash button (+$250.000)
@@ -332,8 +759,10 @@ export class MenuManager {
 
     if (this.snapshotBtn) {
       this.snapshotBtn.addEventListener('click', () => {
-        this.activeTab = this.activeTab === 'vehicle' ? null : 'vehicle';
-        this._syncUI();
+        if (this.onToggleCameraRotate) {
+          this.isCameraRotating = this.onToggleCameraRotate();
+          this.snapshotBtn.classList.toggle('is-active', this.isCameraRotating);
+        }
       });
     }
 
@@ -457,17 +886,7 @@ export class MenuManager {
 
     if (this.careerTeamSelectEl) {
       this.careerTeamSelectEl.addEventListener('change', () => {
-        const nextTeamId = this.careerTeamSelectEl.value;
-        const team = F1_2026_TEAMS[nextTeamId] || F1_2026_TEAMS.ferrari;
-        const rgb = hexToRgb(team.primaryColor);
-        let next = updateCareerProfile(this.careerState, { teamId: nextTeamId });
-        next = updateCareerPaint(next, {
-          r: rgb.r,
-          g: rgb.g,
-          b: rgb.b,
-          useCustomPaint: false,
-        });
-        this._commitCareerState(next);
+        this._selectTeamById(this.careerTeamSelectEl.value);
       });
     }
 
@@ -521,7 +940,8 @@ export class MenuManager {
     // Mode, Format, Difficulty, Weather & Practice Options
     this.modeButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.state.mode = btn.dataset.menuMode;
+        this.quickMode = btn.dataset.menuMode;
+        this.state.mode = this.quickMode;
         this._syncUI();
       });
     });
@@ -575,6 +995,9 @@ export class MenuManager {
     this.weatherButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         this.state.weather = btn.dataset.menuWeather;
+        if (this.onWeatherChange) {
+          this.onWeatherChange(this.state.weather);
+        }
         this._syncUI();
       });
     });
@@ -582,6 +1005,7 @@ export class MenuManager {
     if (this.driverSelectEl) {
       this.driverSelectEl.addEventListener('change', () => {
         this.state.playerDriverId = this.driverSelectEl.value;
+        this._syncUI();
       });
     }
 
@@ -597,19 +1021,22 @@ export class MenuManager {
       });
     }
 
-    // Start Session & Resume
+    // Start Session (Home Carriera / Home Sessione Rapida / Track Select) & Resume
+    if (this.homeStartCareerBtn) {
+      this.homeStartCareerBtn.addEventListener('click', () => {
+        this._launchSession('career');
+      });
+    }
+
     if (this.startBtn) {
       this.startBtn.addEventListener('click', () => {
-        if (this.careerNameInputEl) {
-          const typed = this.careerNameInputEl.value.trim();
-          if (typed && typed !== this.careerState.playerName) {
-            this.careerState = updateCareerProfile(this.careerState, { playerName: typed });
-          }
-        }
-        this.hasActiveSession = true;
-        this.activeTab = null;
-        this.close();
-        this.onStartSession(this.buildSessionConfig());
+        this._launchSession(this.quickMode);
+      });
+    }
+
+    if (this.trackScreenStartBtn) {
+      this.trackScreenStartBtn.addEventListener('click', () => {
+        this._launchSession(this.state.mode);
       });
     }
 
@@ -677,7 +1104,8 @@ export class MenuManager {
       this.mpStartSessionBtn.addEventListener('click', () => {
         if (!this.roomManager?.isHost() || !this.onStartMultiplayerSession) return;
         this.hasActiveSession = true;
-        this.activeTab = null;
+        this.profileModalOpen = false;
+        this.activeTab = 'home';
         this.close();
         this.onStartMultiplayerSession({
           mode: this.mpFormat,
@@ -755,6 +1183,11 @@ export class MenuManager {
         })
         .join('');
     }
+    if (this.quickMpValEl) {
+      this.quickMpValEl.textContent = active
+        ? `Stanza ${rm.roomCode} • ${rm.getPlayers().length} piloti`
+        : 'Crea stanza o unisciti con codice';
+    }
   }
 
   _syncVehicleOverlay() {
@@ -823,11 +1256,202 @@ export class MenuManager {
     }
   }
 
+  _getHintsForActiveTab() {
+    if (this.activeTab === 'team') {
+      return [
+        { key: 'Drag', label: 'Ruota 360°' },
+        { key: 'Wheel', label: 'Zoom' },
+        { key: '← / →', label: 'Scuderia' },
+        { key: 'Enter', label: 'Conferma' },
+        { key: 'Esc', label: 'Home' },
+      ];
+    }
+    if (this.activeTab === 'track') {
+      return [
+        { key: '↑ / ↓', label: 'Meteo' },
+        { key: '← / →', label: 'Circuito' },
+        { key: 'Enter', label: 'Scendi in Pista' },
+        { key: 'Esc', label: 'Home' },
+      ];
+    }
+    if (this.activeTab === 'home') {
+      const base = [
+        { key: '← / →', label: 'Seleziona' },
+        { key: 'Invio', label: 'Avvia Carriera' },
+      ];
+      if (this.hasActiveSession) {
+        base.push({ key: 'Esc', label: 'Torna in Pista' });
+      }
+      return base;
+    }
+    return [
+      { key: 'Mouse', label: 'Modifica' },
+      { key: 'Esc', label: 'Home' },
+    ];
+  }
+
+  _syncHomeScreen(career, activeTeam, activeTrack) {
+    if (this.homeTeamEmblemEl) {
+      this.homeTeamEmblemEl.innerHTML = generateTeamEmblemSvg(activeTeam);
+    }
+    if (this.homeCareerTeamNameEl) {
+      this.homeCareerTeamNameEl.textContent = activeTeam.name;
+    }
+    if (this.homeCareerDriverNameEl) {
+      const totalLvl = UPGRADE_WINDOW_ORDER.reduce(
+        (acc, key) => acc + (career.upgrades?.[key] ?? 0),
+        0
+      );
+      const maxTotal = UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL;
+      this.homeCareerDriverNameEl.textContent = `Pilota: ${career.playerName} • Upgrade ${totalLvl}/${maxTotal}`;
+    }
+    if (this.homeNextTrackSvgEl) {
+      this.homeNextTrackSvgEl.innerHTML = generateTrackOutlineSvg(activeTrack.controlPoints, {
+        width: 145,
+        height: 82,
+        padding: 8,
+        sectorSplits: activeTrack.sectorSplits,
+        strokeWidth: 3.4,
+      });
+    }
+    if (this.homeNextGpTitleEl) {
+      this.homeNextGpTitleEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} • ${activeTrack.gpName}`;
+    }
+    if (this.homeNextTrackMetaEl) {
+      const km = (activeTrack.officialLength / 1000).toFixed(3);
+      const corners = getTrackCornersCount(activeTrack.id);
+      this.homeNextTrackMetaEl.textContent = `${km} KM • ${corners} CURVE • ${activeTrack.name.toUpperCase()}`;
+    }
+
+    if (this.quickTeamValEl) {
+      const drivers = F1_2026_DRIVERS.filter((d) => d.teamId === activeTeam.id)
+        .map((d) => d.code)
+        .join(' / ');
+      this.quickTeamValEl.textContent = `${activeTeam.name}${drivers ? ` (${drivers})` : ''}`;
+    }
+    if (this.quickTrackValEl) {
+      const weatherLabel = this.state.weather === 'rain' ? 'Pioggia' : 'Asciutto';
+      this.quickTrackValEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} ${activeTrack.name} • ${weatherLabel}`;
+    }
+    if (this.quickGarageValEl) {
+      const totalLvl = UPGRADE_WINDOW_ORDER.reduce(
+        (acc, key) => acc + (career.upgrades?.[key] ?? 0),
+        0
+      );
+      this.quickGarageValEl.textContent = `Sviluppo Auto ${totalLvl}/${UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL}`;
+    }
+  }
+
+  _syncTeamScreen(activeTeam) {
+    if (this.teamHeroEmblemEl) {
+      this.teamHeroEmblemEl.innerHTML = generateTeamEmblemSvg(activeTeam);
+    }
+    if (this.teamHeroNameEl) {
+      this.teamHeroNameEl.textContent = activeTeam.name;
+    }
+    if (this.teamHeroPaceEl) {
+      const pacePct = ((activeTeam.pace ?? 0.96) * 100).toFixed(1);
+      this.teamHeroPaceEl.textContent = `PASSO TELAIO 2026: ${pacePct}%`;
+    }
+    if (this.teamDriversListEl) {
+      const teamDrivers = F1_2026_DRIVERS.filter((d) => d.teamId === activeTeam.id);
+      this.teamDriversListEl.innerHTML = teamDrivers
+        .map(
+          (d) => `
+            <button
+              type="button"
+              class="f1-driver-pill ${this.state.playerDriverId === d.id ? 'is-selected' : ''}"
+              data-driver-id="${d.id}"
+            >
+              <span class="f1-driver-num">#${d.number}</span>
+              <span>${d.name} (${d.code})</span>
+            </button>
+          `
+        )
+        .join('');
+    }
+    if (this.teamCarouselEl) {
+      let selectedCard = null;
+      this.teamCarouselEl.querySelectorAll('[data-team-card]').forEach((card) => {
+        const isSel = card.dataset.teamCard === activeTeam.id;
+        card.classList.toggle('is-selected', isSel);
+        if (isSel) selectedCard = card;
+      });
+      if (
+        selectedCard &&
+        this.activeTab === 'team' &&
+        (this._lastCarouselTeamId !== activeTeam.id || this._lastCarouselTab !== 'team')
+      ) {
+        selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        this._lastCarouselTeamId = activeTeam.id;
+      }
+    }
+  }
+
+  _syncTrackScreen(activeTrack) {
+    if (this.trackHeroNameEl) {
+      this.trackHeroNameEl.textContent = activeTrack.name;
+    }
+    if (this.trackHeroSubEl) {
+      this.trackHeroSubEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} • ${activeTrack.city}, ${activeTrack.country} • ${activeTrack.gpName}`;
+    }
+    if (this.trackDetailSvgEl) {
+      this.trackDetailSvgEl.innerHTML = generateTrackOutlineSvg(activeTrack.controlPoints, {
+        width: 340,
+        height: 170,
+        padding: 16,
+        sectorSplits: activeTrack.sectorSplits,
+        strokeWidth: 4.5,
+        showStartDot: true,
+      });
+    }
+    if (this.trackStatLengthEl) {
+      this.trackStatLengthEl.textContent = `${(activeTrack.officialLength / 1000).toFixed(3)} km`;
+    }
+    if (this.trackStatCornersEl) {
+      this.trackStatCornersEl.textContent = String(getTrackCornersCount(activeTrack.id));
+    }
+    if (this.trackStatWidthEl) {
+      this.trackStatWidthEl.textContent = `${Number(activeTrack.trackWidth || 14).toFixed(1)} m`;
+    }
+    if (this.trackStatLapsEl) {
+      this.trackStatLapsEl.textContent =
+        this.quickMode === 'practice' && this.state.lapType === 'infinite'
+          ? '∞ Giri'
+          : this.quickMode === 'practice' && this.state.lapType === 'finite'
+            ? `${this.state.finiteLaps} Giri`
+            : '10 Giri';
+    }
+
+    if (this.trackCarouselEl) {
+      let selectedCard = null;
+      this.trackCarouselEl.querySelectorAll('[data-track-card]').forEach((card) => {
+        const isSel = card.dataset.trackCard === activeTrack.id;
+        card.classList.toggle('is-selected', isSel);
+        if (isSel) selectedCard = card;
+      });
+      if (
+        selectedCard &&
+        this.activeTab === 'track' &&
+        (this._lastCarouselTrackId !== activeTrack.id || this._lastCarouselTab !== 'track')
+      ) {
+        selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        this._lastCarouselTrackId = activeTrack.id;
+      }
+    }
+  }
+
   _syncUI() {
     const c = this.careerState;
     const s = c.stats;
 
-    // Top bar
+    // Header Bar & Theme Tint
+    const activeTeam = F1_2026_TEAMS[c.teamId] || F1_2026_TEAMS.ferrari;
+    const activeTrack = getTrackById(this.state.trackId);
+    const isTeamSelectActive = this.activeTab === 'team';
+    setThemeTeamTint(activeTeam.primaryColor, isTeamSelectActive, this.activeTab);
+    renderKeyHints(this._getHintsForActiveTab());
+
     if (this.careerMoneyBadgeEl) {
       this.careerMoneyBadgeEl.textContent = formatDollarCash(c.money);
     }
@@ -836,15 +1460,15 @@ export class MenuManager {
     if (this.profileNameEl) this.profileNameEl.textContent = c.playerName;
     if (this.profileSubEl) {
       if (this.activeTab === 'vehicle') {
-        this.profileSubEl.textContent = `${s.racesCompleted} RACES RAN`;
+        this.profileSubEl.textContent = `${activeTeam.name} • ${s.racesCompleted} GARE`;
       } else {
         const winRate =
           s.racesCompleted > 0 ? Math.round((s.wins / s.racesCompleted) * 100) : 0;
-        this.profileSubEl.textContent = `% ${winRate} WIN RATE`;
+        this.profileSubEl.textContent = `${activeTeam.name} • ${winRate}% WIN`;
       }
     }
 
-    // Bottom active tab highlight
+    // Header Tab Highlights & Resume CTA
     this.navButtons.forEach((btn) => {
       btn.classList.toggle('is-active', btn.dataset.gpTab === this.activeTab);
     });
@@ -852,48 +1476,49 @@ export class MenuManager {
       this.resumeBtn.style.display = this.hasActiveSession ? 'inline-block' : 'none';
     }
 
-    // Overlays visibility
+    // Main Screens Visibility
+    if (this.homeScreenEl) {
+      this.homeScreenEl.style.display = this.activeTab === 'home' ? 'flex' : 'none';
+    }
+    if (this.teamScreenEl) {
+      this.teamScreenEl.style.display = this.activeTab === 'team' ? 'block' : 'none';
+    }
+    if (this.trackScreenEl) {
+      this.trackScreenEl.style.display = this.activeTab === 'track' ? 'block' : 'none';
+    }
+
+    // Sub-Overlays & Popups Visibility (Step 3: gestiti tramite ModalManager centrato)
     if (this.vehicleOverlayEl) {
       this.vehicleOverlayEl.style.display = this.activeTab === 'vehicle' ? 'flex' : 'none';
     }
-    const isCustom = this.activeTab === 'customize';
-    if (this.customizeStackEl) {
-      this.customizeStackEl.style.display = isCustom ? 'flex' : 'none';
-    }
-    if (this.customizeSubcardEl) {
-      this.customizeSubcardEl.style.display = isCustom ? 'flex' : 'none';
-    }
-    if (isCustom) {
-      this.customizeStackBtns.forEach((btn) => {
-        btn.classList.toggle('is-selected', btn.dataset.customSub === this.customizeSub);
-      });
-      if (this.subTeamEl) this.subTeamEl.style.display = this.customizeSub === 'team' ? 'flex' : 'none';
-      if (this.subDriverEl) this.subDriverEl.style.display = this.customizeSub === 'driver' ? 'flex' : 'none';
-      if (this.subProfileEl) this.subProfileEl.style.display = this.customizeSub === 'profile' ? 'flex' : 'none';
-    }
+    this.modalManager.syncVisibility(
+      'gp-customize-subcard',
+      this.isOpen && this.profileModalOpen
+    );
+    this.modalManager.syncVisibility(
+      'gp-multiplayer-popup',
+      this.isOpen && this.activeTab === 'multiplayer' && !this.profileModalOpen
+    );
+    this.modalManager.syncVisibility(
+      'gp-settings-popup',
+      this.isOpen && this.activeTab === 'settings' && !this.profileModalOpen
+    );
 
-    if (this.racePopupEl) {
-      this.racePopupEl.style.display = this.activeTab === 'race' ? 'flex' : 'none';
-    }
-    if (this.mpPopupEl) {
-      this.mpPopupEl.style.display = this.activeTab === 'multiplayer' ? 'flex' : 'none';
-    }
-    if (this.settingsPopupEl) {
-      this.settingsPopupEl.style.display = this.activeTab === 'settings' ? 'flex' : 'none';
-    }
+    // Sync Screen 1, Screen 2 & Screen 3 Contents
+    this._syncHomeScreen(c, activeTeam, activeTrack);
+    this._syncTeamScreen(activeTeam);
+    this._syncTrackScreen(activeTrack);
+    this._lastCarouselTab = this.activeTab;
 
-    // Sync Race / Practice / Settings states
+    // Sync Quick Mode / Career Format / Practice / Settings states
     this.modeButtons.forEach((btn) => {
-      btn.classList.toggle('is-selected', btn.dataset.menuMode === this.state.mode);
+      btn.classList.toggle('is-selected', btn.dataset.menuMode === this.quickMode);
     });
-    if (this.careerFormatWrapEl) {
-      this.careerFormatWrapEl.style.display = this.state.mode === 'career' ? 'flex' : 'none';
-    }
     this.careerFormatButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.careerFormat === c.careerFormat);
     });
     if (this.practiceOptionsSection) {
-      this.practiceOptionsSection.style.display = this.state.mode === 'practice' ? 'flex' : 'none';
+      this.practiceOptionsSection.style.display = this.quickMode === 'practice' ? 'flex' : 'none';
     }
 
     this.botsButtons.forEach((btn) => {
@@ -923,6 +1548,9 @@ export class MenuManager {
     }
     if (this.mpTrackSelectEl) {
       this.mpTrackSelectEl.value = this.state.trackId;
+    }
+    if (this.driverSelectEl) {
+      this.driverSelectEl.value = this.state.playerDriverId;
     }
 
     // Sync Profile controls
@@ -1016,6 +1644,13 @@ export class MenuManager {
 
   close() {
     this.isOpen = false;
+    this.profileModalOpen = false;
+    if (this.activeTab === 'settings' || this.activeTab === 'multiplayer') {
+      this.activeTab = 'home';
+    }
+    this.modalManager.syncVisibility('gp-customize-subcard', false);
+    this.modalManager.syncVisibility('gp-multiplayer-popup', false);
+    this.modalManager.syncVisibility('gp-settings-popup', false);
     if (typeof document !== 'undefined') {
       document.body.classList.remove('is-garage-open');
     }

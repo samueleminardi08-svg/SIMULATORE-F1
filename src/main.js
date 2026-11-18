@@ -15,6 +15,7 @@ import { SceneManager } from './rendering/SceneManager.js';
 import { TrackMapHud } from './ui/TrackMapHud.js';
 import { HudOverlay } from './ui/HudOverlay.js';
 import { MenuManager } from './ui/MenuManager.js';
+import { ModalManager } from './ui/ModalManager.js';
 import {
   loadCareerState,
   recordCareerRaceResult,
@@ -42,6 +43,7 @@ function initGame() {
   // 1. Stato puro della simulazione & gestore input (WASD + Frecce + C + R + ESC)
   const worldState = new WorldState(activeTrack);
   const inputManager = new InputManager(window);
+  const modalManager = new ModalManager(window);
 
   // 2. Scena 3D
   const sceneManager = new SceneManager(canvas, activeTrack);
@@ -84,7 +86,7 @@ function initGame() {
         applyActiveTrack(incomingTrackId);
       }
       menuManager.hasActiveSession = true;
-      menuManager.activeTab = null;
+      menuManager.activeTab = 'home';
       menuManager.close();
       hudOverlay.hideRaceFinish();
       hudOverlay.hideQualifyingModal();
@@ -117,6 +119,15 @@ function initGame() {
   });
 
   hudOverlay = new HudOverlay({
+    modalManager,
+    onFinishModalClose: () => {
+      inputManager.reset();
+      menuManager?.open();
+    },
+    onQualiModalClose: () => {
+      inputManager.reset();
+      menuManager?.open();
+    },
     onCareerRaceFinished: (ws, playerCar) => {
       const myId = roomManager.getLocalCarId();
       const fastestLap = ws.sessionTiming?.overallBestCarId === myId;
@@ -149,6 +160,7 @@ function initGame() {
     if (config?.trackId) {
       applyActiveTrack(config.trackId);
     }
+    hudOverlay.resetDismissedModals();
     hudOverlay.hideRaceFinish();
     hudOverlay.hideQualifyingModal();
     hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
@@ -160,6 +172,7 @@ function initGame() {
   menuManager = new MenuManager({
     careerState,
     roomManager,
+    modalManager,
     onCareerChange: (nextCareerState) => {
       careerState = nextCareerState;
       hudOverlay.setCareerBalance(careerState.money);
@@ -167,12 +180,17 @@ function initGame() {
     onTrackChange: (trackId) => {
       if (!menuManager?.hasActiveSession) {
         applyActiveTrack(trackId);
+      } else {
+        sceneManager.setTrack(getTrackById(trackId));
       }
     },
     onShowroomUpdate: (isOpen, appearance, viewMode) => {
       sceneManager.setGarageMode(isOpen, appearance, viewMode);
     },
     onToggleCameraRotate: () => sceneManager.toggleGarageCameraRotate(),
+    onOrbitRotate: (dYaw, dPitch) => sceneManager.rotateGarageOrbit(dYaw, dPitch),
+    onOrbitZoom: (dZoom) => sceneManager.zoomGarageOrbit(dZoom),
+    onWeatherChange: (weatherId) => sceneManager.setWeatherPreview(weatherId),
     onStartMultiplayerSession: ({ mode, difficultyId, weather, trackId }) => {
       if (!roomManager.isHost()) return;
       const humanPlayers = roomManager.getPlayers();
@@ -197,11 +215,14 @@ function initGame() {
       startConfiguredSession(config);
     },
     onResume: () => {
+      hudOverlay.resetDismissedModals();
+      sceneManager.setTrack(activeTrack);
       inputManager.reset();
     },
   });
 
   // Inizializza la vista Showroom Garage 3D dietro al menu iniziale
+  sceneManager.setWeatherPreview(menuManager.state.weather);
   sceneManager.setGarageMode(
     menuManager.isOpen,
     menuManager.getShowcaseAppearance(),
@@ -226,7 +247,7 @@ function initGame() {
 
   if (finishOpenMenuBtn) {
     finishOpenMenuBtn.addEventListener('click', () => {
-      hudOverlay.hideRaceFinish();
+      hudOverlay.hideRaceFinish(true);
       inputManager.reset();
       menuManager.open();
     });
@@ -278,7 +299,9 @@ function initGame() {
     onSimulationStep: (dt) => {
       if (inputManager.consumeMenuToggle()) {
         inputManager.reset();
-        menuManager.toggle();
+        if (!modalManager.handleEscape()) {
+          menuManager.handleEscapeKey();
+        }
       }
 
       if (menuManager.isOpen && !wasMenuOpen) {
