@@ -18,8 +18,8 @@
     "semantic_hash": ""
   },
   "src/cars/CarModel3D.js": {
-    "mtime": 1794961391.7544208,
-    "seen": 1794961414.640785,
+    "mtime": 1794961437.4317784,
+    "seen": 1794962207.2354121,
     "ast_hash": "08982b2e848a7d829f85e05e5a573d1b",
     "semantic_hash": ""
   },
@@ -84,14 +84,14 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1794959435.034662,
-    "seen": 1794961414.640818,
-    "ast_hash": "211ed6be40749e3577a374c9c543c060",
+    "mtime": 1794962193.7816877,
+    "seen": 1794962207.2354484,
+    "ast_hash": "c7ae7e944f5a97e7b5285d92e1306e19",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
-    "mtime": 1794961392.8274093,
-    "seen": 1794961414.640805,
+    "mtime": 1794961437.4709065,
+    "seen": 1794962207.2354326,
     "ast_hash": "a7a2f5bde494819fc8c2d6be7f835c23",
     "semantic_hash": ""
   },
@@ -201,6 +201,12 @@
     "mtime": 1794959297.9079745,
     "seen": 1794959402.5894406,
     "ast_hash": "eb3fd1e3fa152f6e9c0685d55f51a18f",
+    "semantic_hash": ""
+  },
+  "vite.config.js": {
+    "mtime": 1794962195.3800387,
+    "seen": 1794962207.2354443,
+    "ast_hash": "2be309a117bd27a88d1898f4c2ac9823",
     "semantic_hash": ""
   },
   "package-lock.json": {

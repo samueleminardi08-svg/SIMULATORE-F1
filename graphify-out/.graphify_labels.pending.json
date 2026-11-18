@@ -10,5 +10,6 @@
   "8": "main.js",
   "9": "test_track.js",
   "10": "TimingSystem.js",
-  "11": "WorldState.js"
+  "11": "WorldState.js",
+  "12": "vite.config.js"
 }

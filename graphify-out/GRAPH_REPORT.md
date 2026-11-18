@@ -1,14 +1,19 @@
 # Graph Report - GIOCO F1  (2026-11-18)
 
 ## Corpus Check
-- 33 files · ~38,675 words
+- 34 files · ~38,699 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 2 file(s) not represented in the graph (top: (none) 1, .glb 1)
 
 ## Summary
-- 356 nodes · 854 edges · 12 communities (11 shown, 1 thin omitted)
+- 357 nodes · 854 edges · 13 communities (11 shown, 2 thin omitted)
 - Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 36 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `f67ad1a9`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Graphify Knowledge Graph Rules
@@ -39,10 +44,10 @@
 ## Surprising Connections (you probably didn't know these)
 - `initGame()` --calls--> `SceneManager`  [EXTRACTED]
   src/main.js → src/rendering/SceneManager.js
-- `initGame()` --calls--> `TrackMapHud`  [EXTRACTED]
-  src/main.js → src/ui/TrackMapHud.js
 - `initGame()` --calls--> `WorldState`  [EXTRACTED]
   src/main.js → src/core/WorldState.js
+- `initGame()` --calls--> `TrackMapHud`  [EXTRACTED]
+  src/main.js → src/ui/TrackMapHud.js
 - `initGame()` --calls--> `MenuManager`  [EXTRACTED]
   src/main.js → src/ui/MenuManager.js
 - `initGame()` --calls--> `HudOverlay`  [EXTRACTED]
@@ -54,7 +59,7 @@
 ## Hyperedges (group relationships)
 - **Graphify Query CLI Commands** — claude_graphify_query, claude_graphify_path, claude_graphify_explain, claude_graphify_section [EXTRACTED 1.00]
 
-## Communities (12 total, 1 thin omitted)
+## Communities (13 total, 2 thin omitted)
 
 ### Community 0 - "Graphify Knowledge Graph Rules"
 Cohesion: 0.24
@@ -102,14 +107,14 @@ Nodes (23): DEFAULT_DIFFICULTY_ID, DIFFICULTY_LEVELS, F1_2026_DRIVERS, F1_2026_T
 
 ## Knowledge Gaps
 - **5 isolated node(s):** `graphify explain`, `graphify path`, `graphify section`, `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 64 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **1 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 65 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `initGame()` connect `initGame` to `SceneManager`, `main.js`, `CareerStorage.js`, `main.js`, `TimingSystem.js`, `WorldState.js`?**
-  _High betweenness centrality (0.170) - this node is a cross-community bridge._
+  _High betweenness centrality (0.169) - this node is a cross-community bridge._
 - **Are the 29 inferred relationships involving `initGame()` (e.g. with `.start()` and `.advanceQualifyingToNextStage()`) actually correct?**
   _`initGame()` has 29 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `graphify explain`, `graphify path`, `graphify section` to the rest of the system?**
@@ -121,4 +126,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `package.json` be split into smaller, more focused modules?**
   _Cohesion score 0.14166666666666666 - nodes in this community are weakly interconnected._
 - **Why does `HudOverlay` connect `main.js` to `main.js`, `initGame`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+  _High betweenness centrality (0.075) - this node is a cross-community bridge._

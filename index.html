@@ -5,6 +5,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gioco F1 3D — Step 10 (Multigiocatore Online PeerJS)</title>
+  <link rel="icon" href="data:," />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/": "https://cdn.jsdelivr.net/npm/three@0.170.0/",
+        "peerjs": "https://esm.sh/peerjs@1.5.5"
+      }
+    }
+  </script>
   <style>
     * {
       box-sizing: border-box;
@@ -2072,7 +2082,7 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 
 </html>
