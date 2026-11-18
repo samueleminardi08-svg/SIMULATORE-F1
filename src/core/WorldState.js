@@ -18,6 +18,7 @@ import {
   resolveTrackBarrierCollision,
 } from '../physics/Collisions.js';
 import { createTrackSurface } from '../tracks/TrackSurface.js';
+import { DEFAULT_TRACK_ID, getTrackById } from '../tracks/calendar2026/index.js';
 import { computeBotInput } from '../ai/BotController.js';
 import {
   createSessionTimingState,
@@ -157,6 +158,9 @@ export class WorldState {
    * @param {string} [localPlayerId=LOCAL_PLAYER_ID]
    */
   startSession(config = {}, localPlayerId = LOCAL_PLAYER_ID) {
+    if (config.trackId && config.trackId !== this.trackData?.id) {
+      this.setTrack(getTrackById(config.trackId));
+    }
     if (!this.trackSurface) return;
 
     const mode =
@@ -193,6 +197,7 @@ export class WorldState {
     this.careerRewardGranted = false;
     this.lastCareerReward = null;
     this.sessionConfig = {
+      trackId: this.trackData?.id || DEFAULT_TRACK_ID,
       mode,
       difficultyId,
       withBots,
@@ -776,6 +781,7 @@ export class WorldState {
     return {
       tick: this.tick,
       elapsedTime: this.elapsedTime,
+      trackId: this.trackData?.id || this.sessionConfig?.trackId || DEFAULT_TRACK_ID,
       weather: this.weather,
       difficultyId: this.difficultyId,
       careerRewardGranted: this.careerRewardGranted,
@@ -798,6 +804,10 @@ export class WorldState {
    */
   applySnapshot(snapshot) {
     if (!snapshot) return;
+    const incomingTrackId = snapshot.trackId || snapshot.sessionConfig?.trackId;
+    if (incomingTrackId && incomingTrackId !== this.trackData?.id) {
+      this.setTrack(getTrackById(incomingTrackId));
+    }
     this.tick = snapshot.tick ?? this.tick;
     this.elapsedTime = snapshot.elapsedTime ?? this.elapsedTime;
     if (snapshot.weather) {

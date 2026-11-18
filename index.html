@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gioco F1 3D — Step 10 (Multigiocatore Online PeerJS)</title>
+  <title>Gioco F1 3D — Step 11 (Calendario F1 2026)</title>
   <link rel="icon" href="data:," />
   <script type="importmap">
     {
@@ -50,11 +50,22 @@
       pointer-events: none;
     }
 
-    /* 1. Alto a sinistra: Intestazione e comandi rapidi */
-    #hud-top-left {
+    /* Contenitore verticale sinistro per evitare sovrapposizioni HUD */
+    #hud-left-stack {
+      position: fixed;
       top: 14px;
       left: 14px;
       width: 248px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    /* 1. Alto a sinistra: Intestazione e comandi rapidi */
+    #hud-top-left {
+      position: static;
+      width: 100%;
       padding: 10px 12px;
       pointer-events: auto;
     }
@@ -71,9 +82,10 @@
       font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       color: #e10600;
       margin-bottom: 0;
+      white-space: nowrap;
     }
 
     #hud-open-menu-btn {
@@ -151,9 +163,8 @@
 
     /* 2. A sinistra: Torre Delta e Tempi Giri stile F1 */
     #f1-left-delta-panel {
-      top: 178px;
-      left: 14px;
-      width: 248px;
+      position: static;
+      width: 100%;
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
@@ -226,7 +237,7 @@
     }
 
     #hud-driver-rows {
-      max-height: clamp(86px, calc(100vh - 585px), 200px);
+      max-height: clamp(64px, calc(100vh - 615px), 175px);
       overflow-y: auto;
       pointer-events: auto;
       display: flex;
@@ -1540,7 +1551,9 @@
     #menu-finite-laps-input,
     #career-player-name,
     #career-team-select,
-    #menu-driver-select {
+    #menu-driver-select,
+    #menu-track-select,
+    #mp-track-select {
       width: 100%;
       background: #0f172a;
       border: 1px solid #475569;
@@ -1682,13 +1695,15 @@
   <!-- Banner Direzione Gara Track Limits -->
   <div id="track-limits-banner"></div>
 
+  <!-- Colonna HUD sinistra (info sessione + torre delta senza sovrapposizioni) -->
+  <div id="hud-left-stack">
   <!-- 1. Alto a sinistra: Circuito, stato sessione e comandi -->
   <div id="hud-top-left" class="hud-card">
     <div class="hud-top-header">
-      <div class="overlay-title">Formula 1 3D — Step 10</div>
+      <div class="overlay-title">Formula 1 3D — Step 11</div>
       <button id="hud-open-menu-btn" type="button">Menu</button>
     </div>
-    <div id="track-name" class="overlay-subtitle">Autodromo Nazionale Monza</div>
+    <div id="track-name" class="overlay-subtitle">Albert Park Circuit — Australia</div>
     <div class="session-badges-row">
       <span id="hud-mode-badge" class="session-badge badge-mode-practice">Carriera</span>
       <span id="hud-difficulty-badge" class="session-badge badge-diff-intermediate">Intermedio</span>
@@ -1736,6 +1751,7 @@
       <div class="tower-title">Classifica &amp; Distacchi</div>
       <div id="hud-driver-rows"></div>
     </div>
+  </div>
   </div>
 
   <!-- 3. In basso a sinistra: Minimappa circuito -->
@@ -2007,6 +2023,11 @@
           </div>
         </div>
 
+        <div class="menu-section">
+          <div class="menu-section-label">Circuito Calendario F1 2026</div>
+          <select id="menu-track-select"></select>
+        </div>
+
         <button id="menu-start-btn" type="button">SCENDI IN PISTA ▶</button>
       </div>
 
@@ -2059,6 +2080,8 @@
         </div>
 
         <div id="mp-host-controls" class="menu-section" style="display: none;">
+          <div class="menu-section-label">Circuito Weekend Online</div>
+          <select id="mp-track-select"></select>
           <div class="menu-section-label">Formato Weekend Online</div>
           <div class="menu-btn-group">
             <button type="button" class="menu-choice-btn is-selected" data-mp-format="qualifying">Qualifiche Q1–Q3 + Gara 10 Giri</button>

@@ -19,7 +19,7 @@ export function computeStartingGridTransforms(
   options = {}
 ) {
   const { samples, sampleCount, totalLength } = trackSurface;
-  const startQ = queryTrackSurface(trackSurface, startLinePos.x ?? 0, startLinePos.z ?? 0);
+  const startQ = queryTrackSurface(trackSurface, startLinePos.x ?? 0, startLinePos.z ?? 0, 0);
   const startArc = startQ.arcDistance;
   const spacing = options.spacingMeters ?? 7.8;
 
@@ -29,14 +29,29 @@ export function computeStartingGridTransforms(
     const lateralOffset = i % 2 === 0 ? -2.75 : 2.75; // P1 a destra (-X), P2 a sinistra (+X)
 
     const targetArc = (startArc - backDist + totalLength) % totalLength;
-    const rawIdx = Math.floor((targetArc / totalLength) * sampleCount) % sampleCount;
-    const s = samples[rawIdx];
+    const fIdx = (targetArc / totalLength) * sampleCount;
+    const i0 = Math.floor(fIdx) % sampleCount;
+    const i1 = (i0 + 1) % sampleCount;
+    const alpha = fIdx - Math.floor(fIdx);
+    const a = samples[i0];
+    const b = samples[i1];
+
+    const sx = a.x + (b.x - a.x) * alpha;
+    const sy = a.y + (b.y - a.y) * alpha;
+    const sz = a.z + (b.z - a.z) * alpha;
+    const rawTx = a.tx + (b.tx - a.tx) * alpha;
+    const rawTz = a.tz + (b.tz - a.tz) * alpha;
+    const tLen = Math.max(1e-6, Math.hypot(rawTx, rawTz));
+    const tx = rawTx / tLen;
+    const tz = rawTz / tLen;
+    const nx = tz;
+    const nz = -tx;
 
     transforms.push({
-      x: s.x + s.nx * lateralOffset,
-      y: s.y,
-      z: s.z + s.nz * lateralOffset,
-      heading: Math.atan2(s.tx, s.tz),
+      x: sx + nx * lateralOffset,
+      y: sy,
+      z: sz + nz * lateralOffset,
+      heading: Math.atan2(tx, tz),
       gridPosition: i + 1,
     });
   }

@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "src/config/constants.js": {
-    "mtime": 1794953868.9921303,
-    "seen": 1794954080.3812623,
-    "ast_hash": "e27b579c1092f682ecd2a561f41bf125",
+    "mtime": 1795022592.0603395,
+    "seen": 1795022623.9665065,
+    "ast_hash": "4b8fbf253c1b5ea0bdf2609f34c95f66",
     "semantic_hash": ""
   },
   "src/core/GameLoop.js": {
@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "src/core/WorldState.js": {
-    "mtime": 1794959435.179731,
-    "seen": 1794961414.6407926,
-    "ast_hash": "e7d784c0badc0a1f2f5f08374e70633c",
+    "mtime": 1795019777.7765772,
+    "seen": 1795019915.544183,
+    "ast_hash": "a16a158d3b8b4aec779d060c92b99490",
     "semantic_hash": ""
   },
   "src/input/InputManager.js": {
@@ -48,27 +48,27 @@
     "semantic_hash": ""
   },
   "src/main.js": {
-    "mtime": 1794959435.2228463,
-    "seen": 1794961414.6407955,
-    "ast_hash": "1668537733aba6cda0b5166d90624e06",
+    "mtime": 1795020006.8286638,
+    "seen": 1795021275.718129,
+    "ast_hash": "ec44bb2898c17c30e9b8d480b66cf262",
     "semantic_hash": ""
   },
   "src/physics/CarPhysics.js": {
-    "mtime": 1794958557.4821868,
-    "seen": 1794958756.9608698,
-    "ast_hash": "ec7775b8b129b23e22ee245e5a2bc68f",
+    "mtime": 1795022588.4162984,
+    "seen": 1795022623.9665165,
+    "ast_hash": "bd0f020d21767a65e10ed49a1b19978c",
     "semantic_hash": ""
   },
   "src/rendering/SceneManager.js": {
-    "mtime": 1794958787.9096193,
-    "seen": 1794959402.5894525,
-    "ast_hash": "2202826d5c45d9023696f675be52ea3c",
+    "mtime": 1795019782.492058,
+    "seen": 1795019915.5442028,
+    "ast_hash": "4ecd08c29ff07069c8228f6f6afe7a55",
     "semantic_hash": ""
   },
   "src/tracks/TrackBuilder.js": {
-    "mtime": 1794954803.701752,
-    "seen": 1794954901.5419133,
-    "ast_hash": "8801c76d64673c279a38d4ed6ba47199",
+    "mtime": 1795022563.4637637,
+    "seen": 1795022623.966525,
+    "ast_hash": "df5ad7ef9d7855176170689850827257",
     "semantic_hash": ""
   },
   "src/tracks/test_track.js": {
@@ -84,39 +84,39 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1794962193.7816877,
-    "seen": 1794962207.2354484,
-    "ast_hash": "c7ae7e944f5a97e7b5285d92e1306e19",
+    "mtime": 1795021435.6763852,
+    "seen": 1795021555.7539275,
+    "ast_hash": "851fcaa6c777fa48d065b4ca6e5f5025",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
-    "mtime": 1794961437.4709065,
-    "seen": 1794962207.2354326,
-    "ast_hash": "a7a2f5bde494819fc8c2d6be7f835c23",
+    "mtime": 1795021435.8328495,
+    "seen": 1795021555.7538927,
+    "ast_hash": "3ebf224234ca37b7aa9ceb0a3679caec",
     "semantic_hash": ""
   },
   "src/physics/Collisions.js": {
-    "mtime": 1794954727.0911484,
-    "seen": 1794954901.5419075,
-    "ast_hash": "c7679ce102bc7240a37ef31e5b5b679b",
+    "mtime": 1795022589.5270896,
+    "seen": 1795022623.9665172,
+    "ast_hash": "116be6be498be4fce5a6b512dbab8d27",
     "semantic_hash": ""
   },
   "src/tracks/TrackSurface.js": {
-    "mtime": 1794953468.5008767,
-    "seen": 1794953557.0523188,
-    "ast_hash": "93ef8f3d30247ca073e39c18a390bad9",
+    "mtime": 1795022473.4105306,
+    "seen": 1795022623.966526,
+    "ast_hash": "8f9a08cc6c5598235ca7aa1d3684b518",
     "semantic_hash": ""
   },
   "src/tracks/calendar2026/monza.js": {
-    "mtime": 1794953466.9291224,
-    "seen": 1794953557.0523195,
-    "ast_hash": "c7604d9d96cea9bb7f7a958f3199657b",
+    "mtime": 1795022524.1129444,
+    "seen": 1795022623.9665432,
+    "ast_hash": "d3122681fb5e58faf3517be6be0442a2",
     "semantic_hash": ""
   },
   "src/ui/TrackMapHud.js": {
-    "mtime": 1794953568.0614297,
-    "seen": 1794954080.3812826,
-    "ast_hash": "db58f62533f27e92abfaf6ba640183b6",
+    "mtime": 1795022596.1275697,
+    "seen": 1795022623.9665537,
+    "ast_hash": "b1de3304eeab14316e15d63dc3924be9",
     "semantic_hash": ""
   },
   "src/race/TimingSystem.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "src/race/RaceManager.js": {
-    "mtime": 1794959435.4099674,
-    "seen": 1794961414.6408029,
-    "ast_hash": "651900a577c667447f2405371a47a923",
+    "mtime": 1795022590.7610335,
+    "seen": 1795022623.96652,
+    "ast_hash": "ad9088bfb56e85a7d57a138305f8e850",
     "semantic_hash": ""
   },
   "src/cars/CarSpecs.js": {
@@ -174,21 +174,21 @@
     "semantic_hash": ""
   },
   "src/ui/MenuManager.js": {
-    "mtime": 1794959435.5633202,
-    "seen": 1794961414.6408134,
-    "ast_hash": "cb0388fa53f6b362bc393d11a63c2c25",
+    "mtime": 1795019849.446891,
+    "seen": 1795019915.5442173,
+    "ast_hash": "d6a3bb56e973c4dc173ea1ea09e45673",
     "semantic_hash": ""
   },
   "src/race/QualifyingManager.js": {
-    "mtime": 1794959435.3397944,
-    "seen": 1794961414.640802,
-    "ast_hash": "52181c11f953bb004c2e2d020280d297",
+    "mtime": 1795020006.8964713,
+    "seen": 1795021275.7181363,
+    "ast_hash": "3eeeba8641c694a98ffae5e1609c9c41",
     "semantic_hash": ""
   },
   "src/career/CareerStorage.js": {
-    "mtime": 1794958562.5677302,
-    "seen": 1794958756.9608567,
-    "ast_hash": "b558de179a844df6650b1a7854031211",
+    "mtime": 1795019781.0988514,
+    "seen": 1795019915.54417,
+    "ast_hash": "c2e908e43d8f58c69445ec174c644cfa",
     "semantic_hash": ""
   },
   "src/rendering/GarageScene3D.js": {
@@ -207,6 +207,156 @@
     "mtime": 1794962195.3800387,
     "seen": 1794962207.2354443,
     "ast_hash": "2be309a117bd27a88d1898f4c2ac9823",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/index.js": {
+    "mtime": 1795022524.5534418,
+    "seen": 1795022623.966534,
+    "ast_hash": "85b8471d2fadc8f82a28f3a7ab0bc74f",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/melbourne.js": {
+    "mtime": 1795022521.0035465,
+    "seen": 1795022623.9665384,
+    "ast_hash": "8117f25936b8d809968f2c5a6639f735",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/shanghai.js": {
+    "mtime": 1795022521.2511585,
+    "seen": 1795022623.9665449,
+    "ast_hash": "24c25751898bfffc8aa28f555c77d8a4",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/suzuka.js": {
+    "mtime": 1795022522.1372273,
+    "seen": 1795022623.9665484,
+    "ast_hash": "e121b48e35da260d831bbb464c74a735",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/bahrain.js": {
+    "mtime": 1795022522.3668954,
+    "seen": 1795022623.96653,
+    "ast_hash": "91e6b58636399c45bbf4e400b0a400f4",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/jeddah.js": {
+    "mtime": 1795022522.575303,
+    "seen": 1795022623.9665356,
+    "ast_hash": "90899e681b3c673ae12195aecea394bf",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/miami.js": {
+    "mtime": 1795022522.7843628,
+    "seen": 1795022623.9665403,
+    "ast_hash": "b2220a3a3dfce83a5240cb4482163f26",
+    "semantic_hash": ""
+  },
+  "scripts/generate_f1_2026_tracks.mjs": {
+    "mtime": 1795022511.0401561,
+    "seen": 1795022623.9664972,
+    "ast_hash": "0c6f1fcdf5e65c18328900e5e12b6106",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/abu_dhabi.js": {
+    "mtime": 1795022524.5534418,
+    "seen": 1795022623.966527,
+    "ast_hash": "a64a4a6eed5ed47ee7880f5031fd364b",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/austin.js": {
+    "mtime": 1795022524.33224,
+    "seen": 1795022623.966528,
+    "ast_hash": "3337aa6d9889534473df1739b2f037bb",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/austria.js": {
+    "mtime": 1795022522.9875252,
+    "seen": 1795022623.9665291,
+    "ast_hash": "32aa92e1a5c92356070942a3924b322e",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/baku.js": {
+    "mtime": 1795022524.230495,
+    "seen": 1795022623.966531,
+    "ast_hash": "2f27cc6ed2a166560becf6c03d0d7a00",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/barcelona.js": {
+    "mtime": 1795022522.9395597,
+    "seen": 1795022623.966532,
+    "ast_hash": "874d50e5ffb0d73fdc0b693c2d71df8e",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/hungaroring.js": {
+    "mtime": 1795022523.1341548,
+    "seen": 1795022623.966533,
+    "ast_hash": "7bfafefbe0256e108749caa10e02ef3c",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/interlagos.js": {
+    "mtime": 1795022524.4209104,
+    "seen": 1795022623.9665349,
+    "ast_hash": "ec20248c8787f63028964723cbd49026",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/las_vegas.js": {
+    "mtime": 1795022524.470576,
+    "seen": 1795022623.9665368,
+    "ast_hash": "0d06c0a39014e6735a98eec4a8711e03",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/madrid.js": {
+    "mtime": 1795022524.1638296,
+    "seen": 1795022623.9665375,
+    "ast_hash": "af97c14ef5a090368af988b7be20eab2",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/mexico.js": {
+    "mtime": 1795022524.3710308,
+    "seen": 1795022623.9665394,
+    "ast_hash": "90b617232fd3309edd0a64c051884f22",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/monaco.js": {
+    "mtime": 1795022522.895076,
+    "seen": 1795022623.9665413,
+    "ast_hash": "faa5669ad1609b7a5552762f54511c60",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/montreal.js": {
+    "mtime": 1795022522.8465137,
+    "seen": 1795022623.966542,
+    "ast_hash": "fb451056852247a78d19ece3a8d0a363",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/qatar.js": {
+    "mtime": 1795022524.5093331,
+    "seen": 1795022623.966544,
+    "ast_hash": "66c5422911347bfe713221dd2fc6df86",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/silverstone.js": {
+    "mtime": 1795022523.0419903,
+    "seen": 1795022623.9665458,
+    "ast_hash": "b9399271fcd3d5dd4d507f2776aff25a",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/singapore.js": {
+    "mtime": 1795022524.2857034,
+    "seen": 1795022623.9665468,
+    "ast_hash": "cec0be318336a5b303e48970c770df5b",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/spa.js": {
+    "mtime": 1795022523.0881927,
+    "seen": 1795022623.9665475,
+    "ast_hash": "b242c9a87230442aff03c996449c34f5",
+    "semantic_hash": ""
+  },
+  "src/tracks/calendar2026/zandvoort.js": {
+    "mtime": 1795022523.1784983,
+    "seen": 1795022623.9665492,
+    "ast_hash": "3a2f1fe2e23c5d5b3637d0945bd96597",
     "semantic_hash": ""
   },
   "package-lock.json": {

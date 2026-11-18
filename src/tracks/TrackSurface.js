@@ -49,7 +49,7 @@ function evalCentripetalSegment(p0, p1, p2, p3, u) {
  * @param {object} trackData
  * @param {number} [sampleCount=1400]
  */
-export function createTrackSurface(trackData, sampleCount = 1400) {
+export function createTrackSurface(trackData, sampleCount = 1600) {
   const pts = trackData.controlPoints;
   const nPts = pts.length;
   const rawStepsPerSeg = 32;
@@ -87,6 +87,8 @@ export function createTrackSurface(trackData, sampleCount = 1400) {
   let rawIdx = 0;
   let minX = Infinity;
   let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
   let minZ = Infinity;
   let maxZ = -Infinity;
 
@@ -108,6 +110,8 @@ export function createTrackSurface(trackData, sampleCount = 1400) {
 
     if (x < minX) minX = x;
     if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
     if (z < minZ) minZ = z;
     if (z > maxZ) maxZ = z;
 
@@ -120,6 +124,11 @@ export function createTrackSurface(trackData, sampleCount = 1400) {
       tz: 1,
       nx: 1,
       nz: 0,
+      curvature: 0,
+      radius: 100000,
+      hasKerb: false,
+      leftBarrierOffset: 0,
+      rightBarrierOffset: 0,
     });
   }
 
@@ -139,10 +148,85 @@ export function createTrackSurface(trackData, sampleCount = 1400) {
     samples[i].nz = -tx;
   }
 
+  // Curvatura locale e maschera cordoli sugli apex (R < 260m, espansa di ±6 campioni)
+  const chordSpan = 3;
+  const curvWindowRadius = 6;
+  const rawKerbMask = new Array(sampleCount).fill(false);
+
+  for (let i = 0; i < sampleCount; i++) {
+    const a = samples[(i - chordSpan + sampleCount) % sampleCount];
+    const b = samples[(i + chordSpan) % sampleCount];
+    const cross = a.tx * b.tz - a.tz * b.tx;
+    const dot = a.tx * b.tx + a.tz * b.tz;
+    const dTheta = Math.abs(Math.atan2(cross, dot));
+    const arcSpan = Math.max(1e-3, (2 * chordSpan * totalLength) / sampleCount);
+    const kappa = dTheta / arcSpan;
+    const radius = 1 / Math.max(1e-5, kappa);
+    samples[i].curvature = kappa;
+    samples[i].radius = radius;
+    if (radius < 260) {
+      rawKerbMask[i] = true;
+    }
+  }
+
+  for (let i = 0; i < sampleCount; i++) {
+    let hasKerb = false;
+    for (let k = -curvWindowRadius; k <= curvWindowRadius; k++) {
+      if (rawKerbMask[(i + k + sampleCount) % sampleCount]) {
+        hasKerb = true;
+        break;
+      }
+    }
+    samples[i].hasKerb = hasKerb;
+  }
+
   const halfTrackWidth = trackData.trackWidth * 0.5;
   const kerbWidth = trackData.kerbWidth ?? 1.4;
   const barrierHalfWidth = trackData.barrierOffset ?? (halfTrackWidth + kerbWidth + 7.5);
   const sectorSplits = trackData.sectorSplits || [0.33, 0.66, 1.0];
+
+  // Calcolo offset barriere adattivo per evitare intrusioni tra tratti adiacenti sullo stesso livello
+  const rawLeftOffsets = new Array(sampleCount).fill(barrierHalfWidth);
+  const rawRightOffsets = new Array(sampleCount).fill(barrierHalfWidth);
+  const minNonAdjIndexGap = 40;
+  const checkMaxDistSq = (barrierHalfWidth * 2.2) ** 2;
+
+  for (let i = 0; i < sampleCount; i++) {
+    const s = samples[i];
+    for (let j = 0; j < sampleCount; j++) {
+      const idxDiff = Math.abs(i - j);
+      if (idxDiff <= minNonAdjIndexGap || sampleCount - idxDiff <= minNonAdjIndexGap) {
+        continue;
+      }
+      const o = samples[j];
+      if (Math.abs(s.y - o.y) >= 3.5) continue;
+      const dx = o.x - s.x;
+      const dz = o.z - s.z;
+      const distSq = dx * dx + dz * dz;
+      if (distSq >= checkMaxDistSq) continue;
+
+      const dist = Math.sqrt(distSq);
+      const latProj = dx * s.nx + dz * s.nz;
+      const clamped = Math.max(halfTrackWidth + 0.75, 0.48 * dist);
+      if (latProj >= 0 && clamped < rawLeftOffsets[i]) {
+        rawLeftOffsets[i] = clamped;
+      } else if (latProj < 0 && clamped < rawRightOffsets[i]) {
+        rawRightOffsets[i] = clamped;
+      }
+    }
+  }
+
+  for (let i = 0; i < sampleCount; i++) {
+    let sumL = 0;
+    let sumR = 0;
+    for (let k = -3; k <= 3; k++) {
+      const idx = (i + k + sampleCount) % sampleCount;
+      sumL += rawLeftOffsets[idx];
+      sumR += rawRightOffsets[idx];
+    }
+    samples[i].leftBarrierOffset = sumL / 7;
+    samples[i].rightBarrierOffset = sumR / 7;
+  }
 
   return {
     id: trackData.id,
@@ -154,7 +238,7 @@ export function createTrackSurface(trackData, sampleCount = 1400) {
     kerbWidth,
     barrierHalfWidth,
     sectorSplits,
-    bounds: { minX, maxX, minZ, maxZ },
+    bounds: { minX, maxX, minY, maxY, minZ, maxZ },
   };
 }
 
@@ -237,13 +321,14 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
   const nx = tz;
   const nz = -tx;
 
+  const elevation = a.y + (b.y - a.y) * tSeg;
   const lateralOffset = (x - match.bestProjX) * nx + (z - match.bestProjZ) * nz;
   const absOffset = Math.abs(lateralOffset);
 
   let surface = 'grass';
   if (absOffset <= halfTrackWidth) {
     surface = 'asphalt';
-  } else if (absOffset <= halfTrackWidth + kerbWidth) {
+  } else if (absOffset <= halfTrackWidth + kerbWidth && a.hasKerb) {
     surface = 'kerb';
   }
 
@@ -251,6 +336,7 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
 
   return {
     surface,
+    elevation,
     lateralOffset,
     absOffset,
     sampleIndex: match.bestIdx,
@@ -261,6 +347,9 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
     tz,
     nx,
     nz,
-    barrierHalfWidth,
+    barrierHalfWidth:
+      lateralOffset >= 0
+        ? (a.leftBarrierOffset ?? barrierHalfWidth)
+        : (a.rightBarrierOffset ?? barrierHalfWidth),
   };
 }

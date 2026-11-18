@@ -1,6 +1,7 @@
 /**
- * Entry point principale del Gioco F1 3D (Step 10).
- * Integra Showroom Garage 3D, Multigiocatore Online PeerJS + BroadcastChannel
+ * Entry point principale del Gioco F1 3D (Step 11).
+ * Integra Selettore Circuiti F1 2026 (Australia, Cina, Giappone, Monza),
+ * Showroom Garage 3D, Multigiocatore Online PeerJS + BroadcastChannel
  * con codice stanza e voto unanime per lo skip delle qualifiche, Carriera,
  * Qualifiche Q1/Q2/Q3, Track Limits, Prove Libere e Gara da 10 Giri.
  */
@@ -9,12 +10,16 @@ import { LOCAL_PLAYER_ID } from './config/constants.js';
 import { WorldState } from './core/WorldState.js';
 import { GameLoop } from './core/GameLoop.js';
 import { InputManager } from './input/InputManager.js';
-import { MONZA_TRACK_DATA } from './tracks/calendar2026/monza.js';
+import { getTrackById, getNextCalendarTrackId } from './tracks/calendar2026/index.js';
 import { SceneManager } from './rendering/SceneManager.js';
 import { TrackMapHud } from './ui/TrackMapHud.js';
 import { HudOverlay } from './ui/HudOverlay.js';
 import { MenuManager } from './ui/MenuManager.js';
-import { loadCareerState, recordCareerRaceResult } from './career/CareerStorage.js';
+import {
+  loadCareerState,
+  recordCareerRaceResult,
+  updateCareerProfile,
+} from './career/CareerStorage.js';
 import { RoomManager } from './network/RoomManager.js';
 
 function initGame() {
@@ -26,19 +31,42 @@ function initGame() {
   const hudSkipQualiBtn = document.getElementById('hud-skip-quali-btn');
   const qualiNextBtn = document.getElementById('quali-next-btn');
   const qualiSkipToRaceBtn = document.getElementById('quali-skip-to-race-btn');
-  const activeTrack = MONZA_TRACK_DATA;
 
-  // 0. Caricamento Carriera persistente da localStorage
+  // 0. Caricamento Carriera persistente da localStorage e circuito attivo
   let careerState = loadCareerState();
+  let activeTrack = getTrackById(careerState.selectedTrackId);
   let menuManager = null;
+  let hudOverlay = null;
+  let trackMapHud = null;
 
   // 1. Stato puro della simulazione & gestore input (WASD + Frecce + C + R + ESC)
   const worldState = new WorldState(activeTrack);
   const inputManager = new InputManager(window);
 
-  // 2. Scena 3D, HUD F1 e Minimappa circuito
+  // 2. Scena 3D
   const sceneManager = new SceneManager(canvas, activeTrack);
-  let hudOverlay = null;
+
+  const applyActiveTrack = (trackId) => {
+    const nextTrack = getTrackById(trackId);
+    if (!nextTrack) return activeTrack;
+    if (
+      activeTrack?.id === nextTrack.id &&
+      worldState.trackData?.id === nextTrack.id &&
+      sceneManager.trackData?.id === nextTrack.id
+    ) {
+      return activeTrack;
+    }
+    activeTrack = nextTrack;
+    worldState.setTrack(activeTrack);
+    sceneManager.setTrack(activeTrack);
+    if (hudOverlay) {
+      hudOverlay.setTrackName(`${activeTrack.name} — ${activeTrack.country}`);
+    }
+    if (trackMapHud) {
+      trackMapHud.setTrackSurface(worldState.trackSurface);
+    }
+    return activeTrack;
+  };
 
   // 3. Gestore Multigiocatore P2P (PeerJS + BroadcastChannel)
   const roomManager = new RoomManager({
@@ -51,6 +79,10 @@ function initGame() {
     },
     onSessionStart: (sessionConfig, snapshot) => {
       if (!menuManager) return;
+      const incomingTrackId = snapshot?.trackId || sessionConfig?.trackId;
+      if (incomingTrackId && incomingTrackId !== activeTrack.id) {
+        applyActiveTrack(incomingTrackId);
+      }
       menuManager.hasActiveSession = true;
       menuManager.activeTab = null;
       menuManager.close();
@@ -66,6 +98,10 @@ function initGame() {
     },
     onSnapshot: (snapshot) => {
       if (roomManager.isClient() && snapshot) {
+        const incomingTrackId = snapshot.trackId || snapshot.sessionConfig?.trackId;
+        if (incomingTrackId && incomingTrackId !== activeTrack.id) {
+          applyActiveTrack(incomingTrackId);
+        }
         worldState.applySnapshot(snapshot);
       }
     },
@@ -91,23 +127,28 @@ function initGame() {
         fastestLap,
         polePosition,
       });
-      careerState = result.state;
+      const nextTrackId = getNextCalendarTrackId(activeTrack.id);
+      careerState = updateCareerProfile(result.state, { selectedTrackId: nextTrackId });
+      result.state = careerState;
       hudOverlay.setCareerBalance(careerState.money);
       if (menuManager) {
         menuManager.setCareerState(careerState);
       }
-      return result;
+      return { ...result, careerState };
     },
   });
-  hudOverlay.setTrackName(activeTrack.name);
+  hudOverlay.setTrackName(`${activeTrack.name} — ${activeTrack.country}`);
   hudOverlay.setCameraLabel(sceneManager.getCameraMode().label);
   hudOverlay.setCareerBalance(careerState.money);
 
-  const trackMapHud = trackMapCanvas
+  trackMapHud = trackMapCanvas
     ? new TrackMapHud(trackMapCanvas, worldState.trackSurface, { size: 186, padding: 16 })
     : null;
 
   const startConfiguredSession = (config) => {
+    if (config?.trackId) {
+      applyActiveTrack(config.trackId);
+    }
     hudOverlay.hideRaceFinish();
     hudOverlay.hideQualifyingModal();
     hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
@@ -123,14 +164,20 @@ function initGame() {
       careerState = nextCareerState;
       hudOverlay.setCareerBalance(careerState.money);
     },
+    onTrackChange: (trackId) => {
+      if (!menuManager?.hasActiveSession) {
+        applyActiveTrack(trackId);
+      }
+    },
     onShowroomUpdate: (isOpen, appearance, viewMode) => {
       sceneManager.setGarageMode(isOpen, appearance, viewMode);
     },
     onToggleCameraRotate: () => sceneManager.toggleGarageCameraRotate(),
-    onStartMultiplayerSession: ({ mode, difficultyId, weather }) => {
+    onStartMultiplayerSession: ({ mode, difficultyId, weather, trackId }) => {
       if (!roomManager.isHost()) return;
       const humanPlayers = roomManager.getPlayers();
       const config = {
+        trackId: trackId || activeTrack.id,
         mode,
         difficultyId,
         weather,

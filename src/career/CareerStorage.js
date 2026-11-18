@@ -114,6 +114,10 @@ export function createDefaultCareerState(overrides = {}) {
     playerName,
     playerCode: deriveDriverCode(playerName),
     teamId,
+    selectedTrackId:
+      typeof overrides.selectedTrackId === 'string' && overrides.selectedTrackId
+        ? overrides.selectedTrackId
+        : 'albert_park_2026',
     careerFormat: overrides.careerFormat === 'race' ? 'race' : 'qualifying',
     money:
       Number.isFinite(overrides.money) && overrides.money >= 0
@@ -191,6 +195,7 @@ export function updateCareerProfile(state, updates = {}, explicitStorage = null)
     ...state,
     ...(updates.playerName !== undefined ? { playerName: updates.playerName } : {}),
     ...(updates.teamId !== undefined ? { teamId: updates.teamId } : {}),
+    ...(updates.selectedTrackId !== undefined ? { selectedTrackId: updates.selectedTrackId } : {}),
     ...(updates.careerFormat !== undefined ? { careerFormat: updates.careerFormat } : {}),
   });
   return saveCareerState(next, explicitStorage);

@@ -379,6 +379,14 @@ export function stepCarPhysics(
 
   car.x += car.vx * dt;
   car.z += car.vz * dt;
+  if (trackSurface) {
+    const postQuery = queryTrackSurface(trackSurface, car.x, car.z, car.trackSampleIndex);
+    car.surface = postQuery.surface;
+    car.y = postQuery.elevation ?? 0;
+    car.trackSampleIndex = postQuery.sampleIndex;
+  } else {
+    car.y = 0;
+  }
 
   // 10. Rotazione visiva ruote (le anteriori si bloccano durante wheelLockup)
   const wheelDelta = (newForwardSpeed / cfg.wheelRadius) * dt;

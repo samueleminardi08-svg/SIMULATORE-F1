@@ -4,12 +4,13 @@
   "2": "package.json",
   "3": "constants.js",
   "4": "SceneManager",
-  "5": "main.js",
+  "5": "index.js",
   "6": "CareerStorage.js",
   "7": "initGame",
   "8": "main.js",
   "9": "test_track.js",
-  "10": "TimingSystem.js",
+  "10": "TrackMapHud",
   "11": "WorldState.js",
-  "12": "vite.config.js"
+  "12": "vite.config.js",
+  "13": "TimingSystem.js"
 }

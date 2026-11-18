@@ -291,6 +291,51 @@ export class SceneManager {
     return this.garageScene.toggleAutoRotate();
   }
 
+  setTrack(trackData) {
+    if (!trackData || (this.trackData?.id === trackData.id && this.trackGroup)) {
+      return;
+    }
+
+    if (this.trackGroup) {
+      this.scene.remove(this.trackGroup);
+      const disposed = new Set();
+      this.trackGroup.traverse((obj) => {
+        if (obj.geometry && !disposed.has(obj.geometry)) {
+          disposed.add(obj.geometry);
+          obj.geometry.dispose();
+        }
+        const mats = Array.isArray(obj.material)
+          ? obj.material
+          : obj.material
+            ? [obj.material]
+            : [];
+        for (const mat of mats) {
+          if (mat.map && !disposed.has(mat.map)) {
+            disposed.add(mat.map);
+            mat.map.dispose();
+          }
+          if (!disposed.has(mat)) {
+            disposed.add(mat);
+            mat.dispose();
+          }
+        }
+      });
+    }
+
+    this.trackData = trackData;
+    const builtTrack = buildTrackMeshGroup(this.trackData);
+    this.trackGroup = builtTrack.group;
+    this.trackSurface = builtTrack.trackSurface;
+    this.asphaltMaterial = builtTrack.asphaltMaterial;
+    this.trackGroup.visible = !this.isGarageMode;
+    this.scene.add(this.trackGroup);
+
+    this._currentWeather = null;
+    if (!this.isGarageMode) {
+      this._updateWeatherVisuals(this._lastRenderedWeather || 'dry');
+    }
+  }
+
   /**
    * Sincronizza tutte le vetture presenti in WorldState, meteo, particelle e camera.
    * @param {import('../core/WorldState.js').WorldState} worldState

@@ -115,7 +115,7 @@ export function computeSimulatedQualifyingLap(driverId, car, worldState, stageIn
   const isRain = worldState.weather === 'rain';
 
   const sectorSum = worldState.sessionTiming?.overallBestSectors?.reduce((s, v) => s + v, 0);
-  const baseRefLap = Number.isFinite(sectorSum) && sectorSum > 65 ? Math.min(88, Math.max(76, sectorSum)) : 81.2;
+  const baseRefLap = Number.isFinite(sectorSum) && sectorSum > 65 ? Math.min(108, Math.max(68, sectorSum)) : 81.2;
 
   const stageFactor = stageIndex === 0 ? 1.006 : stageIndex === 1 ? 1.001 : 0.996;
   const perfSpread = (0.98 - rawPerf) * 28.0; // ~0.1s..3.2s tra top team e fondo griglia

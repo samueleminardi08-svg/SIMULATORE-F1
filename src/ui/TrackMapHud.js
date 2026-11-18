@@ -37,8 +37,8 @@ export class TrackMapHud {
     this._scale = 1;
     this._offsetX = 0;
     this._offsetY = 0;
-    this._maxX = 0;
-    this._maxZ = 0;
+    this._minX = 0;
+    this._minZ = 0;
 
     this._sectorBuckets = [[], [], []];
     this._sectorBoundaries = [];
@@ -61,8 +61,8 @@ export class TrackMapHud {
     if (!trackSurface) return;
 
     const { minX, maxX, minZ, maxZ } = trackSurface.bounds;
-    this._maxX = maxX;
-    this._maxZ = maxZ;
+    this._minX = minX;
+    this._minZ = minZ;
 
     const spanX = Math.max(1, maxX - minX);
     const spanZ = Math.max(1, maxZ - minZ);
@@ -81,8 +81,8 @@ export class TrackMapHud {
 
   _worldToMap(x, z) {
     return {
-      x: this._offsetX + (this._maxX - x) * this._scale,
-      y: this._offsetY + (this._maxZ - z) * this._scale,
+      x: this._offsetX + (x - this._minX) * this._scale,
+      y: this._offsetY + (z - this._minZ) * this._scale,
     };
   }
 
@@ -241,8 +241,8 @@ export class TrackMapHud {
     const fillColor = isLocalPlayer ? '#e10600' : (carState.color || '#38bdf8');
     const dotRadius = isLocalPlayer ? 4.4 : 3.5;
 
-    const dirX = -Math.sin(carState.heading);
-    const dirY = -Math.cos(carState.heading);
+    const dirX = Math.sin(carState.heading);
+    const dirY = Math.cos(carState.heading);
     const angle = Math.atan2(dirY, dirX);
 
     ctx.save();

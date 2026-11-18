@@ -30,10 +30,10 @@ export const CAR_PHYSICS_CONFIG = {
 
   // Dinamica sterzo e aderenza laterale
   wheelbase: 3.6,              // passo vettura (metri)
-  maxSteerAngle: 0.40,         // rad (~23°)
+  maxSteerAngle: 0.48,         // rad (~27.5° per tornanti stretti 1:1)
   steerSpeed: 9.5,             // rapidità sterzata
   steerReturnSpeed: 12.0,      // velocità di riallineamento volante
-  highSpeedSteerScale: 18.0,   // velocità di riferimento (m/s) per riduzione angolo sterzo
+  highSpeedSteerScale: 20.5,   // velocità di riferimento (m/s) per riduzione angolo sterzo
   highSpeedSteerExponent: 1.85,// progressività sterzo alle alte velocità
   lateralGripCoeff: 28.0,      // forza di richiamo laterale delle gomme
   maxLateralAccel: 34.0,       // limite base di aderenza laterale (m/s^2, ~3.4G)

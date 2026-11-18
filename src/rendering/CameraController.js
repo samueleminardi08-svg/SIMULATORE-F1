@@ -87,13 +87,13 @@ export class CameraController {
     this.camera.up.set(0, 1, 0);
 
     const desiredPos = new THREE.Vector3(
-      carState.x - sinH * 6.5,
-      carState.y + 2.35,
-      carState.z - cosH * 6.5
+      carState.x - sinH * 6.6,
+      carState.y + 2.58,
+      carState.z - cosH * 6.6
     );
     const desiredLookAt = new THREE.Vector3(
       carState.x + sinH * 8.0,
-      carState.y + 0.75,
+      carState.y + 0.05,
       carState.z + cosH * 8.0
     );
 

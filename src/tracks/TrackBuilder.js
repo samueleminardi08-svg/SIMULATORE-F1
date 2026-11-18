@@ -42,24 +42,29 @@ function createAsphaltTexture(repeatY) {
   return texture;
 }
 
+const KERB_PALETTES = {
+  italian: ['#009246', '#f8f9fa', '#ce2b37'],
+  australian: ['#00843d', '#ffcd00', '#f8f9fa'],
+  chinese: ['#de2910', '#ffde00', '#f8f9fa'],
+  japanese: ['#e10600', '#ffffff'],
+  bahrain: ['#ce1126', '#ffffff'],
+  saudi: ['#006c35', '#ffffff'],
+  miami: ['#00a3e0', '#ff4da6', '#ffffff'],
+  standard: ['#d90429', '#f8f9fa'],
+};
+
 function createKerbTexture(style, repeatY) {
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
-  if (style === 'italian') {
-    ctx.fillStyle = '#009246'; // Verde
-    ctx.fillRect(0, 0, 64, 85);
-    ctx.fillStyle = '#f8f9fa'; // Bianco
-    ctx.fillRect(0, 85, 64, 86);
-    ctx.fillStyle = '#ce2b37'; // Rosso
-    ctx.fillRect(0, 171, 64, 85);
-  } else {
-    ctx.fillStyle = '#d90429';
-    ctx.fillRect(0, 0, 64, 128);
-    ctx.fillStyle = '#f8f9fa';
-    ctx.fillRect(0, 128, 64, 128);
+  const colors = KERB_PALETTES[style] || KERB_PALETTES.standard;
+  for (let i = 0; i < colors.length; i++) {
+    const y0 = Math.round((i * canvas.height) / colors.length);
+    const y1 = Math.round(((i + 1) * canvas.height) / colors.length);
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(0, y0, 64, y1 - y0);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -142,7 +147,13 @@ function createCheckerTexture() {
 /**
  * Costruisce una geometria a nastro orizzontale dai campioni di TrackSurface.
  */
-function buildRibbonFromSamples(samples, halfWidth, lateralOffset = 0, yOffset = 0.02) {
+function buildRibbonFromSamples(
+  samples,
+  halfWidth,
+  lateralOffset = 0,
+  yOffset = 0.02,
+  filterFn = null
+) {
   const count = samples.length;
   const positions = [];
   const normals = [];
@@ -152,6 +163,7 @@ function buildRibbonFromSamples(samples, halfWidth, lateralOffset = 0, yOffset =
   for (let i = 0; i <= count; i++) {
     const s = samples[i % count];
     const t = i / count;
+    const y = (s.y ?? 0) + yOffset;
 
     const cx = s.x + s.nx * lateralOffset;
     const cz = s.z + s.nz * lateralOffset;
@@ -161,13 +173,13 @@ function buildRibbonFromSamples(samples, halfWidth, lateralOffset = 0, yOffset =
     const rx = cx - s.nx * halfWidth;
     const rz = cz - s.nz * halfWidth;
 
-    positions.push(lx, yOffset, lz);
-    positions.push(rx, yOffset, rz);
+    positions.push(lx, y, lz);
+    positions.push(rx, y, rz);
     normals.push(0, 1, 0, 0, 1, 0);
     uvs.push(0, t);
     uvs.push(1, t);
 
-    if (i < count) {
+    if (i < count && (!filterFn || filterFn(s, i))) {
       const base = i * 2;
       indices.push(base, base + 1, base + 2);
       indices.push(base + 1, base + 3, base + 2);
@@ -183,32 +195,93 @@ function buildRibbonFromSamples(samples, halfWidth, lateralOffset = 0, yOffset =
 }
 
 /**
- * Costruisce un muretto/barriera 3D continua (faccia interna, esterna e copertura superiore).
- * La faccia interna è allineata esattamente a ±barrierHalfWidth.
+ * Costruisce la soletta strutturale in cemento sotto i tratti sopraelevati (es. ponte a 8 di Suzuka).
  */
-function buildBarrierGeometry(samples, sideSign, barrierHalfWidth, thickness = 0.45, height = 1.15) {
+function buildBridgeDeckGeometry(samples, halfWidth, thickness = 0.45) {
+  const count = samples.length;
+  const positions = [];
+  const indices = [];
+
+  for (let i = 0; i <= count; i++) {
+    const s = samples[i % count];
+    const topY = (s.y ?? 0) + 0.01;
+    const botY = topY - thickness;
+    const spanHalf = halfWidth + 0.55;
+
+    const lx = s.x + s.nx * spanHalf;
+    const lz = s.z + s.nz * spanHalf;
+    const rx = s.x - s.nx * spanHalf;
+    const rz = s.z - s.nz * spanHalf;
+
+    positions.push(lx, topY, lz); // 0: left top
+    positions.push(lx, botY, lz); // 1: left bottom
+    positions.push(rx, botY, rz); // 2: right bottom
+    positions.push(rx, topY, rz); // 3: right top
+
+    if (i < count) {
+      const nextS = samples[(i + 1) % count];
+      if ((s.y ?? 0) > 0.35 || (nextS.y ?? 0) > 0.35) {
+        const b = i * 4;
+        const n = b + 4;
+        // Fianco sinistro
+        indices.push(b + 0, b + 1, n + 0);
+        indices.push(b + 1, n + 1, n + 0);
+        // Sottoponte inferiore
+        indices.push(b + 1, b + 2, n + 1);
+        indices.push(b + 2, n + 2, n + 1);
+        // Fianco destro
+        indices.push(b + 2, b + 3, n + 2);
+        indices.push(b + 3, n + 3, n + 2);
+      }
+    }
+  }
+
+  if (indices.length === 0) return null;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * Costruisce un muretto/barriera 3D continua (faccia interna, esterna e copertura superiore).
+ * La faccia interna è allineata esattamente all'offset laterale e all'elevazione locale del campione.
+ */
+function buildBarrierGeometry(
+  samples,
+  sideSign,
+  defaultBarrierHalfWidth,
+  thickness = 0.45,
+  height = 1.15
+) {
   const count = samples.length;
   const positions = [];
   const uvs = [];
   const indices = [];
 
-  const innerOffset = sideSign * barrierHalfWidth;
-  const outerOffset = sideSign * (barrierHalfWidth + thickness);
-
   // 4 vertici per sezione: innerBottom(0), innerTop(1), outerTop(2), outerBottom(3)
   for (let i = 0; i <= count; i++) {
     const s = samples[i % count];
     const u = i / count;
+    const baseOffset =
+      sideSign > 0
+        ? (s.leftBarrierOffset ?? defaultBarrierHalfWidth)
+        : (s.rightBarrierOffset ?? defaultBarrierHalfWidth);
+    const innerOffset = sideSign * baseOffset;
+    const outerOffset = sideSign * (baseOffset + thickness);
+    const baseY = s.y ?? 0;
 
     const ix = s.x + s.nx * innerOffset;
     const iz = s.z + s.nz * innerOffset;
     const ox = s.x + s.nx * outerOffset;
     const oz = s.z + s.nz * outerOffset;
 
-    positions.push(ix, 0, iz);       // 0: inner bottom
-    positions.push(ix, height, iz);  // 1: inner top
-    positions.push(ox, height, oz);  // 2: outer top
-    positions.push(ox, 0, oz);       // 3: outer bottom
+    positions.push(ix, baseY, iz);          // 0: inner bottom
+    positions.push(ix, baseY + height, iz); // 1: inner top
+    positions.push(ox, baseY + height, oz); // 2: outer top
+    positions.push(ox, baseY, oz);          // 3: outer bottom
 
     uvs.push(u, 1);
     uvs.push(u, 0);
@@ -293,7 +366,7 @@ export function buildTrackMeshGroup(trackData) {
   const group = new THREE.Group();
   group.name = `Track_${trackData.id}`;
 
-  const trackSurface = createTrackSurface(trackData, 1400);
+  const trackSurface = createTrackSurface(trackData, 1600);
   const { samples, totalLength, halfTrackWidth, kerbWidth, barrierHalfWidth, bounds } = trackSurface;
 
   // 1. Piano erboso proporzionato alle dimensioni del tracciato
@@ -324,15 +397,42 @@ export function buildTrackMeshGroup(trackData) {
   asphaltMesh.receiveShadow = true;
   group.add(asphaltMesh);
 
-  // 3. Cordoli interno ed esterno
+  // 2b. Soletta ponte per tratti sopraelevati (es. cavalcavia a 8 di Suzuka)
+  const bridgeDeckGeo = buildBridgeDeckGeometry(samples, halfTrackWidth + kerbWidth);
+  if (bridgeDeckGeo) {
+    const bridgeDeckMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.85,
+      metalness: 0.15,
+      side: THREE.DoubleSide,
+    });
+    const bridgeDeckMesh = new THREE.Mesh(bridgeDeckGeo, bridgeDeckMat);
+    bridgeDeckMesh.castShadow = true;
+    bridgeDeckMesh.receiveShadow = true;
+    group.add(bridgeDeckMesh);
+  }
+
+  // 3. Cordoli interno ed esterno solo sugli apex delle curve
   const halfKerb = kerbWidth * 0.5;
   const kerbMat = new THREE.MeshStandardMaterial({
     map: createKerbTexture(trackData.kerbStyle, Math.max(100, Math.round(totalLength / 4))),
     roughness: 0.65,
   });
 
-  const leftKerbGeo = buildRibbonFromSamples(samples, halfKerb, halfTrackWidth + halfKerb * 0.9, 0.03);
-  const rightKerbGeo = buildRibbonFromSamples(samples, halfKerb, -(halfTrackWidth + halfKerb * 0.9), 0.03);
+  const leftKerbGeo = buildRibbonFromSamples(
+    samples,
+    halfKerb,
+    halfTrackWidth + halfKerb * 0.9,
+    0.03,
+    (s) => s.hasKerb
+  );
+  const rightKerbGeo = buildRibbonFromSamples(
+    samples,
+    halfKerb,
+    -(halfTrackWidth + halfKerb * 0.9),
+    0.03,
+    (s) => s.hasKerb
+  );
   const leftKerbMesh = new THREE.Mesh(leftKerbGeo, kerbMat);
   const rightKerbMesh = new THREE.Mesh(rightKerbGeo, kerbMat);
   leftKerbMesh.receiveShadow = true;
@@ -357,7 +457,7 @@ export function buildTrackMeshGroup(trackData) {
   rightBarrierMesh.receiveShadow = true;
   group.add(leftBarrierMesh, rightBarrierMesh);
 
-  // 5. Linea di partenza/traguardo a scacchi + Portale F1 (allineati a z = 0)
+  // 5. Linea di partenza/traguardo a scacchi + Portale F1 orientati sulla tangente reale di partenza
   const startLineGeo = new THREE.PlaneGeometry(trackData.trackWidth - 0.6, 2.8);
   startLineGeo.rotateX(-Math.PI / 2);
   const startLineMat = new THREE.MeshBasicMaterial({
@@ -365,9 +465,12 @@ export function buildTrackMeshGroup(trackData) {
   });
   const startLineMesh = new THREE.Mesh(startLineGeo, startLineMat);
   startLineMesh.position.set(0, 0.038, 0);
-  group.add(startLineMesh);
 
   const gantryGroup = new THREE.Group();
+  const s0 = samples[0];
+  gantryGroup.position.set(s0.x, s0.y ?? 0, s0.z);
+  gantryGroup.rotation.y = Math.atan2(s0.tx, s0.tz);
+
   const pillarGeo = new THREE.BoxGeometry(0.6, 6.5, 0.6);
   const gantryMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.5 });
   const bannerMat = new THREE.MeshStandardMaterial({ color: 0xe10600, roughness: 0.3 });
@@ -384,7 +487,7 @@ export function buildTrackMeshGroup(trackData) {
   topBeam.position.set(0, 6.2, 0);
   topBeam.castShadow = true;
 
-  gantryGroup.add(leftPillar, rightPillar, topBeam);
+  gantryGroup.add(startLineMesh, leftPillar, rightPillar, topBeam);
   group.add(gantryGroup);
 
   // Caselle bianche della griglia di partenza (22 posizioni sfalsate)
@@ -394,7 +497,7 @@ export function buildTrackMeshGroup(trackData) {
   const sideBarGeo = new THREE.BoxGeometry(0.18, 0.02, 3.2);
   for (const slot of gridSlots) {
     const slotGroup = new THREE.Group();
-    slotGroup.position.set(slot.x, 0.036, slot.z);
+    slotGroup.position.set(slot.x, (slot.y ?? 0) + 0.036, slot.z);
     slotGroup.rotation.y = slot.heading;
 
     const frontBar = new THREE.Mesh(frontBarGeo, gridMat);

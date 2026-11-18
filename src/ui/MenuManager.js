@@ -7,6 +7,7 @@
 
 import { getDifficultyConfig } from '../config/difficulty.js';
 import { F1_2026_DRIVERS, F1_2026_TEAMS } from '../config/f1_2026_data.js';
+import { CALENDAR_2026_TRACKS, getTrackById } from '../tracks/calendar2026/index.js';
 import {
   UPGRADE_CATEGORIES,
   UPGRADE_MAX_LEVEL,
@@ -52,6 +53,7 @@ export class MenuManager {
     onCareerChange = null,
     onShowroomUpdate = null,
     onToggleCameraRotate = null,
+    onTrackChange = null,
     roomManager = null,
     onStartMultiplayerSession = null,
   }) {
@@ -60,6 +62,7 @@ export class MenuManager {
     this.onCareerChange = onCareerChange;
     this.onShowroomUpdate = onShowroomUpdate;
     this.onToggleCameraRotate = onToggleCameraRotate;
+    this.onTrackChange = onTrackChange;
     this.roomManager = roomManager;
     this.onStartMultiplayerSession = onStartMultiplayerSession;
 
@@ -162,6 +165,8 @@ export class MenuManager {
     this.difficultyDescEl = document.getElementById('menu-difficulty-desc');
     this.weatherButtons = [...document.querySelectorAll('[data-menu-weather]')];
     this.driverSelectEl = document.getElementById('menu-driver-select');
+    this.trackSelectEl = document.getElementById('menu-track-select');
+    this.mpTrackSelectEl = document.getElementById('mp-track-select');
     this.startBtn = document.getElementById('menu-start-btn');
 
     this.state = {
@@ -173,12 +178,38 @@ export class MenuManager {
       carLevel: 'base',
       weather: 'dry',
       playerDriverId: 'leclerc',
+      trackId: getTrackById(this.careerState.selectedTrackId).id,
     };
 
     this._populateDrivers();
     this._populateCareerTeams();
+    this._populateTracks();
     this._bindEvents();
     this._syncUI();
+  }
+
+  _populateTracks() {
+    const optionsHtml = CALENDAR_2026_TRACKS.map(
+      (t) => `<option value="${t.id}">R${t.round} • ${t.name} (${t.country})</option>`
+    ).join('');
+    if (this.trackSelectEl) {
+      this.trackSelectEl.innerHTML = optionsHtml;
+      this.trackSelectEl.value = this.state.trackId;
+    }
+    if (this.mpTrackSelectEl) {
+      this.mpTrackSelectEl.innerHTML = optionsHtml;
+      this.mpTrackSelectEl.value = this.state.trackId;
+    }
+  }
+
+  _handleTrackSelection(rawTrackId) {
+    const resolved = getTrackById(rawTrackId);
+    this.state.trackId = resolved.id;
+    const next = updateCareerProfile(this.careerState, { selectedTrackId: resolved.id });
+    this._commitCareerState(next);
+    if (this.onTrackChange) {
+      this.onTrackChange(resolved.id);
+    }
   }
 
   _populateDrivers() {
@@ -238,11 +269,17 @@ export class MenuManager {
 
   setCareerState(nextState) {
     this.careerState = nextState;
+    if (nextState?.selectedTrackId) {
+      this.state.trackId = getTrackById(nextState.selectedTrackId).id;
+    }
     this._syncUI();
   }
 
   _commitCareerState(nextState) {
     this.careerState = nextState;
+    if (nextState?.selectedTrackId) {
+      this.state.trackId = getTrackById(nextState.selectedTrackId).id;
+    }
     if (this.onCareerChange) {
       this.onCareerChange(nextState);
     }
@@ -548,6 +585,18 @@ export class MenuManager {
       });
     }
 
+    if (this.trackSelectEl) {
+      this.trackSelectEl.addEventListener('change', () => {
+        this._handleTrackSelection(this.trackSelectEl.value);
+      });
+    }
+
+    if (this.mpTrackSelectEl) {
+      this.mpTrackSelectEl.addEventListener('change', () => {
+        this._handleTrackSelection(this.mpTrackSelectEl.value);
+      });
+    }
+
     // Start Session & Resume
     if (this.startBtn) {
       this.startBtn.addEventListener('click', () => {
@@ -634,6 +683,7 @@ export class MenuManager {
           mode: this.mpFormat,
           difficultyId: this.state.difficultyId,
           weather: this.state.weather,
+          trackId: this.state.trackId,
         });
       });
     }
@@ -868,6 +918,12 @@ export class MenuManager {
     this.weatherButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuWeather === this.state.weather);
     });
+    if (this.trackSelectEl) {
+      this.trackSelectEl.value = this.state.trackId;
+    }
+    if (this.mpTrackSelectEl) {
+      this.mpTrackSelectEl.value = this.state.trackId;
+    }
 
     // Sync Profile controls
     if (this.careerNameInputEl && document.activeElement !== this.careerNameInputEl) {
@@ -899,6 +955,7 @@ export class MenuManager {
       const customSpecs = buildCarSpecsFromUpgrades(this.careerState.upgrades);
       const format = this.careerState.careerFormat === 'race' ? 'race' : 'qualifying';
       return {
+        trackId: this.state.trackId,
         mode: format,
         difficultyId: this.state.difficultyId,
         withBots: true,
@@ -925,6 +982,7 @@ export class MenuManager {
     );
 
     return {
+      trackId: this.state.trackId,
       mode: this.state.mode,
       difficultyId: this.state.difficultyId,
       withBots: isPractice ? this.state.withBots : true,

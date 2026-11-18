@@ -109,6 +109,7 @@ export function resolveCarToCarCollisions(carsMap) {
     const carA = cars[i];
     for (let j = i + 1; j < count; j++) {
       const carB = cars[j];
+      if (Math.abs((carB.y ?? 0) - (carA.y ?? 0)) > 2.5) continue;
       const dx = carB.x - carA.x;
       const dz = carB.z - carA.z;
 
