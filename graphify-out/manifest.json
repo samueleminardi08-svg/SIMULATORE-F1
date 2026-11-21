@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1795230035.9871674,
-    "seen": 1795230123.4679484,
-    "ast_hash": "82d978c22366be3ca28184536cefa632",
+    "mtime": 1795233662.1432104,
+    "seen": 1795233687.6023223,
+    "ast_hash": "eacc5eeb228c1e8886bd57e5502f976b",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
@@ -453,12 +453,6 @@
     "mtime": 1795225614.2808125,
     "seen": 1795227593.4848337,
     "ast_hash": "20132c468dd4965afadc4b453ffad2f9",
-    "semantic_hash": ""
-  },
-  "implementation_plan.pdf": {
-    "mtime": 1795224687.1153073,
-    "seen": 1795225228.3419735,
-    "ast_hash": "ae682cbdacefb37c423e883088c1fec4",
     "semantic_hash": ""
   },
   "src/input/VirtualInputFilter.js": {

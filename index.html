@@ -4070,26 +4070,26 @@
     #f1-track-info-panel {
       position: relative;
       z-index: 4;
-      margin: clamp(8px, 1.2vh, 18px) 0 0 clamp(20px, 2.8vw, 52px);
-      width: clamp(320px, 25vw, 410px);
-      max-height: calc(100vh - clamp(260px, 34vh, 340px));
+      margin: clamp(6px, 0.9vh, 14px) 0 0 clamp(20px, 2.8vw, 52px);
+      width: clamp(336px, 26vw, 420px);
+      max-height: calc(100vh - clamp(336px, 39vh, 415px));
       overflow-y: auto;
       background: rgba(11, 14, 21, 0.86);
       background-image: var(--f1-carbon-pattern);
       border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: var(--f1-radius-panel);
       backdrop-filter: blur(14px);
-      padding: clamp(10px, 1.4vh, 16px) clamp(14px, 1.4vw, 18px);
+      padding: clamp(8px, 1.0vh, 14px) clamp(12px, 1.2vw, 16px);
       display: flex;
       flex-direction: column;
-      gap: clamp(6px, 0.9vh, 10px);
+      gap: clamp(4px, 0.55vh, 8px);
       pointer-events: auto;
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.76);
     }
 
     #track-detail-svg {
       width: 100%;
-      height: clamp(82px, 13.5vh, 176px);
+      height: clamp(62px, 9.5vh, 142px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -4100,7 +4100,7 @@
       background-size: 16px 16px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
-      padding: 6px;
+      padding: 4px;
     }
 
     .f1-sector-legend {
@@ -4132,7 +4132,7 @@
       border: none;
       border-bottom: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 0;
-      padding: clamp(3px, 0.55vh, 6px) 2px;
+      padding: clamp(2px, 0.35vh, 5px) 2px;
       display: flex;
       flex-direction: row;
       justify-content: space-between;
@@ -4145,8 +4145,8 @@
     }
 
     #track-screen-start-btn {
-      padding: clamp(8px, 1.1vh, 12px) 16px;
-      font-size: clamp(13px, 0.95vw, 18px);
+      padding: clamp(7px, 0.9vh, 11px) 14px;
+      font-size: clamp(12.5px, 0.92vw, 17px);
       flex-shrink: 0;
     }
 
@@ -4156,13 +4156,15 @@
       font-weight: 600;
       letter-spacing: 0.03em;
       color: #94a3b8;
+      white-space: nowrap;
     }
 
     .f1-track-stat-val {
       font-family: var(--f1-font-mono);
-      font-size: 13px;
+      font-size: clamp(11.5px, 1.05vh, 13px);
       font-weight: 700;
       color: #ffffff;
+      white-space: nowrap;
     }
 
     .f1-track-records-box {
@@ -4170,10 +4172,10 @@
       border: 1px solid rgba(192, 132, 252, 0.25);
       border-left: 3px solid #a855f7;
       border-radius: 7px;
-      padding: 7px 9px;
+      padding: clamp(4px, 0.65vh, 8px) 8px;
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 3px;
     }
 
     .f1-track-records-head {
@@ -4209,7 +4211,7 @@
       background: rgba(15, 20, 32, 0.85);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 5px;
-      padding: 4px 6px;
+      padding: 3px 6px;
       display: flex;
       flex-direction: column;
       gap: 1px;
@@ -4223,6 +4225,7 @@
       letter-spacing: 0.07em;
       text-transform: uppercase;
       color: #94a3b8;
+      white-space: nowrap;
     }
 
     .f1-rec-time {
@@ -4256,7 +4259,7 @@
       background: rgba(15, 20, 32, 0.72);
       border: 1px solid rgba(255, 255, 255, 0.07);
       border-radius: 4px;
-      padding: 3px 5px;
+      padding: 2px 5px;
       display: flex;
       flex-direction: column;
       gap: 1px;
@@ -5342,12 +5345,12 @@
             </div>
             <div class="f1-track-records-laps">
               <div class="f1-track-rec-cell">
-                <span class="f1-rec-lbl">Miglior Giro Qualifica</span>
+                <span class="f1-rec-lbl">Best Qualifica</span>
                 <span id="track-rec-quali-time" class="f1-rec-time f1-rec-time-quali">--:--.---</span>
                 <span id="track-rec-quali-meta" class="f1-rec-meta">Nessun tempo</span>
               </div>
               <div class="f1-track-rec-cell">
-                <span class="f1-rec-lbl">Miglior Giro Gara</span>
+                <span class="f1-rec-lbl">Best Gara</span>
                 <span id="track-rec-race-time" class="f1-rec-time f1-rec-time-race">--:--.---</span>
                 <span id="track-rec-race-meta" class="f1-rec-meta">Nessun tempo</span>
               </div>
