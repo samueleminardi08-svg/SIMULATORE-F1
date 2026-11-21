@@ -1,6 +1,7 @@
 /**
- * Gestore dell'interfaccia HUD stile F1 TV (Step 4).
- * - A sinistra: pannello delta dei tempi e cronologia giri.
+ * Gestore dell'interfaccia HUD 4K stile F1 TV (Step 4 & Step 5).
+ * - A sinistra a tutta altezza: sessione, tempi 2x2 e torre delta con tutti i 22 piloti senza scroll
+ *   e scorrimento GPU (translate3d) delle righe durante i sorpassi con dirty-checking DOM a 60 FPS.
  * - In basso al centro: barra dei 3 settori ufficiali (S1, S2, S3) colorati
  *   in viola/verde/giallo e telemetria centrale (tempo giro m:ss.SSS, delta, marcia, km/h, RPM, superficie).
  */
@@ -12,10 +13,37 @@ import {
   WEATHER_CONFIG,
 } from '../config/constants.js';
 import { getDifficultyConfig } from '../config/difficulty.js';
+import { CAREER_RACE_LAPS, RACE_TOTAL_LAPS } from '../config/f1_2026_data.js';
 import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { formatCurrencyEUR } from '../career/CareerStorage.js';
+import { evaluateLapRecord, evaluateSectorRecord } from '../career/TrackRecordsStorage.js';
 import { formatDeltaTime, formatLapTime, formatSectorTime } from '../race/TimingSystem.js';
+import { computeCarTelemetrySnapshot } from '../physics/PhysicsDiagnostics.js';
 import { ModalManager } from './ModalManager.js';
+import { getTeamLogoUrl, TEAM_LOGO_INVERT_ON_DARK } from './UiTheme.js';
+
+const COMPOUND_POOL = ['S', 'S', 'M', 'M', 'H'];
+
+function resolveDriverCompound(rowData, sessionMode, weather) {
+  if (weather === 'rain') return 'W';
+  if (sessionMode === 'qualifying') return 'S';
+  const seed = Number(rowData?.driverNumber) || Number(rowData?.position) || 1;
+  return COMPOUND_POOL[seed % COMPOUND_POOL.length];
+}
+
+function getLogoClassName(teamId, baseClass) {
+  const key = String(teamId || '').toLowerCase();
+  if (TEAM_LOGO_INVERT_ON_DARK.has(key)) return `${baseClass} is-invert-dark`;
+  if (key === 'alpine') return `${baseClass} is-alpine-tint`;
+  return baseClass;
+}
+
+function extractDriverSurname(driverName, fallbackCode) {
+  const clean = String(driverName || '').trim();
+  if (!clean) return String(fallbackCode || 'PIL').replace(/\*$/, '').toUpperCase();
+  const parts = clean.split(/\s+/);
+  return parts[parts.length - 1].toUpperCase();
+}
 
 function getRpmBarColor(rpmRatio) {
   if (rpmRatio >= 0.88) return '#a855f7'; // Viola cambiata
@@ -46,6 +74,7 @@ export class HudOverlay {
     this.onCareerRaceFinished = options.onCareerRaceFinished || null;
     this.onFinishModalClose = options.onFinishModalClose || null;
     this.onQualiModalClose = options.onQualiModalClose || null;
+    this.onTrackRecordUpdated = options.onTrackRecordUpdated || null;
     this.modalManager = options.modalManager || new ModalManager();
     this._careerWalletAmount = null;
     this._roomCode = '';
@@ -97,6 +126,15 @@ export class HudOverlay {
     this.lockupAlertEl = document.getElementById('lockup-alert');
     this.trackLimitsBadgeEl = document.getElementById('track-limits-badge');
     this.trackLimitsBannerEl = document.getElementById('track-limits-banner');
+    this.trackRecordBannerEl = document.getElementById('track-record-banner');
+    this.trackRecordBadgeEl = document.getElementById('track-record-badge');
+    this.trackRecordTitleEl = document.getElementById('track-record-title');
+    this.trackRecordSubEl = document.getElementById('track-record-sub');
+    this._recordsTrackId = null;
+    this._seenSectorSeq = 0;
+    this._seenLapSeq = 0;
+    this._recordBannerUntil = 0;
+    this._recordBannerState = null;
 
     // Qualifiche Q1/Q2/Q3 & Modale riepilogo (Step 8–10)
     this.qualiHudControlsEl = document.getElementById('qualifying-hud-controls');
@@ -114,9 +152,125 @@ export class HudOverlay {
     this._dismissedQualiModalKey = '';
 
     this._sectorCards = [];
-    this._driverRowElements = [];
+    this._driverRowById = new Map();
+    this._activeDriverIds = new Set();
+    this._cameraModeId = 'chase';
+
+    // Elementi Halo Onboard Telemetry HUD (F1 2026 Broadcast)
+    this.haloHudEl = document.getElementById('f1-halo-hud');
+    this.haloSpeedKmhEl = document.getElementById('halo-speed-kmh');
+    this.haloSpeedMphEl = document.getElementById('halo-speed-mph');
+    this.haloSpeedArcEl = document.getElementById('halo-speed-arc');
+    this.haloRpmArcEl = document.getElementById('halo-rpm-arc');
+    this.haloRechargeArcEl = document.getElementById('halo-recharge-arc');
+    this.haloDeployArcEl = document.getElementById('halo-deploy-arc');
+    this.haloTireFillEl = document.getElementById('halo-tire-fill');
+    this.haloStatusPrimaryEl = document.getElementById('halo-status-primary');
+    this.haloStatusPrimaryBgEl = document.getElementById('halo-status-primary-bg');
+    this.haloStatusSecondaryEl = document.getElementById('halo-status-secondary');
+    this.haloStatusSecondaryBgEl = document.getElementById('halo-status-secondary-bg');
+    this.haloDownforceValEl = document.getElementById('halo-downforce-val');
+    this.haloTurnStatusEl = document.getElementById('halo-turn-status');
+    this.haloTlStatusEl = document.getElementById('halo-tl-status');
+    this.haloRivalAheadEl = document.getElementById('halo-rival-ahead');
+    this.haloPlayerTagEl = document.getElementById('halo-player-tag');
+    this.haloPlayerAccentEl = document.getElementById('halo-player-accent');
+    this.haloBrakeSegs = Array.from({ length: 10 }, (_, idx) =>
+      document.getElementById(`halo-brake-seg-${idx}`)
+    );
+    this.haloThrottleSegs = Array.from({ length: 10 }, (_, idx) =>
+      document.getElementById(`halo-throttle-seg-${idx}`)
+    );
+    this.haloGearMap = {
+      N: document.getElementById('halo-gear-N'),
+      1: document.getElementById('halo-gear-1'),
+      2: document.getElementById('halo-gear-2'),
+      3: document.getElementById('halo-gear-3'),
+      4: document.getElementById('halo-gear-4'),
+      5: document.getElementById('halo-gear-5'),
+      6: document.getElementById('halo-gear-6'),
+      7: document.getElementById('halo-gear-7'),
+      8: document.getElementById('halo-gear-8'),
+    };
+    this.haloCardPosEl = document.getElementById('halo-card-pos');
+    this.haloCardLogoEl = document.getElementById('halo-card-logo');
+    this.haloCardNameEl = document.getElementById('halo-card-name');
+    this.haloCardCompoundEl = document.getElementById('halo-card-compound');
+    this.haloCardAccentEl = document.getElementById('halo-card-accent');
+    this.haloCardLapEl = document.getElementById('halo-card-lap');
+    this.haloCardRefTimeEl = document.getElementById('halo-card-ref-time');
+    this.haloCardRefLabelEl = document.getElementById('halo-card-ref-label');
+    this.haloSectorEls = [
+      document.getElementById('halo-s1'),
+      document.getElementById('halo-s2'),
+      document.getElementById('halo-s3'),
+    ];
+
+    // Pannello temporaneo Diagnosi Fisica Step 6a (toggle F3)
+    this._physicsDebugVisible = false;
+    this.pdiagPanelEl = document.getElementById('physics-debug-panel');
+    this.pdiagInputsEl = document.getElementById('pdiag-inputs');
+    this.pdiagSteerEl = document.getElementById('pdiag-steer');
+    this.pdiagRadiusEl = document.getElementById('pdiag-radius');
+    this.pdiagLockupRatioEl = document.getElementById('pdiag-lockup-ratio');
+    this.pdiagLockupStateEl = document.getElementById('pdiag-lockup-state');
+    this.pdiagEnvEl = document.getElementById('pdiag-env');
+
     this._buildSectorCards();
     this._registerModals();
+  }
+
+  _setAttr(el, name, value) {
+    if (!el) return;
+    const str = String(value ?? '');
+    const cache = (el.__hudAttrs ||= {});
+    if (cache[name] !== str) {
+      cache[name] = str;
+      el.setAttribute(name, str);
+    }
+  }
+
+  _setText(el, value) {
+    if (!el) return;
+    const str = String(value ?? '');
+    if (el.__hudText !== str) {
+      el.__hudText = str;
+      el.textContent = str;
+    }
+  }
+
+  _setClass(el, className) {
+    if (!el) return;
+    if (el.__hudClass !== className) {
+      el.__hudClass = className;
+      el.className = className;
+    }
+  }
+
+  _setDisplay(el, display) {
+    if (!el) return;
+    if (el.__hudDisplay !== display) {
+      el.__hudDisplay = display;
+      el.style.display = display;
+    }
+  }
+
+  _setStyle(el, prop, value) {
+    if (!el) return;
+    const cache = (el.__hudStyles ||= {});
+    if (cache[prop] !== value) {
+      cache[prop] = value;
+      el.style[prop] = value;
+    }
+  }
+
+  _setCssVar(el, name, value) {
+    if (!el) return;
+    const cache = (el.__hudVars ||= {});
+    if (cache[name] !== value) {
+      cache[name] = value;
+      el.style.setProperty(name, value);
+    }
   }
 
   _registerModals() {
@@ -150,16 +304,47 @@ export class HudOverlay {
     this._dismissedQualiModalKey = '';
   }
 
+  resetTrackRecordTracking(trackId = null) {
+    this._recordsTrackId = trackId || null;
+    this._seenSectorSeq = 0;
+    this._seenLapSeq = 0;
+    this._recordBannerUntil = 0;
+    this._recordBannerState = null;
+    this._setDisplay(this.trackRecordBannerEl, 'none');
+  }
+
   setTrackName(name) {
-    if (this.trackNameEl) {
-      this.trackNameEl.textContent = name;
-    }
+    this._setText(this.trackNameEl, name);
   }
 
   setCameraLabel(label) {
-    if (this.cameraLabelEl) {
-      this.cameraLabelEl.textContent = label;
+    this._setText(this.cameraLabelEl, label);
+  }
+
+  setCameraMode(mode) {
+    if (!mode) return;
+    this._cameraModeId = mode.id || 'chase';
+    this.setCameraLabel(mode.label || '');
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.dataset.cameraMode = this._cameraModeId;
     }
+  }
+
+  togglePhysicsDebugPanel(forceState = null) {
+    this._physicsDebugVisible =
+      typeof forceState === 'boolean' ? forceState : !this._physicsDebugVisible;
+    if (this.pdiagPanelEl) {
+      this._setClass(
+        this.pdiagPanelEl,
+        this._physicsDebugVisible ? 'is-visible' : ''
+      );
+      this._setAttr(
+        this.pdiagPanelEl,
+        'aria-hidden',
+        this._physicsDebugVisible ? 'false' : 'true'
+      );
+    }
+    return this._physicsDebugVisible;
   }
 
   setCareerBalance(amount) {
@@ -208,15 +393,15 @@ export class HudOverlay {
     if (!this.surfaceBadgeEl) return;
 
     if (carState.collidingWithBarrier) {
-      this.surfaceBadgeEl.textContent = 'Urto Barriera!';
-      this.surfaceBadgeEl.className = 'surface-badge surface-barrier';
+      this._setText(this.surfaceBadgeEl, 'Urto Barriera!');
+      this._setClass(this.surfaceBadgeEl, 'surface-badge surface-barrier');
       return;
     }
 
     const surfaceKey = carState.surface || 'asphalt';
     const props = SURFACE_PHYSICS[surfaceKey] || SURFACE_PHYSICS.asphalt;
-    this.surfaceBadgeEl.textContent = props.label;
-    this.surfaceBadgeEl.className = `surface-badge surface-${surfaceKey}`;
+    this._setText(this.surfaceBadgeEl, props.label);
+    this._setClass(this.surfaceBadgeEl, `surface-badge surface-${surfaceKey}`);
   }
 
   _updateSectors(timing) {
@@ -240,8 +425,8 @@ export class HudOverlay {
       }
 
       const isActive = timing.lapStarted && i === timing.currentSectorIndex;
-      card.className = `sector-card status-${status}${isActive ? ' is-active' : ''}`;
-      timeEl.textContent = formatSectorTime(secTime);
+      this._setClass(card, `sector-card status-${status}${isActive ? ' is-active' : ''}`);
+      this._setText(timeEl, formatSectorTime(secTime));
     }
   }
 
@@ -258,29 +443,31 @@ export class HudOverlay {
     const sessionMode = worldState.sessionConfig?.mode || race?.mode || 'practice';
 
     if (this.lapNumberEl) {
+      let lapText;
       if (isQuali) {
-        this.lapNumberEl.textContent = `${q.stageId} • ${formatTimerMMSS(q.timeRemaining)}`;
+        lapText = `${q.stageId} • ${formatTimerMMSS(q.timeRemaining)}`;
       } else if (race) {
         if (race.totalLaps !== null) {
           const displayLap = Math.min(t.currentLap, race.totalLaps);
-          this.lapNumberEl.textContent = `GIRO ${displayLap} / ${race.totalLaps}`;
+          lapText = `GIRO ${displayLap} / ${race.totalLaps}`;
         } else {
-          this.lapNumberEl.textContent = `GIRO ${t.currentLap} / ∞`;
+          lapText = `GIRO ${t.currentLap} / ∞`;
         }
       } else {
-        this.lapNumberEl.textContent = `GIRO ${t.currentLap}`;
+        lapText = `GIRO ${t.currentLap}`;
       }
+      this._setText(this.lapNumberEl, lapText);
     }
 
     if (this.posBadgeEl) {
       if (isQuali) {
-        this.posBadgeEl.style.display = 'inline-block';
-        this.posBadgeEl.textContent = `P${playerCar.racePosition} / ${q.activeDriverIds.length}`;
+        this._setDisplay(this.posBadgeEl, 'inline-block');
+        this._setText(this.posBadgeEl, `P${playerCar.racePosition} / ${q.activeDriverIds.length}`);
       } else if (race && race.standings.length > 1) {
-        this.posBadgeEl.style.display = 'inline-block';
-        this.posBadgeEl.textContent = `P${playerCar.racePosition} / ${race.standings.length}`;
+        this._setDisplay(this.posBadgeEl, 'inline-block');
+        this._setText(this.posBadgeEl, `P${playerCar.racePosition} / ${race.standings.length}`);
       } else {
-        this.posBadgeEl.style.display = 'none';
+        this._setDisplay(this.posBadgeEl, 'none');
       }
     }
 
@@ -292,21 +479,21 @@ export class HudOverlay {
     const deltaClass = lapInvalid ? 'delta-invalid' : getDeltaColorClass(t.liveDelta, false);
 
     if (this.leftDeltaBadgeEl) {
-      this.leftDeltaBadgeEl.textContent = deltaFormatted;
-      this.leftDeltaBadgeEl.className = `delta-pill ${deltaClass}`;
+      this._setText(this.leftDeltaBadgeEl, deltaFormatted);
+      this._setClass(this.leftDeltaBadgeEl, `delta-pill ${deltaClass}`);
     }
     if (this.leftCurrentLapEl) {
-      this.leftCurrentLapEl.textContent = formatLapTime(t.currentLapTime);
-      this.leftCurrentLapEl.className = `lap-time-val${lapInvalid ? ' is-invalidated' : ''}`;
+      this._setText(this.leftCurrentLapEl, formatLapTime(t.currentLapTime));
+      this._setClass(this.leftCurrentLapEl, `lap-time-val${lapInvalid ? ' is-invalidated' : ''}`);
     }
     if (this.leftLastLapEl) {
-      this.leftLastLapEl.textContent = formatLapTime(t.lastLapTime);
+      this._setText(this.leftLastLapEl, formatLapTime(t.lastLapTime));
     }
     if (this.leftBestLapEl) {
-      this.leftBestLapEl.textContent = formatLapTime(t.bestLapTime);
+      this._setText(this.leftBestLapEl, formatLapTime(t.bestLapTime));
     }
     if (this.leftOverallBestEl && sessionTiming) {
-      this.leftOverallBestEl.textContent = formatLapTime(sessionTiming.overallBestLapTime);
+      this._setText(this.leftOverallBestEl, formatLapTime(sessionTiming.overallBestLapTime));
     }
 
     if (this.leftDriverRowsEl) {
@@ -317,54 +504,135 @@ export class HudOverlay {
             position: idx + 1,
             code: car.code || (car.id === localPlayerId ? 'TU' : car.id.slice(0, 3).toUpperCase()),
             driverNumber: car.driverNumber ?? 1,
+            teamId: car.teamId || 'ferrari',
             color: car.color || '#38bdf8',
+            bestLapTime: car.timing?.bestLapTime ?? null,
             gapToLeader: car.timing ? formatDeltaTime(car.timing.liveDelta) : '±0.000',
             raceFinished: car.raceFinished,
           }));
 
-      while (this._driverRowElements.length < standings.length) {
-        const row = document.createElement('div');
-        row.className = 'driver-delta-row';
+      this._setCssVar(
+        this.leftDriverRowsEl,
+        '--tower-count',
+        String(Math.max(1, standings.length))
+      );
 
-        const posEl = document.createElement('span');
-        posEl.className = 'driver-pos';
-        const colorEl = document.createElement('span');
-        colorEl.className = 'driver-color-bar';
-        const codeEl = document.createElement('span');
-        codeEl.className = 'driver-code';
-        const deltaEl = document.createElement('span');
-        deltaEl.className = 'driver-delta';
+      const weather = worldState.weather || 'dry';
+      this._activeDriverIds.clear();
+      for (let i = 0; i < standings.length; i++) {
+        const rowData = standings[i];
+        const carId = String(rowData.id ?? `slot-${i}`);
+        this._activeDriverIds.add(carId);
 
-        row.append(posEl, colorEl, codeEl, deltaEl);
-        this.leftDriverRowsEl.appendChild(row);
-        this._driverRowElements.push({ row, posEl, colorEl, codeEl, deltaEl });
+        let item = this._driverRowById.get(carId);
+        if (!item) {
+          const row = document.createElement('div');
+          row.className = 'driver-delta-row';
+
+          const posEl = document.createElement('span');
+          posEl.className = 'driver-pos';
+          const colorEl = document.createElement('span');
+          colorEl.className = 'driver-color-bar';
+          const logoWrapEl = document.createElement('span');
+          logoWrapEl.className = 'driver-team-logo-wrap';
+          const logoEl = document.createElement('img');
+          logoEl.className = 'driver-team-logo';
+          logoEl.alt = '';
+          logoEl.draggable = false;
+          logoWrapEl.appendChild(logoEl);
+          const codeEl = document.createElement('span');
+          codeEl.className = 'driver-code';
+          const deltaEl = document.createElement('span');
+          deltaEl.className = 'driver-delta';
+          const compoundEl = document.createElement('span');
+          compoundEl.className = 'driver-compound compound-s';
+
+          row.append(posEl, colorEl, logoWrapEl, codeEl, deltaEl, compoundEl);
+          this._setCssVar(row, '--slot', String(i));
+          this._setDisplay(row, 'flex');
+          this.leftDriverRowsEl.appendChild(row);
+
+          item = {
+            row,
+            posEl,
+            colorEl,
+            logoEl,
+            codeEl,
+            deltaEl,
+            compoundEl,
+            lastSlot: i,
+            lastVisible: true,
+          };
+          this._driverRowById.set(carId, item);
+        } else if (!item.lastVisible) {
+          // Posiziona sullo slot prima di mostrare la riga per evitare animazioni residue dalla sessione precedente
+          this._setCssVar(item.row, '--slot', String(i));
+          this._setDisplay(item.row, 'flex');
+          item.lastVisible = true;
+          item.lastSlot = i;
+        } else if (item.lastSlot !== i) {
+          this._setCssVar(item.row, '--slot', String(i));
+          item.lastSlot = i;
+        }
+
+        const isLocal = rowData.id === localPlayerId;
+        const isLeader = rowData.position === 1;
+        const isCutoffFirst =
+          Boolean(rowData.inEliminationZone) &&
+          (i === 0 || !standings[i - 1]?.inEliminationZone);
+        const cleanCode = String(rowData.code || 'PIL').replace(/\*$/, '').toUpperCase();
+        const carRef = worldState.cars?.[rowData.id];
+        const teamId = rowData.teamId || carRef?.teamId || 'ferrari';
+        const logoUrl = getTeamLogoUrl(teamId);
+        const compound = resolveDriverCompound(rowData, sessionMode, weather);
+
+        let gapDisplay = rowData.gapToLeader;
+        if (
+          isLeader &&
+          sessionMode === 'practice' &&
+          rowData.bestLapTime !== null &&
+          rowData.bestLapTime !== undefined
+        ) {
+          gapDisplay = formatLapTime(rowData.bestLapTime);
+        }
+
+        this._setClass(
+          item.row,
+          `driver-delta-row${isLeader ? ' is-leader' : ''}${isLocal ? ' is-local' : ''}${
+            rowData.inEliminationZone ? ' is-elim-zone' : ''
+          }${isCutoffFirst ? ' is-elim-cutoff' : ''}`
+        );
+        this._setText(item.posEl, String(rowData.position));
+        this._setStyle(item.colorEl, 'backgroundColor', rowData.color || '#38bdf8');
+        if (logoUrl) {
+          this._setAttr(item.logoEl, 'src', logoUrl);
+          this._setClass(item.logoEl, getLogoClassName(teamId, 'driver-team-logo'));
+          this._setDisplay(item.logoEl, 'block');
+        } else {
+          this._setDisplay(item.logoEl, 'none');
+        }
+        this._setText(item.codeEl, cleanCode);
+        this._setText(item.deltaEl, gapDisplay);
+        this._setClass(
+          item.deltaEl,
+          `driver-delta ${
+            isLeader
+              ? 'delta-purple'
+              : rowData.penaltySeconds > 0
+                ? 'delta-invalid'
+                : 'delta-neutral'
+          }`
+        );
+        this._setText(item.compoundEl, compound);
+        this._setClass(item.compoundEl, `driver-compound compound-${compound.toLowerCase()}`);
       }
 
-      for (let i = 0; i < this._driverRowElements.length; i++) {
-        const item = this._driverRowElements[i];
-        if (i >= standings.length) {
-          item.row.style.display = 'none';
-          continue;
+      for (const [carId, item] of this._driverRowById.entries()) {
+        if (!this._activeDriverIds.has(carId) && item.lastVisible) {
+          this._setDisplay(item.row, 'none');
+          item.lastVisible = false;
+          item.lastSlot = -1;
         }
-        const rowData = standings[i];
-        const isLocal = rowData.id === localPlayerId;
-        const label = `#${rowData.driverNumber ?? ''} ${rowData.code}`;
-
-        item.row.style.display = 'flex';
-        item.row.className = `driver-delta-row${isLocal ? ' is-local' : ''}${
-          rowData.inEliminationZone ? ' is-elim-zone' : ''
-        }`;
-        item.posEl.textContent = String(rowData.position);
-        item.colorEl.style.backgroundColor = rowData.color || '#38bdf8';
-        item.codeEl.textContent = label;
-        item.deltaEl.textContent = rowData.gapToLeader;
-        item.deltaEl.className = `driver-delta ${
-          rowData.position === 1
-            ? 'delta-purple'
-            : rowData.penaltySeconds > 0
-              ? 'delta-invalid'
-              : 'delta-neutral'
-        }`;
       }
     }
   }
@@ -391,25 +659,22 @@ export class HudOverlay {
 
     if (this.startGantryEl) {
       const showGantry = race.status === 'countdown' || race.lightsOutFlashTimer > 0;
-      this.startGantryEl.style.display = showGantry ? 'flex' : 'none';
+      this._setDisplay(this.startGantryEl, showGantry ? 'flex' : 'none');
 
       if (showGantry) {
         for (let i = 0; i < this.startLightEls.length; i++) {
           const el = this.startLightEls[i];
           if (!el) continue;
-          if (race.status === 'countdown' && i < race.lightsOn) {
-            el.classList.add('is-on');
-          } else {
-            el.classList.remove('is-on');
-          }
+          const isLit = race.status === 'countdown' && i < race.lightsOn;
+          this._setClass(el, isLit ? 'start-light is-on' : 'start-light');
         }
         if (this.startLightsStatusEl) {
           if (race.status === 'countdown') {
-            this.startLightsStatusEl.textContent = 'ATTENDI IL VIA...';
-            this.startLightsStatusEl.className = 'start-status waiting';
+            this._setText(this.startLightsStatusEl, 'ATTENDI IL VIA...');
+            this._setClass(this.startLightsStatusEl, 'start-status waiting');
           } else {
-            this.startLightsStatusEl.textContent = 'VIA! PARTENZA!';
-            this.startLightsStatusEl.className = 'start-status go';
+            this._setText(this.startLightsStatusEl, 'VIA! PARTENZA!');
+            this._setClass(this.startLightsStatusEl, 'start-status go');
           }
         }
       }
@@ -522,13 +787,13 @@ export class HudOverlay {
     this._updateQualifyingOverlays(worldState, localPlayerId);
 
     if (!playerCar) {
-      if (this.trackLimitsBannerEl) {
-        this.trackLimitsBannerEl.style.display = 'none';
-      }
+      this._setDisplay(this.trackLimitsBannerEl, 'none');
+      this._setDisplay(this.trackRecordBannerEl, 'none');
       return;
     }
 
     this._updateLeftDeltaPanel(worldState, localPlayerId);
+    this._checkAndUpdateTrackRecordBanner(worldState, playerCar, sessionMode);
 
     if (playerCar.timing) {
       const lapInvalid =
@@ -537,41 +802,439 @@ export class HudOverlay {
 
       this._updateSectors(playerCar.timing);
       if (this.centerLapTimeEl) {
-        this.centerLapTimeEl.textContent = formatLapTime(playerCar.timing.currentLapTime);
-        this.centerLapTimeEl.className = `center-lap-time${lapInvalid ? ' is-invalidated' : ''}`;
+        this._setText(this.centerLapTimeEl, formatLapTime(playerCar.timing.currentLapTime));
+        this._setClass(this.centerLapTimeEl, `center-lap-time${lapInvalid ? ' is-invalidated' : ''}`);
       }
       if (this.centerDeltaEl) {
-        this.centerDeltaEl.textContent = lapInvalid
-          ? 'GIRO ANNULLATO'
-          : formatDeltaTime(playerCar.timing.liveDelta);
-        this.centerDeltaEl.className = `center-delta ${
-          lapInvalid ? 'delta-invalid' : getDeltaColorClass(playerCar.timing.liveDelta)
-        }`;
+        this._setText(
+          this.centerDeltaEl,
+          lapInvalid ? 'GIRO ANNULLATO' : formatDeltaTime(playerCar.timing.liveDelta)
+        );
+        this._setClass(
+          this.centerDeltaEl,
+          `center-delta ${lapInvalid ? 'delta-invalid' : getDeltaColorClass(playerCar.timing.liveDelta)}`
+        );
       }
     }
 
     if (this.speedValueEl) {
       const totalSpeedMs = Math.hypot(playerCar.vx, playerCar.vz);
-      this.speedValueEl.textContent = String(Math.round(totalSpeedMs * 3.6));
+      this._setText(this.speedValueEl, String(Math.round(totalSpeedMs * 3.6)));
     }
     if (this.gearValueEl) {
-      this.gearValueEl.textContent = playerCar.gearLabel;
+      this._setText(this.gearValueEl, playerCar.gearLabel);
     }
     if (this.rpmValueEl && this.rpmBarFillEl) {
       const roundedRpm = Math.round(playerCar.rpm);
-      this.rpmValueEl.textContent = `${roundedRpm} RPM`;
+      this._setText(this.rpmValueEl, `${roundedRpm} RPM`);
       const rpmRatio = Math.max(
         0,
         Math.min(1, roundedRpm / CAR_PHYSICS_CONFIG.maxRpm)
       );
-      this.rpmBarFillEl.style.width = `${Math.round(rpmRatio * 100)}%`;
-      this.rpmBarFillEl.style.backgroundColor = getRpmBarColor(rpmRatio);
+      const scaleX = (Math.round(rpmRatio * 1000) / 1000).toFixed(3);
+      this._setStyle(this.rpmBarFillEl, 'transform', `scaleX(${scaleX})`);
+      this._setStyle(this.rpmBarFillEl, 'backgroundColor', getRpmBarColor(rpmRatio));
     }
 
     this._updateSurfaceBadge(playerCar);
     this._updateAdvancedPhysics(playerCar, worldState.weather || 'dry');
     this._updateTrackLimitsHud(playerCar, sessionMode);
     this._updateRaceOverlays(worldState, localPlayerId);
+    if (this._cameraModeId === 'tcam') {
+      this._updateHaloHud(worldState, playerCar, localPlayerId, sessionMode);
+    }
+    if (this._physicsDebugVisible) {
+      this._updatePhysicsDebugPanel(playerCar, worldState.weather || 'dry', worldState.difficultyId);
+    }
+  }
+
+  _checkAndUpdateTrackRecordBanner(worldState, playerCar, sessionMode) {
+    const t = playerCar?.timing;
+    const trackId = worldState.trackData?.id || worldState.sessionConfig?.trackId || null;
+
+    if (trackId !== this._recordsTrackId) {
+      this._recordsTrackId = trackId;
+      this._seenSectorSeq = 0;
+      this._seenLapSeq = 0;
+      this._recordBannerUntil = 0;
+      this._recordBannerState = null;
+    }
+
+    if (t && trackId && !playerCar.isBot) {
+      const curSecSeq = t.sectorCompletionSeq ?? 0;
+      const curLapSeq = t.lapCompletionSeq ?? 0;
+      if (curSecSeq < this._seenSectorSeq) this._seenSectorSeq = 0;
+      if (curLapSeq < this._seenLapSeq) this._seenLapSeq = 0;
+
+      const meta = {
+        driverName: playerCar.driverName,
+        driverCode: String(playerCar.code || 'PIL').replace(/\*$/, '').toUpperCase(),
+        teamId: playerCar.teamId,
+        teamName: playerCar.teamName,
+        mode: sessionMode,
+      };
+
+      let sectorRes = null;
+      if (
+        t.lastCompletedSector &&
+        t.lastCompletedSector.seq > 0 &&
+        t.lastCompletedSector.seq !== this._seenSectorSeq
+      ) {
+        this._seenSectorSeq = t.lastCompletedSector.seq;
+        if (t.lastCompletedSector.valid) {
+          sectorRes = evaluateSectorRecord(
+            trackId,
+            t.lastCompletedSector.sectorIndex,
+            t.lastCompletedSector.duration,
+            meta
+          );
+        }
+      }
+
+      let lapRes = null;
+      if (
+        t.lastCompletedLap &&
+        t.lastCompletedLap.seq > 0 &&
+        t.lastCompletedLap.seq !== this._seenLapSeq
+      ) {
+        this._seenLapSeq = t.lastCompletedLap.seq;
+        if (t.lastCompletedLap.valid) {
+          lapRes = evaluateLapRecord(
+            trackId,
+            t.lastCompletedLap.sessionMode || sessionMode,
+            t.lastCompletedLap.lapTime,
+            meta
+          );
+        }
+      }
+
+      const nowMs =
+        typeof performance !== 'undefined' && typeof performance.now === 'function'
+          ? performance.now()
+          : Date.now();
+
+      if (lapRes?.isNewRecord) {
+        const catLabel =
+          lapRes.category === 'qualifying'
+            ? 'QUALIFICA'
+            : lapRes.category === 'race'
+              ? 'GARA'
+              : 'PROVE LIBERE';
+        const badge = lapRes.isOverallTrackRecord
+          ? 'RECORD ASSOLUTO PISTA'
+          : `RECORD ${catLabel}`;
+        const title = `NUOVO RECORD ${catLabel} • ${formatLapTime(lapRes.time)}`;
+        let sub =
+          lapRes.delta !== null
+            ? `${formatDeltaTime(lapRes.delta)}s (prec. ${formatLapTime(lapRes.previousTime)})`
+            : 'Primo record assoluto su questo circuito!';
+        if (sectorRes?.isNewRecord) {
+          sub += ` • + RECORD S${sectorRes.sectorIndex + 1} (${formatSectorTime(sectorRes.time)})`;
+        }
+        this._recordBannerState = { variant: 'trb-lap', badge, title, sub };
+        this._recordBannerUntil = nowMs + 5000;
+        if (this.onTrackRecordUpdated) {
+          this.onTrackRecordUpdated(trackId);
+        }
+      } else if (sectorRes?.isNewRecord) {
+        const secNum = sectorRes.sectorIndex + 1;
+        const badge = `RECORD ASSOLUTO S${secNum}`;
+        const title = `NUOVO MIGLIOR SETTORE ${secNum} DI SEMPRE • ${formatSectorTime(sectorRes.time)}`;
+        const sub =
+          sectorRes.delta !== null
+            ? `${formatDeltaTime(sectorRes.delta)}s (prec. ${formatSectorTime(sectorRes.previousTime)})`
+            : 'Primo miglior settore assoluto su questa pista!';
+        this._recordBannerState = { variant: 'trb-sector', badge, title, sub };
+        this._recordBannerUntil = nowMs + 4200;
+        if (this.onTrackRecordUpdated) {
+          this.onTrackRecordUpdated(trackId);
+        }
+      }
+    }
+
+    if (this.trackRecordBannerEl) {
+      const nowMs =
+        typeof performance !== 'undefined' && typeof performance.now === 'function'
+          ? performance.now()
+          : Date.now();
+      if (this._recordBannerState && nowMs < this._recordBannerUntil) {
+        this._setDisplay(this.trackRecordBannerEl, 'flex');
+        this._setClass(this.trackRecordBannerEl, this._recordBannerState.variant);
+        this._setText(this.trackRecordBadgeEl, this._recordBannerState.badge);
+        this._setText(this.trackRecordTitleEl, this._recordBannerState.title);
+        this._setText(this.trackRecordSubEl, this._recordBannerState.sub);
+      } else {
+        this._setDisplay(this.trackRecordBannerEl, 'none');
+      }
+    }
+  }
+
+  _updatePhysicsDebugPanel(playerCar, weatherId, difficultyId) {
+    const snap = computeCarTelemetrySnapshot(playerCar, weatherId, difficultyId);
+    if (!snap) return;
+
+    this._setText(
+      this.pdiagInputsEl,
+      `${snap.throttleInput.toFixed(2)} / ${snap.brakeInput.toFixed(2)} / ${snap.steerInput.toFixed(2)}`
+    );
+    this._setText(
+      this.pdiagSteerEl,
+      `${snap.steerAngleDeg.toFixed(1)}° → ${snap.effectiveSteerDeg.toFixed(1)}°`
+    );
+    const radiusStr = snap.turnRadiusM !== null ? `${snap.turnRadiusM.toFixed(1)} m` : '∞ m';
+    this._setText(this.pdiagRadiusEl, `${radiusStr} / ${snap.lateralG.toFixed(2)} G`);
+
+    const resStr = Number.isFinite(snap.lockupResistance)
+      ? snap.lockupResistance.toFixed(2)
+      : 'ABS';
+    this._setText(this.pdiagLockupRatioEl, `${snap.brakeDemand.toFixed(2)} / ${resStr}`);
+    this._setClass(
+      this.pdiagLockupRatioEl,
+      `pdiag-val ${snap.wheelLockup ? 'is-danger' : snap.brakeDemand > 0 ? 'is-warn' : ''}`
+    );
+
+    const holdMs = Math.round(snap.brakeHoldTime * 1000);
+    if (snap.wheelLockup) {
+      this._setText(this.pdiagLockupStateEl, `LOCKUP (${holdMs}ms)`);
+      this._setClass(this.pdiagLockupStateEl, 'pdiag-val is-danger');
+    } else if (snap.highSpeedBraking) {
+      this._setText(this.pdiagLockupStateEl, `HARD BRAKE (${holdMs}ms)`);
+      this._setClass(this.pdiagLockupStateEl, 'pdiag-val is-warn');
+    } else {
+      this._setText(this.pdiagLockupStateEl, `GRIP OK (${holdMs}ms)`);
+      this._setClass(this.pdiagLockupStateEl, 'pdiag-val is-ok');
+    }
+
+    this._setText(
+      this.pdiagEnvEl,
+      `${snap.surface} / ${snap.weatherId} (${snap.difficultyId})`
+    );
+  }
+
+  _updateHaloHud(worldState, playerCar, localPlayerId, sessionMode) {
+    if (!this.haloHudEl || !playerCar) return;
+
+    const totalSpeedMs = Math.hypot(playerCar.vx, playerCar.vz);
+    const speedKmh = Math.round(totalSpeedMs * 3.6);
+    const speedMph = Math.round(speedKmh * 0.621371);
+    this._setText(this.haloSpeedKmhEl, String(speedKmh));
+    this._setText(this.haloSpeedMphEl, String(speedMph));
+
+    // Arco circolare velocità (270° max -> 334 su circonferenza 446)
+    if (this.haloSpeedArcEl) {
+      const speedRatio = Math.max(0, Math.min(1, speedKmh / 355));
+      const dashOffset = (446 - speedRatio * 334).toFixed(1);
+      this._setAttr(this.haloSpeedArcEl, 'stroke-dashoffset', dashOffset);
+      this._setAttr(
+        this.haloSpeedArcEl,
+        'stroke',
+        speedRatio > 0.86 ? '#a855f7' : speedRatio > 0.65 ? '#38bdf8' : '#22d3ee'
+      );
+    }
+
+    // Arco RPM x1000 (lunghezza 172)
+    const roundedRpm = Math.round(playerCar.rpm || 0);
+    const rpmRatio = Math.max(0, Math.min(1, roundedRpm / CAR_PHYSICS_CONFIG.maxRpm));
+    if (this.haloRpmArcEl) {
+      const rpmOffset = (172 * (1 - rpmRatio)).toFixed(1);
+      this._setAttr(this.haloRpmArcEl, 'stroke-dashoffset', rpmOffset);
+      this._setAttr(this.haloRpmArcEl, 'stroke', getRpmBarColor(rpmRatio));
+    }
+
+    // Marce R / N / 1..8 lungo l'arco destro (il primo slot mostra 'R' in rosso in retromarcia)
+    const activeGear = String(playerCar.gearLabel || 'N');
+    const isReverse = activeGear === 'R';
+    for (const [gearKey, gearEl] of Object.entries(this.haloGearMap)) {
+      if (!gearEl) continue;
+      if (gearKey === 'N') {
+        this._setText(gearEl, isReverse ? 'R' : 'N');
+        this._setAttr(
+          gearEl,
+          'class',
+          isReverse
+            ? 'halo-gear-item is-active is-reverse'
+            : activeGear === 'N'
+              ? 'halo-gear-item is-active'
+              : 'halo-gear-item'
+        );
+      } else {
+        this._setAttr(
+          gearEl,
+          'class',
+          gearKey === activeGear ? 'halo-gear-item is-active' : 'halo-gear-item'
+        );
+      }
+    }
+
+    // Segmenti BRAKE (10) e THROTTLE (10)
+    const brakeLit = Math.round(Math.max(0, Math.min(1, playerCar.brakeInput || 0)) * 10);
+    for (let i = 0; i < this.haloBrakeSegs.length; i++) {
+      const seg = this.haloBrakeSegs[i];
+      if (!seg) continue;
+      this._setAttr(seg, 'fill-opacity', i < brakeLit ? '0.96' : '0.16');
+    }
+
+    const throttleLit = Math.round(Math.max(0, Math.min(1, playerCar.throttleInput || 0)) * 10);
+    for (let i = 0; i < this.haloThrottleSegs.length; i++) {
+      const seg = this.haloThrottleSegs[i];
+      if (!seg) continue;
+      this._setAttr(seg, 'fill-opacity', i < throttleLit ? '0.96' : '0.16');
+    }
+
+    // Barre RECHARGE / DEPLOY / Gomme
+    const aero = playerCar.aeroTire;
+    const tirePct = Math.max(0, Math.min(1, aero?.tireHealth ?? 1));
+    const downforceKg = Math.round(aero?.downforceKg ?? 0);
+    if (this.haloRechargeArcEl) {
+      const rechargeRatio = Math.max(0.12, Math.min(1, 0.2 + (playerCar.brakeInput || 0) * 0.8));
+      this._setAttr(this.haloRechargeArcEl, 'stroke-dashoffset', (74 * (1 - rechargeRatio)).toFixed(1));
+    }
+    if (this.haloDeployArcEl) {
+      const deployRatio = Math.max(0.12, Math.min(1, 0.15 + (playerCar.throttleInput || 0) * 0.85));
+      this._setAttr(this.haloDeployArcEl, 'stroke-dashoffset', (74 * (1 - deployRatio)).toFixed(1));
+    }
+    if (this.haloTireFillEl) {
+      this._setAttr(this.haloTireFillEl, 'width', (48 * tirePct).toFixed(1));
+      this._setAttr(
+        this.haloTireFillEl,
+        'fill',
+        tirePct > 0.55 ? '#38bdf8' : tirePct > 0.25 ? '#facc15' : '#ef4444'
+      );
+    }
+    this._setText(this.haloDownforceValEl, `${downforceKg} KG`);
+
+    // Pillole centrali BOOST / OVERTAKE / LOCKUP / PIOGGIA
+    const isRain = worldState.weather === 'rain';
+    if (aero?.wheelLockup) {
+      this._setText(this.haloStatusPrimaryEl, 'LOCKUP');
+      this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(220,38,38,0.86)');
+    } else if (isRain) {
+      this._setText(this.haloStatusPrimaryEl, 'PIOGGIA');
+      this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(2,132,199,0.78)');
+    } else if (speedKmh >= 295 && (playerCar.throttleInput || 0) > 0.8) {
+      this._setText(this.haloStatusPrimaryEl, 'BOOST');
+      this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(56,189,248,0.45)');
+    } else {
+      this._setText(this.haloStatusPrimaryEl, 'ERS OK');
+      this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(148,163,184,0.26)');
+    }
+
+    if (aero?.highSpeedBraking) {
+      this._setText(this.haloStatusSecondaryEl, 'FRENATA');
+      this._setAttr(this.haloStatusSecondaryBgEl, 'fill', 'rgba(234,88,12,0.88)');
+    } else if (speedKmh >= 270 && (playerCar.throttleInput || 0) > 0.85) {
+      this._setText(this.haloStatusSecondaryEl, 'OVERTAKE');
+      this._setAttr(this.haloStatusSecondaryBgEl, 'fill', 'rgba(34,197,94,0.82)');
+    } else {
+      this._setText(this.haloStatusSecondaryEl, 'GRIP OK');
+      this._setAttr(this.haloStatusSecondaryBgEl, 'fill', 'rgba(22,163,74,0.72)');
+    }
+
+    // Superficie e Track Limits sull'ala sinistra (etichetta breve per zero collisioni)
+    const surfaceProps = SURFACE_PHYSICS[playerCar.surface || 'asphalt'] || SURFACE_PHYSICS.asphalt;
+    const shortSurfaceLabel = String(surfaceProps.label || 'ASFALTO').split(' ')[0].toUpperCase();
+    this._setText(
+      this.haloTurnStatusEl,
+      playerCar.collidingWithBarrier ? 'URTO!' : shortSurfaceLabel
+    );
+    const t = playerCar.timing;
+    if (t) {
+      const tlText =
+        t.penaltySeconds > 0
+          ? `PEN +${t.penaltySeconds}S`
+          : sessionMode === 'race'
+            ? `TL ${t.trackLimitsCount}/3`
+            : t.currentLapInvalidated
+              ? 'GIRO ANN.'
+              : `TL ${t.trackLimitsCount}`;
+      this._setText(this.haloTlStatusEl, tlText);
+    }
+
+    // Tag rivale davanti e pilota locale sull'ala sinistra
+    const standings = worldState.raceState?.standings || [];
+    const localIdx = standings.findIndex((r) => r.id === localPlayerId);
+    const rivalAhead = localIdx > 0 ? standings[localIdx - 1] : null;
+    const playerSurname = extractDriverSurname(playerCar.driverName, playerCar.code);
+    const playerPos = playerCar.racePosition || (localIdx >= 0 ? localIdx + 1 : 1);
+
+    if (rivalAhead) {
+      const rivalSurname = extractDriverSurname(rivalAhead.driverName, rivalAhead.code);
+      this._setText(this.haloRivalAheadEl, `${rivalAhead.position}  ${rivalSurname}`);
+    } else {
+      this._setText(this.haloRivalAheadEl, 'P1  LEADER');
+    }
+    this._setText(this.haloPlayerTagEl, `${playerPos}  ${playerSurname}`);
+    this._setAttr(this.haloPlayerAccentEl, 'stroke', playerCar.color || '#00d2be');
+
+    // Card Broadcast Pilota in basso a sinistra dell'Halo
+    this._setText(this.haloCardPosEl, String(playerPos));
+    this._setText(this.haloCardNameEl, playerSurname);
+    this._setStyle(this.haloCardAccentEl, 'backgroundColor', playerCar.color || '#00d2be');
+
+    const logoUrl = getTeamLogoUrl(playerCar.teamId);
+    if (this.haloCardLogoEl) {
+      if (logoUrl) {
+        this._setAttr(this.haloCardLogoEl, 'src', logoUrl);
+        this._setClass(this.haloCardLogoEl, getLogoClassName(playerCar.teamId, 'halo-card-logo'));
+        this._setDisplay(this.haloCardLogoEl, 'block');
+      } else {
+        this._setDisplay(this.haloCardLogoEl, 'none');
+      }
+    }
+
+    const compound = resolveDriverCompound(
+      { driverNumber: playerCar.driverNumber, position: playerPos },
+      sessionMode,
+      worldState.weather || 'dry'
+    );
+    this._setText(this.haloCardCompoundEl, compound);
+    this._setClass(
+      this.haloCardCompoundEl,
+      `halo-card-compound compound-${compound.toLowerCase()}`
+    );
+
+    if (t) {
+      const lapInvalid =
+        Boolean(t.currentLapInvalidated) &&
+        (sessionMode === 'qualifying' || sessionMode === 'practice');
+      this._setText(this.haloCardLapEl, formatLapTime(t.currentLapTime));
+      this._setClass(this.haloCardLapEl, `halo-card-lap${lapInvalid ? ' is-invalidated' : ''}`);
+
+      const overallBest = worldState.sessionTiming?.overallBestLapTime ?? null;
+      const overallBestCarId = worldState.sessionTiming?.overallBestCarId ?? null;
+      const holderCar = overallBestCarId ? worldState.cars?.[overallBestCarId] : null;
+      const holderRow =
+        holderCar ||
+        (overallBestCarId ? standings.find((r) => r.id === overallBestCarId) : null) ||
+        standings[0] ||
+        null;
+      if (overallBest !== null) {
+        this._setText(this.haloCardRefTimeEl, formatLapTime(overallBest));
+        const holderLabel = holderRow
+          ? extractDriverSurname(holderRow.driverName, holderRow.code)
+          : 'RECORD';
+        this._setText(this.haloCardRefLabelEl, holderLabel);
+      } else if (t.bestLapTime !== null) {
+        this._setText(this.haloCardRefTimeEl, formatLapTime(t.bestLapTime));
+        this._setText(this.haloCardRefLabelEl, 'PERSONAL BEST');
+      } else {
+        this._setText(this.haloCardRefTimeEl, formatDeltaTime(t.liveDelta));
+        this._setText(this.haloCardRefLabelEl, 'DELTA');
+      }
+
+      const showLastLapTail =
+        t.currentLapTime < 3.5 && Array.isArray(t.lastLapSectorStatuses);
+      for (let i = 0; i < this.haloSectorEls.length; i++) {
+        const el = this.haloSectorEls[i];
+        if (!el) continue;
+        let status = t.currentSectorStatuses?.[i] || 'pending';
+        if (status === 'pending' && showLastLapTail) {
+          status = t.lastLapSectorStatuses[i] || 'pending';
+        }
+        const isActive = t.lapStarted && i === t.currentSectorIndex;
+        this._setClass(el, `halo-sector-chip status-${status}${isActive ? ' is-active' : ''}`);
+      }
+    }
   }
 
   _updateSessionBadges(worldState, playerCar) {
@@ -581,49 +1244,62 @@ export class HudOverlay {
     if (this.modeBadgeEl) {
       if (mode === 'qualifying') {
         const stageId = worldState.qualifyingState?.stageId || 'Q1';
-        this.modeBadgeEl.textContent = isCareer
-          ? `Carriera · ${stageId}`
-          : `Qualifiche ${stageId}`;
-        this.modeBadgeEl.className = 'session-badge badge-mode-quali';
+        this._setText(
+          this.modeBadgeEl,
+          isCareer ? `Carriera · ${stageId}` : `Qualifiche ${stageId}`
+        );
+        this._setClass(this.modeBadgeEl, 'session-badge badge-mode-quali');
       } else if (mode === 'race') {
-        this.modeBadgeEl.textContent = isCareer ? 'Carriera · Gara' : 'Gara 10 Giri';
-        this.modeBadgeEl.className = 'session-badge badge-mode-race';
+        const totalLaps =
+          worldState.raceState?.totalLaps ??
+          worldState.sessionConfig?.raceLaps ??
+          worldState.sessionConfig?.lapLimit ??
+          (isCareer ? CAREER_RACE_LAPS : RACE_TOTAL_LAPS);
+        this._setText(
+          this.modeBadgeEl,
+          isCareer ? `Carriera · ${totalLaps} Giri` : `Gara ${totalLaps} Giri`
+        );
+        this._setClass(this.modeBadgeEl, 'session-badge badge-mode-race');
       } else {
-        this.modeBadgeEl.textContent = worldState.sessionConfig?.withBots
-          ? 'Prove Libere (Bot)'
-          : 'Prove Libere (Solo)';
-        this.modeBadgeEl.className = 'session-badge badge-mode-practice';
+        this._setText(
+          this.modeBadgeEl,
+          worldState.sessionConfig?.withBots ? 'Prove Libere (Bot)' : 'Prove Libere (Solo)'
+        );
+        this._setClass(this.modeBadgeEl, 'session-badge badge-mode-practice');
       }
     }
 
     if (this.difficultyBadgeEl) {
       const diffCfg = getDifficultyConfig(worldState.difficultyId);
-      this.difficultyBadgeEl.textContent = diffCfg.shortLabel;
-      this.difficultyBadgeEl.className = `session-badge badge-diff-${diffCfg.id}`;
+      this._setText(this.difficultyBadgeEl, diffCfg.shortLabel);
+      this._setClass(this.difficultyBadgeEl, `session-badge badge-diff-${diffCfg.id}`);
     }
 
     if (this.carLevelBadgeEl && playerCar) {
       const specs = playerCar.carSpecs || getCarSpecsForLevel(playerCar.carLevel);
-      this.carLevelBadgeEl.textContent = specs.id === 'custom' ? specs.shortLabel : `Auto ${specs.shortLabel}`;
-      this.carLevelBadgeEl.className = `session-badge badge-car-${specs.id}`;
+      this._setText(
+        this.carLevelBadgeEl,
+        specs.id === 'custom' ? specs.shortLabel : `Auto ${specs.shortLabel}`
+      );
+      this._setClass(this.carLevelBadgeEl, `session-badge badge-car-${specs.id}`);
     }
 
     if (this.careerMoneyBadgeEl) {
       if (isCareer && this._careerWalletAmount !== null && this._careerWalletAmount !== undefined) {
-        this.careerMoneyBadgeEl.style.display = 'inline-block';
-        this.careerMoneyBadgeEl.textContent = formatCurrencyEUR(this._careerWalletAmount);
+        this._setDisplay(this.careerMoneyBadgeEl, 'inline-block');
+        this._setText(this.careerMoneyBadgeEl, formatCurrencyEUR(this._careerWalletAmount));
       } else {
-        this.careerMoneyBadgeEl.style.display = 'none';
+        this._setDisplay(this.careerMoneyBadgeEl, 'none');
       }
     }
 
     if (this.roomBadgeEl) {
       if (this._roomRole !== 'offline' && this._roomCode) {
-        this.roomBadgeEl.style.display = 'inline-block';
+        this._setDisplay(this.roomBadgeEl, 'inline-block');
         const roleTag = this._roomRole === 'host' ? 'HOST' : 'CLIENT';
-        this.roomBadgeEl.textContent = `${this._roomCode} · ${roleTag}`;
+        this._setText(this.roomBadgeEl, `${this._roomCode} · ${roleTag}`);
       } else {
-        this.roomBadgeEl.style.display = 'none';
+        this._setDisplay(this.roomBadgeEl, 'none');
       }
     }
   }
@@ -635,33 +1311,41 @@ export class HudOverlay {
     if (this.trackLimitsBadgeEl) {
       if (sessionMode === 'qualifying' || sessionMode === 'practice') {
         if (t.currentLapInvalidated) {
-          this.trackLimitsBadgeEl.textContent = 'GIRO ANNULLATO';
-          this.trackLimitsBadgeEl.className = 'physics-alert alert-lockup';
+          this._setText(this.trackLimitsBadgeEl, 'GIRO ANNULLATO');
+          this._setClass(this.trackLimitsBadgeEl, 'physics-alert alert-lockup');
         } else {
-          this.trackLimitsBadgeEl.textContent = `TL: ${t.trackLimitsCount}`;
-          this.trackLimitsBadgeEl.className =
-            t.trackLimitsCount > 0 ? 'physics-alert alert-braking' : 'physics-alert alert-ok';
+          this._setText(this.trackLimitsBadgeEl, `TL: ${t.trackLimitsCount}`);
+          this._setClass(
+            this.trackLimitsBadgeEl,
+            t.trackLimitsCount > 0 ? 'physics-alert alert-braking' : 'physics-alert alert-ok'
+          );
         }
       } else if (t.penaltySeconds > 0) {
-        this.trackLimitsBadgeEl.textContent = `PEN +${t.penaltySeconds}s (TL:${t.trackLimitsCount})`;
-        this.trackLimitsBadgeEl.className = 'physics-alert alert-lockup';
+        this._setText(
+          this.trackLimitsBadgeEl,
+          `PEN +${t.penaltySeconds}s (TL:${t.trackLimitsCount})`
+        );
+        this._setClass(this.trackLimitsBadgeEl, 'physics-alert alert-lockup');
       } else {
-        this.trackLimitsBadgeEl.textContent = `TL: ${t.trackLimitsCount}/3`;
-        this.trackLimitsBadgeEl.className =
-          t.trackLimitsCount >= 2 ? 'physics-alert alert-braking' : 'physics-alert alert-ok';
+        this._setText(this.trackLimitsBadgeEl, `TL: ${t.trackLimitsCount}/3`);
+        this._setClass(
+          this.trackLimitsBadgeEl,
+          t.trackLimitsCount >= 2 ? 'physics-alert alert-braking' : 'physics-alert alert-ok'
+        );
       }
     }
 
     if (this.trackLimitsBannerEl) {
       if (t.trackLimitAlertTimer > 0 && t.trackLimitAlertText) {
         const isSeverityHigh = t.penaltySeconds > 0 || t.currentLapInvalidated;
-        this.trackLimitsBannerEl.style.display = 'block';
-        this.trackLimitsBannerEl.textContent = t.trackLimitAlertText;
-        this.trackLimitsBannerEl.className = isSeverityHigh
-          ? 'tl-banner-penalty'
-          : 'tl-banner-warn';
+        this._setDisplay(this.trackLimitsBannerEl, 'block');
+        this._setText(this.trackLimitsBannerEl, t.trackLimitAlertText);
+        this._setClass(
+          this.trackLimitsBannerEl,
+          isSeverityHigh ? 'tl-banner-penalty' : 'tl-banner-warn'
+        );
       } else {
-        this.trackLimitsBannerEl.style.display = 'none';
+        this._setDisplay(this.trackLimitsBannerEl, 'none');
       }
     }
   }
@@ -671,7 +1355,7 @@ export class HudOverlay {
     const isQuali = Boolean(q && worldState.raceState?.mode === 'qualifying');
 
     if (this.qualiHudControlsEl) {
-      this.qualiHudControlsEl.style.display = isQuali ? 'flex' : 'none';
+      this._setDisplay(this.qualiHudControlsEl, isQuali ? 'flex' : 'none');
     }
 
     if (!isQuali) {
@@ -680,25 +1364,28 @@ export class HudOverlay {
     }
 
     if (this.qualiCutoffInfoEl) {
-      if (q.stageId === 'Q1') {
-        this.qualiCutoffInfoEl.textContent = 'Taglio Q1: Top 16 in Q2 (P17–P22 out)';
-      } else if (q.stageId === 'Q2') {
-        this.qualiCutoffInfoEl.textContent = 'Taglio Q2: Top 10 in Q3 (P11–P16 out)';
-      } else {
-        this.qualiCutoffInfoEl.textContent = 'Top 10 Shootout — Pole Position';
-      }
+      const cutoffText =
+        q.stageId === 'Q1'
+          ? 'Taglio Q1: Top 16 in Q2 (P17–P22 out)'
+          : q.stageId === 'Q2'
+            ? 'Taglio Q2: Top 10 in Q3 (P11–P16 out)'
+            : 'Top 10 Shootout — Pole Position';
+      this._setText(this.qualiCutoffInfoEl, cutoffText);
     }
 
     if (this.qualiSkipVotesInfoEl) {
       const req = q.skipVotes?.requiredPlayers || [];
       const approved = q.skipVotes?.approvedBy || [];
       if (req.length > 1 || approved.length > 0) {
-        this.qualiSkipVotesInfoEl.style.display = 'block';
+        this._setDisplay(this.qualiSkipVotesInfoEl, 'block');
         const actionLabel =
           q.skipVotes?.requestedAction === 'all' ? 'Vai alla Gara' : 'Salta Fase';
-        this.qualiSkipVotesInfoEl.textContent = `Voti Skip (${actionLabel}): ${approved.length}/${req.length} (unanimità)`;
+        this._setText(
+          this.qualiSkipVotesInfoEl,
+          `Voti Skip (${actionLabel}): ${approved.length}/${req.length} (unanimità)`
+        );
       } else {
-        this.qualiSkipVotesInfoEl.style.display = 'none';
+        this._setDisplay(this.qualiSkipVotesInfoEl, 'none');
       }
     }
 
@@ -822,35 +1509,43 @@ export class HudOverlay {
   _updateAdvancedPhysics(carState, weatherId) {
     if (this.weatherBadgeEl) {
       const wProps = WEATHER_CONFIG[weatherId] || WEATHER_CONFIG.dry;
-      this.weatherBadgeEl.textContent = weatherId === 'rain' ? 'Pioggia' : wProps.label;
-      this.weatherBadgeEl.className = `weather-badge weather-${weatherId}`;
+      this._setText(
+        this.weatherBadgeEl,
+        weatherId === 'rain' ? 'Pioggia' : wProps.label
+      );
+      this._setClass(this.weatherBadgeEl, `weather-badge weather-${weatherId}`);
     }
 
     const aero = carState.aeroTire;
     if (!aero) return;
 
     if (this.downforceValueEl) {
-      this.downforceValueEl.textContent = `${aero.downforceKg} kg`;
+      this._setText(this.downforceValueEl, `${aero.downforceKg} kg`);
     }
 
     if (this.tireHealthValueEl && this.tireBarFillEl) {
       const pct = Math.round(aero.tireHealth * 100);
-      this.tireHealthValueEl.textContent = `${pct}%`;
-      this.tireBarFillEl.style.width = `${pct}%`;
-      this.tireBarFillEl.style.backgroundColor =
-        pct > 65 ? '#22c55e' : pct > 30 ? '#f59e0b' : '#ef4444';
+      const clampedRatio = Math.max(0, Math.min(1, aero.tireHealth));
+      const scaleX = (Math.round(clampedRatio * 100) / 100).toFixed(2);
+      this._setText(this.tireHealthValueEl, `${pct}%`);
+      this._setStyle(this.tireBarFillEl, 'transform', `scaleX(${scaleX})`);
+      this._setStyle(
+        this.tireBarFillEl,
+        'backgroundColor',
+        pct > 65 ? '#22c55e' : pct > 30 ? '#f59e0b' : '#ef4444'
+      );
     }
 
     if (this.lockupAlertEl) {
       if (aero.wheelLockup) {
-        this.lockupAlertEl.textContent = 'BLOCCAGGIO!';
-        this.lockupAlertEl.className = 'physics-alert alert-lockup';
+        this._setText(this.lockupAlertEl, 'BLOCCAGGIO!');
+        this._setClass(this.lockupAlertEl, 'physics-alert alert-lockup');
       } else if (aero.highSpeedBraking) {
-        this.lockupAlertEl.textContent = 'STACCATA AL LIMITE';
-        this.lockupAlertEl.className = 'physics-alert alert-braking';
+        this._setText(this.lockupAlertEl, 'STACCATA AL LIMITE');
+        this._setClass(this.lockupAlertEl, 'physics-alert alert-braking');
       } else {
-        this.lockupAlertEl.textContent = 'GRIP OK';
-        this.lockupAlertEl.className = 'physics-alert alert-ok';
+        this._setText(this.lockupAlertEl, 'GRIP OK');
+        this._setClass(this.lockupAlertEl, 'physics-alert alert-ok');
       }
     }
   }

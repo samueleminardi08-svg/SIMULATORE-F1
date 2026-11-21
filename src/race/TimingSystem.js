@@ -199,6 +199,11 @@ export function createCarTimingState(
     trackLimitCooldown: 0,
     trackLimitAlertTimer: 0,
     trackLimitAlertText: '',
+    // Eventi completamento settore/giro per record persistenti pista
+    sectorCompletionSeq: 0,
+    lastCompletedSector: null,
+    lapCompletionSeq: 0,
+    lastCompletedLap: null,
   };
 }
 
@@ -233,6 +238,13 @@ function finalizeSector(timing, sessionTiming, sectorIdx, duration, isLapInvalid
   timing.currentSectorStatuses[sectorIdx] = status;
   timing.currentSectorTimes[sectorIdx] = duration;
   timing.currentLapSplits[sectorIdx] = timing.currentLapTime;
+  timing.sectorCompletionSeq = (timing.sectorCompletionSeq ?? 0) + 1;
+  timing.lastCompletedSector = {
+    seq: timing.sectorCompletionSeq,
+    sectorIndex: sectorIdx,
+    duration,
+    valid: !isLapInvalidated,
+  };
 }
 
 /**
@@ -316,7 +328,7 @@ export function updateCarTiming(
       }
     } else if (
       query.surface === 'asphalt' &&
-      query.absOffset <= trackSurface.halfTrackWidth - 0.25
+      query.absOffset <= (query.halfTrackWidth ?? trackSurface.halfTrackWidth) - 0.25
     ) {
       timing.offTrackDuration = 0;
       timing.inTrackLimitsViolation = false;
@@ -378,6 +390,14 @@ export function updateCarTiming(
         sessionTiming.overallBestCarId = car.id;
       }
     }
+
+    timing.lapCompletionSeq = (timing.lapCompletionSeq ?? 0) + 1;
+    timing.lastCompletedLap = {
+      seq: timing.lapCompletionSeq,
+      lapTime: timing.lastLapTime,
+      valid: recordAllowed,
+      sessionMode,
+    };
 
     timing.completedLaps += 1;
     timing.currentLap += 1;

@@ -99,6 +99,7 @@ export class ModalManager {
     this._activeOrder = this._activeOrder.filter((itemId) => itemId !== id);
     this._activeOrder.push(id);
 
+    entry.element.style.zIndex = String(90 + this._activeOrder.length * 2);
     entry.element.style.display = 'flex';
     entry.element.classList.add('is-modal-open');
     entry.element.setAttribute('aria-hidden', 'false');
@@ -127,6 +128,7 @@ export class ModalManager {
     }
 
     entry.element.style.display = 'none';
+    entry.element.style.zIndex = '';
     entry.element.classList.remove('is-modal-open');
     entry.element.setAttribute('aria-hidden', 'true');
 
@@ -134,7 +136,12 @@ export class ModalManager {
       entry.onClose(reason, id);
     }
 
-    if (wasOpen && isHtmlEl(entry.previousFocus) && this._activeOrder.length === 0) {
+    if (wasOpen && this._activeOrder.length > 0) {
+      const topEntry = this._modals.get(this.getActiveModalId());
+      if (topEntry) {
+        this._focusFirstControl(topEntry);
+      }
+    } else if (wasOpen && isHtmlEl(entry.previousFocus)) {
       if (
         typeof document !== 'undefined' &&
         document.body.contains(entry.previousFocus) &&
@@ -235,6 +242,15 @@ export class ModalManager {
     return stops;
   }
 
+  _getFocusableList(root) {
+    if (!root) return [];
+    return [
+      ...root.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ),
+    ].filter((el) => isHtmlEl(el) && el.offsetParent !== null);
+  }
+
   _handleKeyDown(event) {
     const activeId = this.getActiveModalId();
     if (!activeId) return;
@@ -244,6 +260,22 @@ export class ModalManager {
     const root = entry.dialogEl || entry.element;
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
     const tag = activeEl?.tagName;
+
+    if (event.code === 'Tab') {
+      const focusables = this._getFocusableList(root);
+      event.preventDefault();
+      if (focusables.length === 0) return;
+
+      const curIdx = focusables.indexOf(activeEl);
+      let nextIdx;
+      if (event.shiftKey) {
+        nextIdx = curIdx <= 0 ? focusables.length - 1 : curIdx - 1;
+      } else {
+        nextIdx = curIdx < 0 || curIdx >= focusables.length - 1 ? 0 : curIdx + 1;
+      }
+      focusables[nextIdx].focus({ preventScroll: true });
+      return;
+    }
 
     if (tag === 'INPUT' || tag === 'TEXTAREA') {
       if (event.code === 'Enter') {

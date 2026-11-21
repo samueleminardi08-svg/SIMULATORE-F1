@@ -1,6 +1,6 @@
 /**
- * Minimappa 2D del tracciato in basso a sinistra (HUD).
- * Mostra il disegno fedele della pista suddivisa nei 3 settori (S1, S2, S3)
+ * Minimappa 2D 4K del tracciato in basso a destra (HUD).
+ * Mostra il disegno fedele della pista a doppio profilo suddivisa nei 3 settori (S1, S2, S3)
  * con colori reattivi (viola/verde/giallo) e tacche di confine, oltre a un
  * puntino e una freccia direzionale per ogni pilota presente in WorldState.
  */
@@ -19,19 +19,21 @@ export class TrackMapHud {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {ReturnType<import('../tracks/TrackSurface.js').createTrackSurface>} trackSurface
-   * @param {{ size?: number, padding?: number }} [options]
+   * @param {{ size?: number, padding?: number, fixedCssSize?: boolean }} [options]
    */
   constructor(canvas, trackSurface, options = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.size = options.size ?? 186;
-    this.padding = options.padding ?? 18;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.size = options.size ?? 220;
+    this.padding = options.padding ?? 20;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 3);
 
-    this.canvas.width = this.size * this.dpr;
-    this.canvas.height = this.size * this.dpr;
-    this.canvas.style.width = `${this.size}px`;
-    this.canvas.style.height = `${this.size}px`;
+    this.canvas.width = Math.round(this.size * this.dpr);
+    this.canvas.height = Math.round(this.size * this.dpr);
+    if (options.fixedCssSize) {
+      this.canvas.style.width = `${this.size}px`;
+      this.canvas.style.height = `${this.size}px`;
+    }
 
     this.trackSurface = null;
     this._scale = 1;
@@ -47,6 +49,12 @@ export class TrackMapHud {
     this._staticBaseCanvas = document.createElement('canvas');
     this._staticBaseCanvas.width = this.canvas.width;
     this._staticBaseCanvas.height = this.canvas.height;
+
+    // Layer staccato dal DOM con base + 3 settori + etichette S1/S2/S3 (evita ForcedReflow da ctx.font ogni frame)
+    this._sectorLayerCanvas = document.createElement('canvas');
+    this._sectorLayerCanvas.width = this.canvas.width;
+    this._sectorLayerCanvas.height = this.canvas.height;
+    this._lastSectorSig = '';
 
     if (trackSurface) {
       this.setTrackSurface(trackSurface);
@@ -75,6 +83,7 @@ export class TrackMapHud {
     this._offsetX = (this.size - drawnWidth) * 0.5;
     this._offsetY = (this.size - drawnHeight) * 0.5;
 
+    this._lastSectorSig = '';
     this._computeSectorGeometry();
     this._renderStaticBase();
   }
@@ -169,8 +178,13 @@ export class TrackMapHud {
       else sCtx.lineTo(pt.x, pt.y);
     }
     sCtx.closePath();
-    sCtx.strokeStyle = 'rgba(15, 23, 42, 0.94)';
-    sCtx.lineWidth = 8.5;
+    // Doppio profilo motorsport nitido per schermi fino al 4K
+    sCtx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    sCtx.lineWidth = 10.5;
+    sCtx.stroke();
+
+    sCtx.strokeStyle = 'rgba(10, 14, 24, 0.96)';
+    sCtx.lineWidth = 7.6;
     sCtx.stroke();
   }
 
@@ -202,7 +216,7 @@ export class TrackMapHud {
       }
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = isActive ? 5.2 : 3.8;
-      ctx.globalAlpha = status !== 'pending' || isActive ? 0.98 : 0.65;
+      ctx.globalAlpha = status !== 'pending' || isActive ? 0.98 : 0.72;
       ctx.stroke();
     }
 
@@ -210,17 +224,17 @@ export class TrackMapHud {
 
     // Tacche di separazione tra S1, S2 e S3 + Linea di partenza/traguardo
     for (const b of this._sectorBoundaries) {
-      const halfLen = b.isStartFinish ? 6.5 : 5.2;
+      const halfLen = b.isStartFinish ? 7.2 : 5.4;
       ctx.beginPath();
       ctx.moveTo(b.x - b.mnx * halfLen, b.y - b.mnz * halfLen);
       ctx.lineTo(b.x + b.mnx * halfLen, b.y + b.mnz * halfLen);
       ctx.strokeStyle = b.isStartFinish ? '#e10600' : '#ffffff';
-      ctx.lineWidth = b.isStartFinish ? 2.6 : 1.8;
+      ctx.lineWidth = b.isStartFinish ? 2.8 : 1.8;
       ctx.stroke();
     }
 
     // Etichette S1, S2, S3 sulla minimappa
-    ctx.font = '700 9px "Segoe UI", sans-serif';
+    ctx.font = '700 10px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -231,6 +245,9 @@ export class TrackMapHud {
         status = timing.lastLapSectorStatuses[sec] || 'pending';
       }
       const isActive = timing?.lapStarted && timing.currentSectorIndex === sec;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(7, 9, 14, 0.92)';
+      ctx.strokeText(lbl.label, lbl.x, lbl.y);
       ctx.fillStyle = STATUS_COLORS[status] || (isActive ? '#ffffff' : '#cbd5e1');
       ctx.fillText(lbl.label, lbl.x, lbl.y);
     }
@@ -239,7 +256,7 @@ export class TrackMapHud {
   _drawDriverMarker(ctx, carState, isLocalPlayer) {
     const pos = this._worldToMap(carState.x, carState.z);
     const fillColor = isLocalPlayer ? '#e10600' : (carState.color || '#38bdf8');
-    const dotRadius = isLocalPlayer ? 4.4 : 3.5;
+    const dotRadius = isLocalPlayer ? 4.8 : 3.5;
 
     const dirX = Math.sin(carState.heading);
     const dirY = Math.cos(carState.heading);
@@ -247,6 +264,14 @@ export class TrackMapHud {
 
     ctx.save();
     ctx.translate(pos.x, pos.y);
+
+    if (isLocalPlayer) {
+      ctx.beginPath();
+      ctx.arc(0, 0, dotRadius + 3.2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
 
     // Freccia direzionale davanti al puntino
     ctx.save();
@@ -276,6 +301,31 @@ export class TrackMapHud {
     ctx.restore();
   }
 
+  _ensureSectorLayer(timing) {
+    const showLastLapTail =
+      timing &&
+      timing.currentLapTime < 3.5 &&
+      Array.isArray(timing.lastLapSectorStatuses);
+    const resolveStatus = (secIdx) => {
+      const cur = timing?.currentSectorStatuses?.[secIdx] || 'pending';
+      if (cur === 'pending' && showLastLapTail) {
+        return timing.lastLapSectorStatuses[secIdx] || 'pending';
+      }
+      return cur;
+    };
+    const activeSec = timing?.lapStarted ? timing.currentSectorIndex : -1;
+    const sig = `${resolveStatus(0)}|${resolveStatus(1)}|${resolveStatus(2)}|${activeSec}`;
+    if (sig === this._lastSectorSig) return;
+
+    this._lastSectorSig = sig;
+    const lCtx = this._sectorLayerCanvas.getContext('2d');
+    lCtx.setTransform(1, 0, 0, 1, 0, 0);
+    lCtx.clearRect(0, 0, this._sectorLayerCanvas.width, this._sectorLayerCanvas.height);
+    lCtx.drawImage(this._staticBaseCanvas, 0, 0);
+    lCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this._drawSectors(lCtx, timing);
+  }
+
   /**
    * Aggiorna la minimappa disegnando i 3 settori e tutti i piloti presenti in WorldState.
    * @param {import('../core/WorldState.js').WorldState} worldState
@@ -284,15 +334,15 @@ export class TrackMapHud {
   render(worldState, localPlayerId) {
     if (!this.trackSurface || !worldState) return;
 
+    const localCar = worldState.getCar(localPlayerId);
+    this._ensureSectorLayer(localCar?.timing || null);
+
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    ctx.drawImage(this._staticBaseCanvas, 0, 0);
+    ctx.drawImage(this._sectorLayerCanvas, 0, 0);
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-
-    const localCar = worldState.getCar(localPlayerId);
-    this._drawSectors(ctx, localCar?.timing || null);
 
     const cars = Object.values(worldState.cars);
     for (const car of cars) {

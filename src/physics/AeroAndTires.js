@@ -21,6 +21,8 @@ export function createInitialAeroTireState() {
     wheelLockup: false,
     lockupIntensity: 0,
     highSpeedBraking: false,
+    lastBrakeDemand: 0,
+    lastLockupResistance: 1.0,
   };
 }
 
@@ -56,23 +58,30 @@ export function updateAeroAndTires(
   aero.downforceKg = Math.round(cfg.maxDownforceKg * vSq * downforceMult);
   aero.aeroGripBonus = 1.0 + cfg.downforceGripGain * vSq * downforceMult;
 
-  // 2. Durata frenata continua (modulabile rilasciando brevemente il freno)
-  const isBrakingForward = Boolean(input?.backward && !input?.forward && car.forwardSpeed > 6.0);
-  if (isBrakingForward) {
-    aero.brakeHoldTime += dt;
+  // 2. Durata frenata continua guidata dalla pressione progressiva brakeInput (0..1)
+  const brakePressure = clamp(
+    typeof car.brakeInput === 'number' ? car.brakeInput : input?.backward ? 1 : 0,
+    0,
+    1
+  );
+  const isBrakingForward = Boolean(brakePressure > 0.05 && !input?.forward && car.forwardSpeed > 6.0);
+  if (isBrakingForward && brakePressure >= 0.45) {
+    aero.brakeHoldTime += dt * brakePressure;
   } else {
-    aero.brakeHoldTime = Math.max(0, aero.brakeHoldTime - dt * 8.0);
+    aero.brakeHoldTime = Math.max(0, aero.brakeHoldTime - dt * 9.5);
   }
 
-  // 3. Frenata brusca ad alta velocità (> ~173 km/h)
+  // 3. Frenata brusca ad alta velocità (> ~173 km/h con pressione freno elevata)
   aero.highSpeedBraking = Boolean(
-    input?.backward && !input?.forward && car.forwardSpeed > cfg.highSpeedBrakeThresholdMs
+    isBrakingForward && brakePressure > 0.72 && car.forwardSpeed > cfg.highSpeedBrakeThresholdMs
   );
 
-  // 4. Valutazione bloccaggio ruote anteriori (disattivato se ABS assistito in Principiante)
+  // 4. Valutazione bloccaggio ruote anteriori (modulato da brakeInput 0..1 + Cadence Braking Assist)
   if (difficultyProps?.absAssist) {
     aero.wheelLockup = false;
     aero.lockupIntensity = 0;
+    aero.lastBrakeDemand = 0;
+    aero.lastLockupResistance = Infinity;
   } else {
     const surfaceLockFactor =
       car.surface === 'kerb'
@@ -86,13 +95,32 @@ export function updateAeroAndTires(
       (difficultyProps?.lockupResistanceMultiplier ?? 1.0) *
       (carSpecs?.brakeMult ?? 1.0);
 
-    const steerLoad = 1.0 + Math.abs(car.steerAngle / 0.40) * cfg.lockupSteerSensitivity;
-    const brakeDemand =
-      (0.72 + Math.min(0.45, aero.brakeHoldTime * 0.65)) * steerLoad;
+    const steerRatio = Math.abs(car.steerAngle / 0.48);
+    const steerLoad = 1.0 + steerRatio * cfg.lockupSteerSensitivity;
+    let brakeDemand =
+      isBrakingForward
+        ? (brakePressure * 0.82 + Math.min(0.30, aero.brakeHoldTime * 0.35) * brakePressure) *
+          steerLoad
+        : 0;
+
+    // Cadence Braking Assist leggero (es. Intermedio): evita lockup nei primi 0.55s se non si sterza al limite
+    const cadenceGrace = difficultyProps?.cadenceAssistGraceTime ?? 0;
+    if (
+      cadenceGrace > 0 &&
+      isBrakingForward &&
+      aero.brakeHoldTime <= cadenceGrace &&
+      steerRatio < 0.62 &&
+      car.surface !== 'grass'
+    ) {
+      brakeDemand = Math.min(brakeDemand, lockupResistance * 0.96);
+    }
+
+    aero.lastBrakeDemand = brakeDemand;
+    aero.lastLockupResistance = lockupResistance;
 
     if (isBrakingForward && car.forwardSpeed > 7.5 && brakeDemand > lockupResistance) {
       aero.wheelLockup = true;
-      aero.lockupIntensity = clamp((brakeDemand - lockupResistance) * 2.2, 0.25, 1.0);
+      aero.lockupIntensity = clamp((brakeDemand - lockupResistance) * 2.2, 0.22, 1.0);
     } else {
       aero.wheelLockup = false;
       aero.lockupIntensity = 0;

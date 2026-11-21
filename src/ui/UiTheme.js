@@ -304,6 +304,59 @@ export function getTrackCornersCount(trackId) {
   return TRACK_CORNERS_BY_ID[trackId] ?? 16;
 }
 
+const TEAM_LOGO_URLS = Object.freeze({
+  mclaren: new URL('../assets/logos/mclaren.svg', import.meta.url).href,
+  ferrari: new URL('../assets/logos/ferrari.svg', import.meta.url).href,
+  red_bull: new URL('../assets/logos/red_bull.svg', import.meta.url).href,
+  redbull: new URL('../assets/logos/red_bull.svg', import.meta.url).href,
+  mercedes: new URL('../assets/logos/mercedes.svg', import.meta.url).href,
+  aston_martin: new URL('../assets/logos/aston_martin.svg', import.meta.url).href,
+  aston: new URL('../assets/logos/aston_martin.svg', import.meta.url).href,
+  williams: new URL('../assets/logos/williams.png', import.meta.url).href,
+  alpine: new URL('../assets/logos/alpine.svg', import.meta.url).href,
+  racing_bulls: new URL('../assets/logos/racing_bulls.svg', import.meta.url).href,
+  rb: new URL('../assets/logos/racing_bulls.svg', import.meta.url).href,
+  haas: new URL('../assets/logos/haas.svg', import.meta.url).href,
+  audi: new URL('../assets/logos/audi.svg', import.meta.url).href,
+  sauber: new URL('../assets/logos/audi.svg', import.meta.url).href,
+  cadillac: new URL('../assets/logos/cadillac.svg', import.meta.url).href,
+});
+
+const TEAM_LOGO_DARK_TONE = new Set();
+
+/**
+ * Loghi con tratti scuri che su sfondo scuro (torre tempi F1 / Halo HUD)
+ * vanno resi chiari/bianchi per mantenere la massima leggibilità broadcast.
+ */
+export const TEAM_LOGO_INVERT_ON_DARK = new Set([
+  'audi',
+  'sauber',
+  'aston_martin',
+  'aston',
+  'cadillac',
+  'williams',
+  'racing_bulls',
+  'rb',
+]);
+
+/**
+ * Restituisce l'URL statico del logo ufficiale della scuderia F1 2026 (o null se assente).
+ * @param {string} teamId
+ * @returns {string | null}
+ */
+export function getTeamLogoUrl(teamId) {
+  const key = String(teamId || '').toLowerCase();
+  return TEAM_LOGO_URLS[key] || null;
+}
+
+function escapeAttr(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 const TEAM_MONOGRAMS = Object.freeze({
   ferrari: 'SF',
   mclaren: 'MCL',
@@ -323,13 +376,23 @@ const TEAM_MONOGRAMS = Object.freeze({
 });
 
 /**
- * Genera uno stemma vettoriale compatto per la scuderia attiva (senza asset esterni).
+ * Restituisce il badge HTML/SVG con il logo ufficiale della scuderia F1 2026
+ * (con fallback vettoriale compatto se l'ID scuderia non è mappato).
  * @param {{ id?: string, name?: string, primaryColor?: string, secondaryColor?: string }} team
  * @returns {string}
  */
 export function generateTeamEmblemSvg(team = {}) {
   const id = String(team?.id || '').toLowerCase();
   const rawName = String(team?.name || 'F1').trim();
+  const primary = team?.primaryColor || '#e10600';
+
+  const logoUrl = TEAM_LOGO_URLS[id];
+  if (logoUrl) {
+    const tone = TEAM_LOGO_DARK_TONE.has(id) ? 'dark' : 'light';
+    const alt = escapeAttr(rawName || id);
+    return `<span class="f1-team-logo-plate" data-logo-tone="${tone}" style="--logo-accent: ${escapeAttr(primary)};"><img class="f1-team-logo-img" src="${escapeAttr(logoUrl)}" alt="${alt}" loading="eager" decoding="async" draggable="false" /></span>`;
+  }
+
   const mono =
     TEAM_MONOGRAMS[id] ||
     rawName
@@ -340,7 +403,6 @@ export function generateTeamEmblemSvg(team = {}) {
       .join('') ||
     'F1';
 
-  const primary = team?.primaryColor || '#e10600';
   const secondary = team?.secondaryColor || '#ffffff';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">

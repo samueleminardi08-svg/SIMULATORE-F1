@@ -26,8 +26,6 @@ export function computeStartingGridTransforms(
   const transforms = [];
   for (let i = 0; i < count; i++) {
     const backDist = 6.5 + i * spacing; // Passo sfalsato tra una casella e la successiva
-    const lateralOffset = i % 2 === 0 ? -2.75 : 2.75; // P1 a destra (-X), P2 a sinistra (+X)
-
     const targetArc = (startArc - backDist + totalLength) % totalLength;
     const fIdx = (targetArc / totalLength) * sampleCount;
     const i0 = Math.floor(fIdx) % sampleCount;
@@ -35,6 +33,17 @@ export function computeStartingGridTransforms(
     const alpha = fIdx - Math.floor(fIdx);
     const a = samples[i0];
     const b = samples[i1];
+
+    const slotHalfWidth =
+      (a.halfWidth ?? trackSurface.halfTrackWidth) +
+      ((b.halfWidth ?? trackSurface.halfTrackWidth) - (a.halfWidth ?? trackSurface.halfTrackWidth)) *
+        alpha;
+    const maxSafeLat = Math.max(1.85, slotHalfWidth - 0.95 - 1.15);
+    const lateralMag = Math.max(
+      1.85,
+      Math.min(Math.min(3.35, maxSafeLat), slotHalfWidth * 0.42)
+    );
+    const lateralOffset = i % 2 === 0 ? -lateralMag : lateralMag; // P1 a destra (-X), P2 a sinistra (+X)
 
     const sx = a.x + (b.x - a.x) * alpha;
     const sy = a.y + (b.y - a.y) * alpha;
@@ -209,6 +218,7 @@ export function updateRaceState(worldState, dt, localPlayerId = 'player_1') {
       code: car.code,
       driverName: car.driverName,
       driverNumber: car.driverNumber,
+      teamId: car.teamId,
       teamName: car.teamName,
       color: car.color,
       isBot: car.isBot,

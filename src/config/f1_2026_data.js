@@ -4,6 +4,7 @@
  */
 
 export const RACE_TOTAL_LAPS = 10;
+export const CAREER_RACE_LAPS = 5;
 
 export const F1_2026_TEAMS = {
   mclaren: {

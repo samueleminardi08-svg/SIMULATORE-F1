@@ -37,13 +37,17 @@ const TRANSPARENT_DECAL_MATERIALS = new Set([
   'glass',
 ]);
 
+// Scala esatta F1 2026 (1 unità = 1 metro): larghezza 1.90 m, passo 3.40 m (ruote circolari: scaleY === scaleZ)
+export const GLB_SCALE_X = 1.90 / 1.955686;
+export const GLB_SCALE_YZ = 3.40 / 3.533;
+
 const WHEEL_CENTERS = {
-  fl: [0.800, 0.364, 1.522],
-  fr: [-0.800, 0.366, 1.522],
-  rl: [0.764, 0.358, -2.011],
-  rr: [-0.764, 0.359, -2.011],
+  fl: [0.800 * GLB_SCALE_X, 0.364 * GLB_SCALE_YZ, 1.522 * GLB_SCALE_YZ],
+  fr: [-0.800 * GLB_SCALE_X, 0.366 * GLB_SCALE_YZ, 1.522 * GLB_SCALE_YZ],
+  rl: [0.764 * GLB_SCALE_X, 0.358 * GLB_SCALE_YZ, -2.011 * GLB_SCALE_YZ],
+  rr: [-0.764 * GLB_SCALE_X, 0.359 * GLB_SCALE_YZ, -2.011 * GLB_SCALE_YZ],
 };
-const STEERING_PIVOT = [0, 0.680, 0.455];
+const STEERING_PIVOT = [0, 0.680 * GLB_SCALE_YZ, 0.455 * GLB_SCALE_YZ];
 
 const TEMP_COLOR = new THREE.Color();
 
@@ -172,8 +176,9 @@ function splitGeometryByWheelQuadrant(geometry) {
  */
 function buildTemplateFromGltfScene(gltfScene) {
   const toCarSpace = new THREE.Matrix4()
-    .makeRotationX(Math.PI / 2)
-    .setPosition(0, 0.027, 0);
+    .makeTranslation(0, 0.0257, 0)
+    .multiply(new THREE.Matrix4().makeScale(GLB_SCALE_X, GLB_SCALE_YZ, GLB_SCALE_YZ))
+    .multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
 
   const template = {
     bodyParts: [],
@@ -380,18 +385,18 @@ export function createF1CarMesh(options = {}) {
     metalness: 0.3,
   });
 
-  // 4 ruote (anteriori sterzanti + posteriori motrici)
-  const wheelFL = createWheelAssembly(0.36, 0.32, true);
-  wheelFL.steerPivot.position.set(0.86, 0.36, 1.48);
+  // 4 ruote (anteriori sterzanti + posteriori motrici) scalate a F1 2026 (passo 3.40 m, larghezza 1.90 m)
+  const wheelFL = createWheelAssembly(0.35, 0.32, true);
+  wheelFL.steerPivot.position.set(0.79, 0.35, 1.65);
 
-  const wheelFR = createWheelAssembly(0.36, 0.32, true);
-  wheelFR.steerPivot.position.set(-0.86, 0.36, 1.48);
+  const wheelFR = createWheelAssembly(0.35, 0.32, true);
+  wheelFR.steerPivot.position.set(-0.79, 0.35, 1.65);
 
-  const wheelRL = createWheelAssembly(0.36, 0.40, false);
-  wheelRL.steerPivot.position.set(0.88, 0.36, -1.42);
+  const wheelRL = createWheelAssembly(0.35, 0.40, false);
+  wheelRL.steerPivot.position.set(0.75, 0.35, -1.75);
 
-  const wheelRR = createWheelAssembly(0.36, 0.40, false);
-  wheelRR.steerPivot.position.set(-0.88, 0.36, -1.42);
+  const wheelRR = createWheelAssembly(0.35, 0.40, false);
+  wheelRR.steerPivot.position.set(-0.75, 0.35, -1.75);
 
   root.add(wheelFL.steerPivot, wheelFR.steerPivot, wheelRL.steerPivot, wheelRR.steerPivot);
 
@@ -429,22 +434,22 @@ export function createF1CarMesh(options = {}) {
     noseMesh.castShadow = true;
     bodyGroup.add(noseMesh);
 
-    // 4. Alettone anteriore (Front Wing + Endplates)
-    const frontWingMain = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.06, 0.38), carbonMat);
+    // 4. Alettone anteriore (Front Wing + Endplates a larghezza 1.90 m)
+    const frontWingMain = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.06, 0.38), carbonMat);
     frontWingMain.position.set(0, 0.16, 2.38);
     frontWingMain.castShadow = true;
     bodyGroup.add(frontWingMain);
 
-    const frontWingFlap = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.04, 0.22), whiteAccentMat);
+    const frontWingFlap = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.04, 0.22), whiteAccentMat);
     frontWingFlap.position.set(0, 0.21, 2.28);
     frontWingFlap.rotation.x = -0.18;
     bodyGroup.add(frontWingFlap);
 
     const fwEndplateGeo = new THREE.BoxGeometry(0.05, 0.24, 0.48);
     const fwEndplateLeft = new THREE.Mesh(fwEndplateGeo, primaryMat);
-    fwEndplateLeft.position.set(0.94, 0.24, 2.35);
+    fwEndplateLeft.position.set(0.925, 0.24, 2.35);
     const fwEndplateRight = new THREE.Mesh(fwEndplateGeo, primaryMat);
-    fwEndplateRight.position.set(-0.94, 0.24, 2.35);
+    fwEndplateRight.position.set(-0.925, 0.24, 2.35);
     bodyGroup.add(fwEndplateLeft, fwEndplateRight);
 
     // 5. Pance laterali (Sidepods)

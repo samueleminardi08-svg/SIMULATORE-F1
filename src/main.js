@@ -7,6 +7,8 @@
  */
 
 import { LOCAL_PLAYER_ID } from './config/constants.js';
+import { getDifficultyConfig } from './config/difficulty.js';
+import { CAREER_RACE_LAPS, RACE_TOTAL_LAPS } from './config/f1_2026_data.js';
 import { WorldState } from './core/WorldState.js';
 import { GameLoop } from './core/GameLoop.js';
 import { InputManager } from './input/InputManager.js';
@@ -32,6 +34,15 @@ function initGame() {
   const hudSkipQualiBtn = document.getElementById('hud-skip-quali-btn');
   const qualiNextBtn = document.getElementById('quali-next-btn');
   const qualiSkipToRaceBtn = document.getElementById('quali-skip-to-race-btn');
+  const pauseModalEl = document.getElementById('pause-modal');
+  const pauseMetaTrackEl = document.getElementById('pause-meta-track');
+  const pauseMetaModeEl = document.getElementById('pause-meta-mode');
+  const pauseMetaWeatherEl = document.getElementById('pause-meta-weather');
+  const pauseMetaDifficultyEl = document.getElementById('pause-meta-difficulty');
+  const pauseResumeBtn = document.getElementById('pause-resume-btn');
+  const pauseRestartBtn = document.getElementById('pause-restart-btn');
+  const pauseSettingsBtn = document.getElementById('pause-settings-btn');
+  const pauseMenuBtn = document.getElementById('pause-menu-btn');
 
   // 0. Caricamento Carriera persistente da localStorage e circuito attivo
   let careerState = loadCareerState();
@@ -88,8 +99,10 @@ function initGame() {
       menuManager.hasActiveSession = true;
       menuManager.activeTab = 'home';
       menuManager.close();
+      modalManager.syncVisibility('pause-modal', false);
       hudOverlay.hideRaceFinish();
       hudOverlay.hideQualifyingModal();
+      hudOverlay.resetTrackRecordTracking(incomingTrackId || activeTrack.id);
       hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
       inputManager.reset();
       if (snapshot) {
@@ -120,6 +133,9 @@ function initGame() {
 
   hudOverlay = new HudOverlay({
     modalManager,
+    onTrackRecordUpdated: () => {
+      if (menuManager) menuManager.refreshTrackRecords();
+    },
     onFinishModalClose: () => {
       inputManager.reset();
       menuManager?.open();
@@ -149,30 +165,134 @@ function initGame() {
     },
   });
   hudOverlay.setTrackName(`${activeTrack.name} — ${activeTrack.country}`);
-  hudOverlay.setCameraLabel(sceneManager.getCameraMode().label);
+  hudOverlay.setCameraMode(sceneManager.getCameraMode());
   hudOverlay.setCareerBalance(careerState.money);
 
+  window.addEventListener('keydown', (event) => {
+    if (event.code === 'F3' && !event.repeat && !menuManager?.isOpen) {
+      event.preventDefault();
+      hudOverlay.togglePhysicsDebugPanel();
+    }
+  });
+
   trackMapHud = trackMapCanvas
-    ? new TrackMapHud(trackMapCanvas, worldState.trackSurface, { size: 186, padding: 16 })
+    ? new TrackMapHud(trackMapCanvas, worldState.trackSurface, { size: 220, padding: 20 })
     : null;
 
   const startConfiguredSession = (config) => {
     if (config?.trackId) {
       applyActiveTrack(config.trackId);
     }
+    modalManager.syncVisibility('pause-modal', false);
     hudOverlay.resetDismissedModals();
     hudOverlay.hideRaceFinish();
     hudOverlay.hideQualifyingModal();
+    hudOverlay.resetTrackRecordTracking(config?.trackId || activeTrack.id);
     hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
     inputManager.reset();
     worldState.startSession(config, LOCAL_PLAYER_ID);
   };
+
+  const syncPauseModalMeta = () => {
+    if (pauseMetaTrackEl) {
+      pauseMetaTrackEl.textContent = activeTrack?.name || 'Circuito F1';
+    }
+    if (pauseMetaModeEl) {
+      if (worldState.qualifyingState) {
+        pauseMetaModeEl.textContent = `Qualifiche ${worldState.qualifyingState.stage || 'Q1'}`;
+      } else if (worldState.sessionConfig?.mode === 'practice') {
+        pauseMetaModeEl.textContent = 'Prove Libere';
+      } else if (worldState.sessionConfig?.isCareer) {
+        const laps =
+          worldState.raceState?.totalLaps ??
+          worldState.sessionConfig?.raceLaps ??
+          CAREER_RACE_LAPS;
+        pauseMetaModeEl.textContent = `Carriera • ${laps} Giri`;
+      } else {
+        const laps =
+          worldState.raceState?.totalLaps ??
+          worldState.sessionConfig?.raceLaps ??
+          worldState.sessionConfig?.lapLimit ??
+          RACE_TOTAL_LAPS;
+        pauseMetaModeEl.textContent = `Gara ${laps} Giri`;
+      }
+    }
+    if (pauseMetaWeatherEl) {
+      pauseMetaWeatherEl.textContent = worldState.weather === 'rain' ? 'Pioggia' : 'Asciutto';
+    }
+    if (pauseMetaDifficultyEl) {
+      const diffId = worldState.difficultyId || menuManager?.state?.difficultyId;
+      pauseMetaDifficultyEl.textContent = getDifficultyConfig(diffId)?.label || 'Intermedio';
+    }
+    if (pauseRestartBtn) {
+      pauseRestartBtn.disabled = roomManager.isClient();
+    }
+  };
+
+  const openPauseModal = () => {
+    if (!pauseModalEl || menuManager?.isOpen) return;
+    syncPauseModalMeta();
+    inputManager.reset();
+    modalManager.open('pause-modal');
+  };
+
+  modalManager.register('pause-modal', {
+    element: pauseModalEl,
+    onClose: () => {
+      inputManager.reset();
+    },
+  });
+
+  if (pauseResumeBtn) {
+    pauseResumeBtn.addEventListener('click', () => {
+      modalManager.close('pause-modal', 'resume');
+    });
+  }
+
+  if (pauseRestartBtn) {
+    pauseRestartBtn.addEventListener('click', () => {
+      if (roomManager.isClient()) return;
+      modalManager.close('pause-modal', 'restart');
+      const baseCfg = worldState.sessionConfig?.isCareer
+        ? menuManager.buildSessionConfig()
+        : worldState.sessionConfig
+          ? {
+              ...worldState.sessionConfig,
+              difficultyId: menuManager.state.difficultyId,
+              weather: menuManager.state.weather,
+            }
+          : menuManager.buildSessionConfig();
+      startConfiguredSession(baseCfg);
+      if (roomManager.isHost()) {
+        roomManager.broadcastSessionStart(worldState.sessionConfig, worldState.getSnapshot());
+      }
+    });
+  }
+
+  if (pauseSettingsBtn) {
+    pauseSettingsBtn.addEventListener('click', () => {
+      if (menuManager) {
+        menuManager.state.weather = worldState.weather;
+        menuManager._syncUI();
+      }
+      modalManager.open('gp-settings-popup');
+    });
+  }
+
+  if (pauseMenuBtn) {
+    pauseMenuBtn.addEventListener('click', () => {
+      modalManager.close('pause-modal', 'open-menu');
+      menuManager.open();
+    });
+  }
 
   // 4. Menu configurazione sessione, Showroom Garage 3D & Lobby Multiplayer
   menuManager = new MenuManager({
     careerState,
     roomManager,
     modalManager,
+    onOpenHudMenu: () => openPauseModal(),
+    onSettingsClose: () => syncPauseModalMeta(),
     onCareerChange: (nextCareerState) => {
       careerState = nextCareerState;
       hudOverlay.setCareerBalance(careerState.money);
@@ -188,19 +308,31 @@ function initGame() {
       sceneManager.setGarageMode(isOpen, appearance, viewMode);
     },
     onToggleCameraRotate: () => sceneManager.toggleGarageCameraRotate(),
+    onResetGarageOrbit: () => sceneManager.resetGarageOrbit(),
     onOrbitRotate: (dYaw, dPitch) => sceneManager.rotateGarageOrbit(dYaw, dPitch),
     onOrbitZoom: (dZoom) => sceneManager.zoomGarageOrbit(dZoom),
-    onWeatherChange: (weatherId) => sceneManager.setWeatherPreview(weatherId),
-    onStartMultiplayerSession: ({ mode, difficultyId, weather, trackId }) => {
+    onWeatherChange: (weatherId) => {
+      sceneManager.setWeatherPreview(weatherId);
+      if (!menuManager?.isOpen && !roomManager.isClient()) {
+        worldState.setWeather(weatherId);
+      }
+      syncPauseModalMeta();
+    },
+    onStartMultiplayerSession: ({ mode, difficultyId, weather, trackId, raceLaps }) => {
       if (!roomManager.isHost()) return;
       const humanPlayers = roomManager.getPlayers();
+      const safeRaceLaps = Math.max(
+        1,
+        Math.min(99, Math.round(Number(raceLaps) || RACE_TOTAL_LAPS))
+      );
       const config = {
         trackId: trackId || activeTrack.id,
         mode,
         difficultyId,
         weather,
         withBots: true,
-        lapLimit: mode === 'race' ? 10 : null,
+        raceLaps: safeRaceLaps,
+        lapLimit: mode === 'race' ? safeRaceLaps : null,
         humanPlayers,
         isCareer: false,
       };
@@ -294,25 +426,41 @@ function initGame() {
   }
 
   // 5. Avvio GameLoop (simulazione a 60 Hz + sync P2P Host/Client)
+  const perfLogEnabled =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('perf') === '1';
+  let perfLastTs = 0;
+  let perfWindowStart = 0;
+  let perfSamples = [];
+
   let wasMenuOpen = menuManager.isOpen;
   const gameLoop = new GameLoop({
     onSimulationStep: (dt) => {
       if (inputManager.consumeMenuToggle()) {
         inputManager.reset();
         if (!modalManager.handleEscape()) {
-          menuManager.handleEscapeKey();
+          if (!menuManager.isOpen && menuManager.hasActiveSession) {
+            openPauseModal();
+          } else {
+            menuManager.handleEscapeKey();
+          }
         }
       }
 
-      if (menuManager.isOpen && !wasMenuOpen) {
+      const isPauseActive =
+        modalManager.isOpen('pause-modal') ||
+        (!menuManager.isOpen && modalManager.isOpen('gp-settings-popup'));
+      const blockTrackInput = menuManager.isOpen || modalManager.hasOpenModal();
+
+      if (blockTrackInput && !wasMenuOpen) {
         inputManager.reset();
         wasMenuOpen = true;
-      } else if (!menuManager.isOpen) {
+      } else if (!blockTrackInput) {
         wasMenuOpen = false;
       }
 
       const activePlayerId = roomManager.getLocalCarId();
-      const localInput = menuManager.isOpen
+      const localInput = blockTrackInput
         ? { forward: false, backward: false, left: false, right: false }
         : inputManager.getInputSnapshot();
 
@@ -322,13 +470,15 @@ function initGame() {
         return;
       }
 
-      if (menuManager.isOpen && !roomManager.isHost()) {
+      if ((menuManager.isOpen || isPauseActive) && !roomManager.isHost()) {
         inputManager.consumeWeatherToggle();
         return;
       }
 
-      if (!menuManager.isOpen && inputManager.consumeWeatherToggle()) {
+      if (!blockTrackInput && inputManager.consumeWeatherToggle()) {
         worldState.toggleWeather();
+      } else if (blockTrackInput) {
+        inputManager.consumeWeatherToggle();
       }
 
       const allInputs = roomManager.isHost()
@@ -343,20 +493,49 @@ function initGame() {
     },
     onRender: () => {
       const activePlayerId = roomManager.getLocalCarId();
-      if (!menuManager.isOpen) {
+      if (!menuManager.isOpen && !modalManager.hasOpenModal()) {
         if (inputManager.consumeCameraToggle()) {
           const mode = sceneManager.cycleCameraMode();
-          hudOverlay.setCameraLabel(mode.label);
+          hudOverlay.setCameraMode(mode);
         }
       } else {
         inputManager.consumeCameraToggle();
       }
 
       sceneManager.render(worldState, activePlayerId);
-      hudOverlay.render(worldState, activePlayerId);
+      if (!menuManager.isOpen) {
+        if (trackMapHud) {
+          trackMapHud.render(worldState, activePlayerId);
+        }
+        hudOverlay.render(worldState, activePlayerId);
+      }
 
-      if (trackMapHud) {
-        trackMapHud.render(worldState, activePlayerId);
+      if (perfLogEnabled) {
+        const now = performance.now();
+        if (perfLastTs > 0) {
+          perfSamples.push(now - perfLastTs);
+        }
+        perfLastTs = now;
+        if (perfWindowStart === 0) {
+          perfWindowStart = now;
+        }
+        const elapsedMs = now - perfWindowStart;
+        if (elapsedMs >= 1000 && perfSamples.length > 0) {
+          const sorted = [...perfSamples].sort((a, b) => a - b);
+          const sum = sorted.reduce((acc, v) => acc + v, 0);
+          const avgMs = sum / sorted.length;
+          const p95Ms = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+          const maxMs = sorted[sorted.length - 1];
+          const fps = (sorted.length * 1000) / elapsedMs;
+          const modeTag = menuManager.isOpen
+            ? `menu:${menuManager.activeTab}`
+            : worldState.sessionConfig?.mode || 'track';
+          console.info(
+            `[F1-PERF] mode=${modeTag} fps=${fps.toFixed(1)} frames=${sorted.length} avg=${avgMs.toFixed(2)}ms p95=${p95Ms.toFixed(2)}ms max=${maxMs.toFixed(2)}ms`
+          );
+          perfWindowStart = now;
+          perfSamples = [];
+        }
       }
     },
   });

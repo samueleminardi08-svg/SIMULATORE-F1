@@ -126,6 +126,7 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
       nz: 0,
       curvature: 0,
       radius: 100000,
+      halfWidth: 7.0,
       hasKerb: false,
       leftBarrierOffset: 0,
       rightBarrierOffset: 0,
@@ -180,19 +181,54 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
     samples[i].hasKerb = hasKerb;
   }
 
-  const halfTrackWidth = trackData.trackWidth * 0.5;
-  const kerbWidth = trackData.kerbWidth ?? 1.4;
-  const barrierHalfWidth = trackData.barrierOffset ?? (halfTrackWidth + kerbWidth + 7.5);
+  const trackWidth = trackData.width ?? trackData.trackWidth ?? 14.0;
+  const mainStraightWidth = Math.max(trackWidth, trackData.mainStraightWidth ?? trackWidth);
+  const isStreet = Boolean(trackData.isStreet);
+  const baseHalf = trackWidth * 0.5;
+  const straightHalf = mainStraightWidth * 0.5;
+  const kerbWidth = trackData.kerbWidth ?? (isStreet ? 1.1 : 1.4);
+  const runoffWidth = trackData.runoffWidth ?? (isStreet ? 1.8 : 7.5);
   const sectorSplits = trackData.sectorSplits || [0.33, 0.66, 1.0];
 
-  // Calcolo offset barriere adattivo per evitare intrusioni tra tratti adiacenti sullo stesso livello
-  const rawLeftOffsets = new Array(sampleCount).fill(barrierHalfWidth);
-  const rawRightOffsets = new Array(sampleCount).fill(barrierHalfWidth);
+  // Larghezza locale per campione lungo la centerline invariata (allargamento progressivo sul rettilineo principale)
+  const startIdxRaw = samples.findIndex((s) => Math.abs(s.x) < 5 && Math.abs(s.z) < 12);
+  const startIdx = startIdxRaw >= 0 ? startIdxRaw : 0;
+  const startDist = samples[startIdx].distance;
+
+  for (let i = 0; i < sampleCount; i++) {
+    let signedDist = samples[i].distance - startDist;
+    if (signedDist > totalLength * 0.5) signedDist -= totalLength;
+    if (signedDist < -totalLength * 0.5) signedDist += totalLength;
+
+    let straightWeight = 0;
+    if (signedDist >= -185 && signedDist <= 85) {
+      straightWeight = 1;
+    } else if (signedDist >= -250 && signedDist < -185) {
+      const t = (signedDist - (-250)) / 65;
+      straightWeight = 0.5 * (1 - Math.cos(Math.PI * t));
+    } else if (signedDist > 85 && signedDist <= 150) {
+      const t = (150 - signedDist) / 65;
+      straightWeight = 0.5 * (1 - Math.cos(Math.PI * t));
+    }
+    samples[i].halfWidth = baseHalf + (straightHalf - baseHalf) * straightWeight;
+  }
+
+  // Calcolo offset barriere adattivo per evitare intrusioni tra tratti adiacenti e garantire 0 compenetrazioni sull'asfalto
+  const rawLeftOffsets = new Array(sampleCount);
+  const rawRightOffsets = new Array(sampleCount);
+  for (let i = 0; i < sampleCount; i++) {
+    const nominalBarrier = samples[i].halfWidth + kerbWidth + runoffWidth;
+    rawLeftOffsets[i] = nominalBarrier;
+    rawRightOffsets[i] = nominalBarrier;
+  }
+
+  const maxNominalBarrier = straightHalf + kerbWidth + runoffWidth;
   const minNonAdjIndexGap = 40;
-  const checkMaxDistSq = (barrierHalfWidth * 2.2) ** 2;
+  const checkMaxDistSq = (maxNominalBarrier * 2.2) ** 2;
 
   for (let i = 0; i < sampleCount; i++) {
     const s = samples[i];
+    const minSafe = s.halfWidth + (s.hasKerb ? kerbWidth + 0.35 : 0.65);
     for (let j = 0; j < sampleCount; j++) {
       const idxDiff = Math.abs(i - j);
       if (idxDiff <= minNonAdjIndexGap || sampleCount - idxDiff <= minNonAdjIndexGap) {
@@ -207,7 +243,7 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
 
       const dist = Math.sqrt(distSq);
       const latProj = dx * s.nx + dz * s.nz;
-      const clamped = Math.max(halfTrackWidth + 0.75, 0.48 * dist);
+      const clamped = Math.max(minSafe, 0.48 * dist - 0.25);
       if (latProj >= 0 && clamped < rawLeftOffsets[i]) {
         rawLeftOffsets[i] = clamped;
       } else if (latProj < 0 && clamped < rawRightOffsets[i]) {
@@ -216,6 +252,7 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
     }
   }
 
+  let maxBarrierHalfWidth = maxNominalBarrier;
   for (let i = 0; i < sampleCount; i++) {
     let sumL = 0;
     let sumR = 0;
@@ -224,19 +261,31 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
       sumL += rawLeftOffsets[idx];
       sumR += rawRightOffsets[idx];
     }
-    samples[i].leftBarrierOffset = sumL / 7;
-    samples[i].rightBarrierOffset = sumR / 7;
+    const floorOffset = samples[i].halfWidth + (samples[i].hasKerb ? kerbWidth + 0.35 : 0.65);
+    samples[i].leftBarrierOffset = Math.max(floorOffset, sumL / 7);
+    samples[i].rightBarrierOffset = Math.max(floorOffset, sumR / 7);
+    if (samples[i].leftBarrierOffset > maxBarrierHalfWidth) {
+      maxBarrierHalfWidth = samples[i].leftBarrierOffset;
+    }
+    if (samples[i].rightBarrierOffset > maxBarrierHalfWidth) {
+      maxBarrierHalfWidth = samples[i].rightBarrierOffset;
+    }
   }
 
   return {
     id: trackData.id,
     name: trackData.name,
+    width: trackWidth,
+    trackWidth,
+    mainStraightWidth,
+    isStreet,
+    runoffWidth,
     totalLength,
     sampleCount,
     samples,
-    halfTrackWidth,
+    halfTrackWidth: baseHalf,
     kerbWidth,
-    barrierHalfWidth,
+    barrierHalfWidth: maxBarrierHalfWidth,
     sectorSplits,
     bounds: { minX, maxX, minY, maxY, minZ, maxZ },
   };
@@ -324,11 +373,23 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
   const elevation = a.y + (b.y - a.y) * tSeg;
   const lateralOffset = (x - match.bestProjX) * nx + (z - match.bestProjZ) * nz;
   const absOffset = Math.abs(lateralOffset);
+  const localHalfWidth =
+    (a.halfWidth ?? halfTrackWidth) +
+    ((b.halfWidth ?? halfTrackWidth) - (a.halfWidth ?? halfTrackWidth)) * tSeg;
+  const barA =
+    lateralOffset >= 0
+      ? (a.leftBarrierOffset ?? barrierHalfWidth)
+      : (a.rightBarrierOffset ?? barrierHalfWidth);
+  const barB =
+    lateralOffset >= 0
+      ? (b.leftBarrierOffset ?? barrierHalfWidth)
+      : (b.rightBarrierOffset ?? barrierHalfWidth);
+  const localBarrierHalfWidth = barA + (barB - barA) * tSeg;
 
   let surface = 'grass';
-  if (absOffset <= halfTrackWidth) {
+  if (absOffset <= localHalfWidth) {
     surface = 'asphalt';
-  } else if (absOffset <= halfTrackWidth + kerbWidth && a.hasKerb) {
+  } else if (absOffset <= localHalfWidth + kerbWidth && a.hasKerb) {
     surface = 'kerb';
   }
 
@@ -347,9 +408,7 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
     tz,
     nx,
     nz,
-    barrierHalfWidth:
-      lateralOffset >= 0
-        ? (a.leftBarrierOffset ?? barrierHalfWidth)
-        : (a.rightBarrierOffset ?? barrierHalfWidth),
+    halfTrackWidth: localHalfWidth,
+    barrierHalfWidth: localBarrierHalfWidth,
   };
 }

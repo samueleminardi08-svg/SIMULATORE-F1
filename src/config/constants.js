@@ -28,17 +28,36 @@ export const CAR_PHYSICS_CONFIG = {
   rollingResistance: 1.6,  // m/s^2 attrito di rotolamento
   aeroDragCoeff: 0.0012,   // resistenza aerodinamica proporzionale a v^2
 
-  // Dinamica sterzo e aderenza laterale
-  wheelbase: 3.6,              // passo vettura (metri)
+  // Dinamica sterzo, quote reali F1 2026 (1 unità = 1 metro) e aderenza laterale
+  carWidth: 1.90,              // larghezza massima monoposto F1 2026 (metri)
+  carLength: 5.32,             // lunghezza complessiva monoposto F1 2026 (metri)
+  wheelbase: 3.40,             // passo vettura F1 2026 (metri)
   maxSteerAngle: 0.48,         // rad (~27.5° per tornanti stretti 1:1)
   steerSpeed: 9.5,             // rapidità sterzata
   steerReturnSpeed: 12.0,      // velocità di riallineamento volante
-  highSpeedSteerScale: 20.5,   // velocità di riferimento (m/s) per riduzione angolo sterzo
-  highSpeedSteerExponent: 1.85,// progressività sterzo alle alte velocità
+  highSpeedSteerScale: 24.0,   // velocità di riferimento (m/s) per riduzione angolo sterzo (taratura 6b)
+  highSpeedSteerExponent: 1.72,// progressività sterzo alle alte velocità (taratura 6b)
   lateralGripCoeff: 28.0,      // forza di richiamo laterale delle gomme
-  maxLateralAccel: 34.0,       // limite base di aderenza laterale (m/s^2, ~3.4G)
+  maxLateralAccel: 37.5,       // limite base di aderenza laterale (m/s^2, ~3.8G base + downforce)
 
-  wheelRadius: 0.36,           // raggio ruota (metri)
+  wheelRadius: 0.35,           // raggio ruota scalata F1 2026 (metri)
+};
+
+// Parametri Filtro Input Virtuale Graduale 0..1 per Tastiera WASD (Step 6b)
+export const VIRTUAL_INPUT_CONFIG = {
+  throttleAttackTime: 0.26,     // secondi 0 -> 1 premendo W
+  throttleReleaseTime: 0.10,    // secondi 1 -> 0 rilasciando W
+  throttleInitialStep: 0.16,    // risposta iniziale immediata su W
+  brakeAttackTime: 0.36,        // secondi 0 -> 1 premendo S (pressioni brevi modulano senza lockup)
+  brakeReleaseTime: 0.08,       // rilascio rapido per cadence braking
+  brakeInitialStep: 0.22,       // pressione iniziale pulita al primo tocco S
+  steerAttackTimeLow: 0.15,     // sterzo reattivo sotto ~90 km/h (tornanti/chicane)
+  steerAttackTimeHigh: 0.27,    // sterzo fluido e progressivo sopra ~230 km/h
+  steerReturnTime: 0.095,       // ritorno rapido al centro al rilascio A/D
+  steerOppositeBoost: 2.3,      // cambio direzione veloce Sx <-> Dx nelle chicane
+  steerLowSpeedMs: 25.0,        // ~90 km/h
+  steerHighSpeedMs: 65.0,       // ~234 km/h
+  brakeSteerAssistCap: 0.84,    // leggero limite sterzo in frenata intensa su Principiante/Intermedio
 };
 
 // Proprietà di aderenza e resistenza per ciascuna superficie (Step 3)
@@ -70,7 +89,7 @@ export const SURFACE_PHYSICS = {
 };
 
 export const COLLISION_CONFIG = {
-  carRadius: 1.05,             // semilarghezza collisione monoposto (metri)
+  carRadius: 0.95,             // semilarghezza collisione monoposto F1 2026 (1.90 m / 2)
   restitution: 0.35,           // coefficiente rimbalzo anelastico contro barriera
   minBounceSpeed: 1.8,         // velocità minima di separazione (m/s)
   headingAlignStrength: 0.25,  // riallineamento dolce lungo il guardrail in strisciata
@@ -82,11 +101,11 @@ export const ADVANCED_PHYSICS_CONFIG = {
   maxDownforceKg: 1250,          // carico aerodinamico massimo a 336 km/h (kg)
   tireWearRateBase: 0.00045,     // consumo base al secondo in velocità
   tireWearCornerMult: 0.0012,    // usura extra in curva
-  tireWearLockupMult: 0.018,     // spiattellamento rapido durante il bloccaggio
+  tireWearLockupMult: 0.013,     // spiattellamento realistico durante il bloccaggio (taratura 6b)
   minTireGripFactor: 0.58,       // grip residuo a gomme completamente usurate (0%)
   lockupBrakeHoldThreshold: 0.22,// soglia temporale frenata piena (s)
-  lockupSteerSensitivity: 0.55,  // penalità sterzata durante la frenata
-  lockupUndersteerFactor: 0.35,  // riduzione sterzo effettivo a ruote bloccate
+  lockupSteerSensitivity: 0.42,  // penalità sterzata durante la frenata (taratura 6b per trail-braking)
+  lockupUndersteerFactor: 0.50,  // riduzione sterzo effettivo a ruote bloccate (50% invece di 65%)
   lockupBrakePenalty: 0.78,      // riduzione potere frenante a ruote bloccate
   highSpeedBrakeThresholdMs: 48.0, // > ~173 km/h attiva controllo frenata brusca
   highSpeedBrakeYawTorque: 0.52, // instabilità retrotreno frenando bruscamente in curva ad alta velocità
@@ -114,7 +133,7 @@ export const WEATHER_CONFIG = {
     label: 'Pioggia',
     gripMultiplier: 0.68,
     kerbGripMultiplier: 0.62,
-    lockupThreshold: 0.64,
+    lockupThreshold: 0.68,
     extraDrag: 0.00025,
   },
 };
@@ -130,7 +149,7 @@ export const TIMING_CONFIG = {
 export const CAMERA_MODES = [
   { id: 'chase', label: 'Da dietro (Chase Cam)' },
   { id: 'cockpit', label: 'Prima persona (Abitacolo)' },
-  { id: 'aerial', label: "Dall'alto (Vista Aerea)" },
+  { id: 'tcam', label: 'Onboard T-Cam (TV Pod)' },
 ];
 
 export const LOCAL_PLAYER_ID = 'player_1';

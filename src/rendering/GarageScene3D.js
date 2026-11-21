@@ -184,10 +184,16 @@ export class GarageScene3D {
     const nextMode = allowed.has(viewMode) ? viewMode : 'home';
     if (this.viewMode !== nextMode) {
       this._userOrbitActive = false;
+      this.autoRotate = false;
       if (nextMode === 'team') {
         this._orbitAngle = 0.64;
         this._orbitPitch = 0.24;
         this._orbitRadius = 5.75;
+      } else if (nextMode === 'vehicle') {
+        // Primo piano hero 3/4 anteriore dedicato al Garage R&D a destra (intera monoposto visibile con margine dx)
+        this._orbitAngle = 0.54;
+        this._orbitPitch = 0.21;
+        this._orbitRadius = 6.35;
       }
     }
     this.viewMode = nextMode;
@@ -196,19 +202,28 @@ export class GarageScene3D {
   rotateOrbit(deltaYaw = 0, deltaPitch = 0) {
     this._userOrbitActive = true;
     this._orbitAngle -= deltaYaw;
-    this._orbitPitch = Math.max(0.12, Math.min(1.02, this._orbitPitch + deltaPitch));
+    this._orbitPitch = Math.max(0.10, Math.min(1.02, this._orbitPitch + deltaPitch));
   }
 
   zoomOrbit(deltaZoom = 0) {
     this._userOrbitActive = true;
-    this._orbitRadius = Math.max(3.6, Math.min(9.5, this._orbitRadius + deltaZoom));
+    const minR = this.viewMode === 'vehicle' ? 3.6 : 3.6;
+    const maxR = this.viewMode === 'vehicle' ? 8.5 : 9.5;
+    this._orbitRadius = Math.max(minR, Math.min(maxR, this._orbitRadius + deltaZoom));
   }
 
   resetOrbit() {
     this._userOrbitActive = false;
-    this._orbitAngle = 0.64;
-    this._orbitPitch = 0.24;
-    this._orbitRadius = 5.75;
+    this.autoRotate = false;
+    if (this.viewMode === 'vehicle') {
+      this._orbitAngle = 0.54;
+      this._orbitPitch = 0.21;
+      this._orbitRadius = 6.35;
+    } else {
+      this._orbitAngle = 0.64;
+      this._orbitPitch = 0.24;
+      this._orbitRadius = 5.75;
+    }
   }
 
   setAutoRotate(enabled) {
@@ -223,10 +238,35 @@ export class GarageScene3D {
   updateCamera(camera, dt = 1 / 60) {
     if (!camera) return;
 
+    // Garantisce orientamento e FOV sempre isolati dalla telecamera in pista
+    camera.up.set(0, 1, 0);
+    const desiredFov = this.viewMode === 'vehicle' ? 48 : 58;
+    if (camera.fov !== desiredFov) {
+      camera.fov = desiredFov;
+      camera.updateProjectionMatrix();
+    }
+
     let targetPos;
     let targetLook;
 
-    if (this.autoRotate) {
+    if (this.viewMode === 'vehicle') {
+      if (this.autoRotate) {
+        this._orbitAngle += dt * 0.42;
+      }
+      const cosPitch = Math.cos(this._orbitPitch);
+      const basePos = new THREE.Vector3(
+        Math.sin(this._orbitAngle) * cosPitch * this._orbitRadius,
+        Math.sin(this._orbitPitch) * this._orbitRadius + 0.28,
+        Math.cos(this._orbitAngle) * cosPitch * this._orbitRadius
+      );
+      const baseLook = new THREE.Vector3(0, 0.30, 0.04);
+      // Sposta il punto di mira verso sinistra-schermo così tutta la monoposto campeggia in primo piano nell'area libera destra
+      const forward = new THREE.Vector3().subVectors(baseLook, basePos).normalize();
+      const screenRight = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+      const heroShift = -Math.min(1.05, this._orbitRadius * 0.165);
+      targetPos = basePos.addScaledVector(screenRight, heroShift);
+      targetLook = baseLook.addScaledVector(screenRight, heroShift);
+    } else if (this.autoRotate) {
       this._orbitAngle += dt * 0.45;
       const cosPitch = Math.cos(this._orbitPitch);
       targetPos = new THREE.Vector3(
@@ -243,9 +283,6 @@ export class GarageScene3D {
         Math.cos(this._orbitAngle) * cosPitch * this._orbitRadius
       );
       targetLook = new THREE.Vector3(0, 0.25, 0);
-    } else if (this.viewMode === 'vehicle') {
-      targetPos = new THREE.Vector3(-4.5, 2.25, 4.9);
-      targetLook = new THREE.Vector3(-0.1, 0.52, 0.25);
     } else {
       targetPos = new THREE.Vector3(4.95, 1.98, 5.1);
       targetLook = new THREE.Vector3(-0.18, 0.5, 0.02);

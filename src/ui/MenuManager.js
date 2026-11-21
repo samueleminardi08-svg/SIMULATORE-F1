@@ -6,7 +6,12 @@
  */
 
 import { getDifficultyConfig } from '../config/difficulty.js';
-import { F1_2026_DRIVERS, F1_2026_TEAMS } from '../config/f1_2026_data.js';
+import {
+  CAREER_RACE_LAPS,
+  F1_2026_DRIVERS,
+  F1_2026_TEAMS,
+  RACE_TOTAL_LAPS,
+} from '../config/f1_2026_data.js';
 import { CALENDAR_2026_TRACKS, getTrackById } from '../tracks/calendar2026/index.js';
 import { ModalManager } from './ModalManager.js';
 import {
@@ -25,18 +30,75 @@ import {
   exportCareerJson,
   getRepresentativeDriverForTeam,
   getUpgradeCost,
-  grantCareerFreeCash,
   importCareerJson,
   loadCareerState,
   purchaseCareerUpgrade,
   resetCareerState,
-  rgbToHex,
   updateCareerPaint,
   updateCareerProfile,
 } from '../career/CareerStorage.js';
+import { getTheoreticalBestLap, getTrackRecord } from '../career/TrackRecordsStorage.js';
+import { formatLapTime, formatSectorTime } from '../race/TimingSystem.js';
 
-const UPGRADE_WINDOW_ORDER = ['engine', 'brakes', 'tires', 'aero', 'suspension'];
+const UPGRADE_WINDOW_ORDER = ['engine', 'aero', 'tires', 'brakes', 'suspension'];
 const TEAM_IDS = Object.keys(F1_2026_TEAMS);
+
+const UPGRADE_UI_META = {
+  engine: {
+    accent: '#ef4444',
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h2l2-3h7l2 3h3v6h-3l-2 2H8l-2-2H4v-6Z"/><path d="M9 7V4h6v3"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M12 11v4"/></svg>`,
+    statSummary: (lvl) => {
+      const accel = ((13 * lvl) / UPGRADE_MAX_LEVEL).toFixed(1);
+      const top = ((4.5 * lvl) / UPGRADE_MAX_LEVEL).toFixed(1);
+      if (lvl >= UPGRADE_MAX_LEVEL) return `Attuale: <strong>+${accel}% Accel · +${top}% Top Speed</strong>`;
+      const nAccel = ((13 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(1);
+      const nTop = ((4.5 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(1);
+      return `Accel +${accel}% → <strong>+${nAccel}%</strong> · Top +${top}% → <strong>+${nTop}%</strong>`;
+    },
+  },
+  aero: {
+    accent: '#38bdf8',
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h13a4 4 0 0 0 0-8"/><path d="M3 13h16a3 3 0 1 1 0 6"/><path d="M3 18h9"/></svg>`,
+    statSummary: (lvl) => {
+      const df = ((20 * lvl) / UPGRADE_MAX_LEVEL).toFixed(0);
+      if (lvl >= UPGRADE_MAX_LEVEL) return `Attuale: <strong>+${df}% Carico Deportante (Downforce)</strong>`;
+      const nDf = ((20 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(0);
+      return `Downforce +${df}% → <strong>+${nDf}%</strong> in curva`;
+    },
+  },
+  tires: {
+    accent: '#22c55e',
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v5M12 16v5M3 12h5M16 12h5"/></svg>`,
+    statSummary: (lvl) => {
+      const grip = ((10 * lvl) / UPGRADE_MAX_LEVEL).toFixed(0);
+      const wear = ((25 * lvl) / UPGRADE_MAX_LEVEL).toFixed(0);
+      if (lvl >= UPGRADE_MAX_LEVEL) return `Attuale: <strong>+${grip}% Grip · -${wear}% Usura Gomme</strong>`;
+      const nGrip = ((10 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(0);
+      const nWear = ((25 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(0);
+      return `Grip +${grip}% → <strong>+${nGrip}%</strong> · Usura -${wear}% → <strong>-${nWear}%</strong>`;
+    },
+  },
+  brakes: {
+    accent: '#f59e0b',
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M19.5 7.5A9.5 9.5 0 0 1 21 12a9.5 9.5 0 0 1-1.5 4.5"/></svg>`,
+    statSummary: (lvl) => {
+      const brk = ((14 * lvl) / UPGRADE_MAX_LEVEL).toFixed(1);
+      if (lvl >= UPGRADE_MAX_LEVEL) return `Attuale: <strong>+${brk}% Potenza Frenante &amp; Anti-Lock</strong>`;
+      const nBrk = ((14 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(1);
+      return `Frenata +${brk}% → <strong>+${nBrk}%</strong> · Minor bloccaggio`;
+    },
+  },
+  suspension: {
+    accent: '#a855f7',
+    icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3"/><path d="M8 5h8"/><path d="M9 7l6 2.5L9 12l6 2.5L9 17"/><path d="M8 19h8"/><path d="M12 19v3"/></svg>`,
+    statSummary: (lvl) => {
+      const stab = ((22 * lvl) / UPGRADE_MAX_LEVEL).toFixed(1);
+      if (lvl >= UPGRADE_MAX_LEVEL) return `Attuale: <strong>+${stab}% Stabilità Cordoli &amp; Frenata</strong>`;
+      const nStab = ((22 * (lvl + 1)) / UPGRADE_MAX_LEVEL).toFixed(1);
+      return `Stabilità +${stab}% → <strong>+${nStab}%</strong> su cordoli`;
+    },
+  },
+};
 
 function formatDollarCash(amount) {
   const num = Math.max(0, Math.round(Number(amount) || 0));
@@ -61,6 +123,7 @@ export class MenuManager {
     onCareerChange = null,
     onShowroomUpdate = null,
     onToggleCameraRotate = null,
+    onResetGarageOrbit = null,
     onOrbitRotate = null,
     onOrbitZoom = null,
     onWeatherChange = null,
@@ -68,12 +131,15 @@ export class MenuManager {
     roomManager = null,
     modalManager = null,
     onStartMultiplayerSession = null,
+    onOpenHudMenu = null,
+    onSettingsClose = null,
   }) {
     this.onStartSession = onStartSession;
     this.onResume = onResume;
     this.onCareerChange = onCareerChange;
     this.onShowroomUpdate = onShowroomUpdate;
     this.onToggleCameraRotate = onToggleCameraRotate;
+    this.onResetGarageOrbit = onResetGarageOrbit;
     this.onOrbitRotate = onOrbitRotate;
     this.onOrbitZoom = onOrbitZoom;
     this.onWeatherChange = onWeatherChange;
@@ -81,6 +147,8 @@ export class MenuManager {
     this.roomManager = roomManager;
     this.modalManager = modalManager || new ModalManager();
     this.onStartMultiplayerSession = onStartMultiplayerSession;
+    this.onOpenHudMenu = onOpenHudMenu;
+    this.onSettingsClose = onSettingsClose;
 
     this.careerState = careerState || loadCareerState();
     this.isOpen = true;
@@ -89,19 +157,22 @@ export class MenuManager {
     this.profileModalOpen = false;
     this.quickMode = 'qualifying'; // Modalità selezionata nella card Sessione Rapida ('qualifying' | 'practice' | 'race')
     this.mpFormat = 'qualifying';
-    this.upgradeWindowOffset = 0; // 0 => [engine, brakes, tires, aero], 1 => [brakes, tires, aero, suspension]
+    this.mpRaceLaps = RACE_TOTAL_LAPS;
     this.isCameraRotating = false;
     this._lastCarouselTab = null;
     this._lastCarouselTeamId = null;
     this._lastCarouselTrackId = null;
+    this._lastHomeTeamId = '';
+    this._lastHomeTrackId = '';
+    this._lastTeamHeroId = '';
+    this._lastGarageTeamId = '';
+    this._lastTrackDetailId = '';
     this._homeQuickFocusIdx = -1;
 
     this.modalEl = document.getElementById('session-menu-modal');
 
     // Header Bar & Player Badge
     this.careerMoneyBadgeEl = document.getElementById('career-money-badge');
-    this.freeCashBtn = document.getElementById('gp-free-cash-btn');
-    this.snapshotBtn = document.getElementById('gp-snapshot-btn');
     this.racesValEl = document.getElementById('gp-races-val');
     this.winsValEl = document.getElementById('gp-wins-val');
     this.profileTriggerBtn = document.getElementById('gp-profile-trigger');
@@ -126,6 +197,7 @@ export class MenuManager {
     this.homeNextTrackSvgEl = document.getElementById('home-next-track-svg');
     this.homeNextGpTitleEl = document.getElementById('home-next-gp-title');
     this.homeNextTrackMetaEl = document.getElementById('home-next-track-meta');
+    this.homeNextTrackRecordsEl = document.getElementById('home-next-track-records');
     this.homeStartCareerBtn = document.getElementById('home-start-career-btn');
     this.homeGoTrackBtn = document.getElementById('home-go-track-btn');
     this.quickTabBtns = [...document.querySelectorAll('[data-quick-tab]')];
@@ -155,7 +227,24 @@ export class MenuManager {
     this.trackStatCornersEl = document.getElementById('track-stat-corners');
     this.trackStatWidthEl = document.getElementById('track-stat-width');
     this.trackStatLapsEl = document.getElementById('track-stat-laps');
+    this.trackLapsDecBtn = document.getElementById('track-laps-dec-btn');
+    this.trackLapsIncBtn = document.getElementById('track-laps-inc-btn');
     this.trackScreenStartBtn = document.getElementById('track-screen-start-btn');
+    this.trackRecIdealEl = document.getElementById('track-rec-ideal');
+    this.trackRecQualiTimeEl = document.getElementById('track-rec-quali-time');
+    this.trackRecQualiMetaEl = document.getElementById('track-rec-quali-meta');
+    this.trackRecRaceTimeEl = document.getElementById('track-rec-race-time');
+    this.trackRecRaceMetaEl = document.getElementById('track-rec-race-meta');
+    this.trackRecSectorTimeEls = [
+      document.getElementById('track-rec-s1-time'),
+      document.getElementById('track-rec-s2-time'),
+      document.getElementById('track-rec-s3-time'),
+    ];
+    this.trackRecSectorMetaEls = [
+      document.getElementById('track-rec-s1-meta'),
+      document.getElementById('track-rec-s2-meta'),
+      document.getElementById('track-rec-s3-meta'),
+    ];
     this.trackCarouselEl = document.getElementById('f1-track-carousel');
     this.trackCarouselPrevBtn = document.getElementById('track-carousel-prev');
     this.trackCarouselNextBtn = document.getElementById('track-carousel-next');
@@ -182,32 +271,35 @@ export class MenuManager {
     this.mpPlayersListEl = document.getElementById('mp-players-list');
     this.mpHostControlsEl = document.getElementById('mp-host-controls');
     this.mpFormatButtons = [...document.querySelectorAll('[data-mp-format]')];
+    this.mpRaceLapsButtons = [...document.querySelectorAll('[data-mp-racelaps]')];
+    this.mpRaceLapsInput = document.getElementById('mp-race-laps-input');
     this.mpStartSessionBtn = document.getElementById('mp-start-session-btn');
     this.mpLeaveRoomBtn = document.getElementById('mp-leave-room-btn');
 
-    // Paint Sliders & Liveries (Screenshot 3)
-    this.sliderR = document.getElementById('paint-slider-r');
-    this.sliderG = document.getElementById('paint-slider-g');
-    this.sliderB = document.getElementById('paint-slider-b');
-    this.sliderSmooth = document.getElementById('paint-slider-smooth');
-    this.sliderMetal = document.getElementById('paint-slider-metal');
-    this.fillR = document.getElementById('paint-fill-r');
-    this.fillG = document.getElementById('paint-fill-g');
-    this.fillB = document.getElementById('paint-fill-b');
-    this.fillSmooth = document.getElementById('paint-fill-smooth');
-    this.fillMetal = document.getElementById('paint-fill-metal');
-    this.paintResetTeamBtn = document.getElementById('paint-reset-team-btn');
-
-    this.upgPrevBtn = document.getElementById('upg-prev-btn');
-    this.upgNextBtn = document.getElementById('upg-next-btn');
+    // Garage & R&D Upgrades (auto in primo piano + 5 potenziamenti completi)
+    this.garageOrbitZoneEl = document.getElementById('f1-garage-orbit-zone');
+    this.garageTeamEmblemEl = document.getElementById('garage-team-emblem');
+    this.garageTeamNameEl = document.getElementById('garage-team-name');
+    this.garageSpecBadgeEl = document.getElementById('garage-spec-badge');
+    this.garageBudgetPillEl = document.getElementById('garage-budget-pill');
+    this.garageTotalLvlPillEl = document.getElementById('garage-total-lvl-pill');
+    this.garageOverallBarFillEl = document.getElementById('garage-overall-bar-fill');
+    this.garageResetCamBtn = document.getElementById('garage-reset-cam-btn');
+    this.rotateCamBtn = document.getElementById('gp-rotate-cam-btn');
     this.careerUpgradesGridEl = document.getElementById('career-upgrades-grid');
     this.careerFeedbackEl = document.getElementById('career-feedback-msg');
-
-    this.liveryPrevBtn = document.getElementById('livery-prev-btn');
-    this.liveryNextBtn = document.getElementById('livery-next-btn');
-    this.liveryNameEl = document.getElementById('gp-livery-name');
-    this.randomizeBtn = document.getElementById('gp-randomize-btn');
-    this.rotateCamBtn = document.getElementById('gp-rotate-cam-btn');
+    this.gtelEls = {
+      speedVal: document.getElementById('gtel-val-speed'),
+      speedBar: document.getElementById('gtel-bar-speed'),
+      accelVal: document.getElementById('gtel-val-accel'),
+      accelBar: document.getElementById('gtel-bar-accel'),
+      aeroVal: document.getElementById('gtel-val-aero'),
+      aeroBar: document.getElementById('gtel-bar-aero'),
+      brakesVal: document.getElementById('gtel-val-brakes'),
+      brakesBar: document.getElementById('gtel-bar-brakes'),
+      gripVal: document.getElementById('gtel-val-grip'),
+      gripBar: document.getElementById('gtel-bar-grip'),
+    };
 
     // Profile, Team, Driver & Race/Settings controls
     this.careerStatsSummaryEl = document.getElementById('career-stats-summary');
@@ -219,6 +311,9 @@ export class MenuManager {
     this.careerResetBtn = document.getElementById('career-reset-btn');
 
     this.modeButtons = [...document.querySelectorAll('[data-menu-mode]')];
+    this.raceLapsSectionEl = document.getElementById('menu-race-laps-section');
+    this.raceLapsButtons = [...document.querySelectorAll('[data-menu-racelaps]')];
+    this.raceLapsInput = document.getElementById('menu-race-laps-input');
     this.careerFormatWrapEl = document.getElementById('gp-career-format-wrap');
     this.careerFormatButtons = [...document.querySelectorAll('[data-career-format]')];
     this.practiceOptionsSection = document.getElementById('menu-practice-options');
@@ -241,6 +336,7 @@ export class MenuManager {
       withBots: false,
       lapType: 'infinite',
       finiteLaps: 5,
+      raceLaps: RACE_TOTAL_LAPS,
       carLevel: 'base',
       weather: 'dry',
       playerDriverId: 'leclerc',
@@ -272,6 +368,9 @@ export class MenuManager {
       onClose: () => {
         if (this.activeTab === 'settings') {
           this.setActiveTab('home');
+        }
+        if (this.onSettingsClose) {
+          this.onSettingsClose();
         }
       },
     });
@@ -381,19 +480,13 @@ export class MenuManager {
 
   getShowcaseAppearance() {
     const team = F1_2026_TEAMS[this.careerState.teamId] || F1_2026_TEAMS.ferrari;
-    const paint = this.careerState.paint || {};
-    const primaryColor = paint.useCustomPaint
-      ? rgbToHex(paint.r, paint.g, paint.b)
-      : team.primaryColor;
-    const smoothness = paint.smoothness ?? 0.78;
-    const metalness = paint.metallic ?? 0.35;
     return {
-      primaryColor,
+      primaryColor: team.primaryColor,
       secondaryColor: team.secondaryColor,
       wingColor: team.wingColor,
       helmetColor: '#18181b',
-      roughness: Math.max(0.05, 1.0 - smoothness),
-      metalness,
+      roughness: 0.22,
+      metalness: 0.35,
     };
   }
 
@@ -406,7 +499,12 @@ export class MenuManager {
 
   setActiveTab(tab = 'home') {
     const allowed = new Set(['home', 'team', 'track', 'vehicle', 'multiplayer', 'settings']);
-    this.activeTab = allowed.has(tab) ? tab : 'home';
+    const nextTab = allowed.has(tab) ? tab : 'home';
+    if (this.activeTab !== nextTab) {
+      this.isCameraRotating = false;
+      this.rotateCamBtn?.classList.remove('is-active');
+    }
+    this.activeTab = nextTab;
     this.profileModalOpen = false;
     this._setHomeQuickFocus(-1);
     this._syncUI();
@@ -590,22 +688,23 @@ export class MenuManager {
       });
     }
 
-    // Interactive 360° Team Orbit Drag & Wheel Zoom
-    if (this.teamOrbitZoneEl) {
+    // Interactive 360° Orbit Drag & Wheel Zoom (Team Select & Garage Showroom)
+    const bindOrbitZone = (zoneEl, targetTab) => {
+      if (!zoneEl) return;
       let isDragging = false;
       let lastX = 0;
       let lastY = 0;
 
-      this.teamOrbitZoneEl.addEventListener('mousedown', (e) => {
+      zoneEl.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         isDragging = true;
         lastX = e.clientX;
         lastY = e.clientY;
-        this.teamOrbitZoneEl.classList.add('is-dragging');
+        zoneEl.classList.add('is-dragging');
       });
 
       window.addEventListener('mousemove', (e) => {
-        if (!isDragging || !this.isOpen || this.activeTab !== 'team') return;
+        if (!isDragging || !this.isOpen || this.activeTab !== targetTab) return;
         const dx = e.clientX - lastX;
         const dy = e.clientY - lastY;
         lastX = e.clientX;
@@ -618,29 +717,44 @@ export class MenuManager {
       const stopDrag = () => {
         if (!isDragging) return;
         isDragging = false;
-        this.teamOrbitZoneEl.classList.remove('is-dragging');
+        zoneEl.classList.remove('is-dragging');
       };
       window.addEventListener('mouseup', stopDrag);
       window.addEventListener('blur', stopDrag);
 
-      this.teamOrbitZoneEl.addEventListener(
+      zoneEl.addEventListener(
         'wheel',
         (e) => {
-          if (!this.isOpen || this.activeTab !== 'team') return;
+          if (!this.isOpen || this.activeTab !== targetTab) return;
           e.preventDefault();
           if (this.onOrbitZoom) {
-            this.onOrbitZoom(Math.sign(e.deltaY) * 0.45);
+            this.onOrbitZoom(Math.sign(e.deltaY) * 0.42);
           }
         },
         { passive: false }
       );
-    }
+    };
+
+    bindOrbitZone(this.teamOrbitZoneEl, 'team');
+    bindOrbitZone(this.garageOrbitZoneEl, 'vehicle');
 
     if (this.teamResetCamBtn) {
       this.teamResetCamBtn.addEventListener('click', () => {
-        this._notifyShowroom();
-        this.onShowroomUpdate?.(this.isOpen, this.getShowcaseAppearance(), 'home');
-        this.onShowroomUpdate?.(this.isOpen, this.getShowcaseAppearance(), 'team');
+        this.isCameraRotating = false;
+        this.rotateCamBtn?.classList.remove('is-active');
+        if (this.onResetGarageOrbit) {
+          this.onResetGarageOrbit();
+        }
+      });
+    }
+
+    if (this.garageResetCamBtn) {
+      this.garageResetCamBtn.addEventListener('click', () => {
+        this.isCameraRotating = false;
+        this.rotateCamBtn?.classList.remove('is-active');
+        if (this.onResetGarageOrbit) {
+          this.onResetGarageOrbit();
+        }
       });
     }
 
@@ -748,76 +862,7 @@ export class MenuManager {
       }
     });
 
-    // Free Cash button (+$250.000)
-    if (this.freeCashBtn) {
-      this.freeCashBtn.addEventListener('click', () => {
-        const next = grantCareerFreeCash(this.careerState, 250000);
-        this._commitCareerState(next);
-        this._setCareerFeedback('+$250.000 accreditati!');
-      });
-    }
-
-    if (this.snapshotBtn) {
-      this.snapshotBtn.addEventListener('click', () => {
-        if (this.onToggleCameraRotate) {
-          this.isCameraRotating = this.onToggleCameraRotate();
-          this.snapshotBtn.classList.toggle('is-active', this.isCameraRotating);
-        }
-      });
-    }
-
-    // Paint sliders
-    const handlePaintChange = () => {
-      const next = updateCareerPaint(this.careerState, {
-        r: Number(this.sliderR?.value ?? 220),
-        g: Number(this.sliderG?.value ?? 0),
-        b: Number(this.sliderB?.value ?? 0),
-        smoothness: Number(this.sliderSmooth?.value ?? 78) / 100,
-        metallic: Number(this.sliderMetal?.value ?? 35) / 100,
-        useCustomPaint: true,
-      });
-      this._commitCareerState(next);
-    };
-
-    [this.sliderR, this.sliderG, this.sliderB, this.sliderSmooth, this.sliderMetal].forEach(
-      (slider) => {
-        if (slider) {
-          slider.addEventListener('input', handlePaintChange);
-        }
-      }
-    );
-
-    if (this.paintResetTeamBtn) {
-      this.paintResetTeamBtn.addEventListener('click', () => {
-        const team = F1_2026_TEAMS[this.careerState.teamId] || F1_2026_TEAMS.ferrari;
-        const rgb = hexToRgb(team.primaryColor);
-        const next = updateCareerPaint(this.careerState, {
-          r: rgb.r,
-          g: rgb.g,
-          b: rgb.b,
-          smoothness: 0.75,
-          metallic: 0.35,
-          useCustomPaint: false,
-        });
-        this._commitCareerState(next);
-        this._setCareerFeedback(`Colore ufficiale ${team.name} ripristinato.`);
-      });
-    }
-
-    // Upgrades Carousel Arrows & Purchase Click
-    if (this.upgPrevBtn) {
-      this.upgPrevBtn.addEventListener('click', () => {
-        this.upgradeWindowOffset = this.upgradeWindowOffset === 0 ? 1 : 0;
-        this._syncVehicleOverlay();
-      });
-    }
-    if (this.upgNextBtn) {
-      this.upgNextBtn.addEventListener('click', () => {
-        this.upgradeWindowOffset = this.upgradeWindowOffset === 0 ? 1 : 0;
-        this._syncVehicleOverlay();
-      });
-    }
-
+    // R&D Upgrades Purchase Click & Garage Auto-Rotate
     if (this.careerUpgradesGridEl) {
       this.careerUpgradesGridEl.addEventListener('click', (event) => {
         const btn = event.target.closest('[data-upgrade-id]');
@@ -827,41 +872,10 @@ export class MenuManager {
         if (res.ok) {
           this._commitCareerState(res.state);
           const catLabel = UPGRADE_CATEGORIES[catId]?.label ?? catId;
-          this._setCareerFeedback(`${catLabel} potenziato al Lv. ${res.newLevel}!`);
+          this._setCareerFeedback(`${catLabel} potenziato al Lv. ${res.newLevel}/5!`);
         } else {
           this._setCareerFeedback(res.reason || 'Fondi insufficienti.', true);
         }
-      });
-    }
-
-    // Liveries Arrows + Randomize + Rotate Camera
-    if (this.liveryPrevBtn) {
-      this.liveryPrevBtn.addEventListener('click', () => this._cycleTeam(-1));
-    }
-    if (this.liveryNextBtn) {
-      this.liveryNextBtn.addEventListener('click', () => this._cycleTeam(1));
-    }
-
-    if (this.randomizeBtn) {
-      this.randomizeBtn.addEventListener('click', () => {
-        const randTeam = TEAM_IDS[Math.floor(Math.random() * TEAM_IDS.length)];
-        const r = Math.floor(Math.random() * 230 + 15);
-        const g = Math.floor(Math.random() * 230 + 15);
-        const b = Math.floor(Math.random() * 230 + 15);
-        const smoothness = Number((0.35 + Math.random() * 0.62).toFixed(2));
-        const metallic = Number((0.15 + Math.random() * 0.8).toFixed(2));
-
-        let next = updateCareerProfile(this.careerState, { teamId: randTeam });
-        next = updateCareerPaint(next, {
-          r,
-          g,
-          b,
-          smoothness,
-          metallic,
-          useCustomPaint: true,
-        });
-        this._commitCareerState(next);
-        this._setCareerFeedback('Livrea & vernice randomizzate!');
       });
     }
 
@@ -937,7 +951,7 @@ export class MenuManager {
       });
     }
 
-    // Mode, Format, Difficulty, Weather & Practice Options
+    // Mode, Format, Race Laps, Difficulty, Weather & Practice Options
     this.modeButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         this.quickMode = btn.dataset.menuMode;
@@ -945,6 +959,59 @@ export class MenuManager {
         this._syncUI();
       });
     });
+
+    const setQuickRaceLaps = (rawVal) => {
+      const parsed = Math.max(1, Math.min(99, Math.round(Number(rawVal) || RACE_TOTAL_LAPS)));
+      this.state.raceLaps = parsed;
+      this._syncUI();
+    };
+
+    this.raceLapsButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setQuickRaceLaps(btn.dataset.menuRacelaps);
+      });
+    });
+
+    if (this.raceLapsInput) {
+      this.raceLapsInput.addEventListener('input', () => {
+        const val = parseInt(this.raceLapsInput.value, 10);
+        if (Number.isFinite(val) && val >= 1 && val <= 99) {
+          this.state.raceLaps = val;
+          this.raceLapsButtons.forEach((b) => {
+            b.classList.toggle('is-selected', Number(b.dataset.menuRacelaps) === val);
+          });
+        }
+      });
+      this.raceLapsInput.addEventListener('blur', () => {
+        setQuickRaceLaps(this.raceLapsInput.value);
+      });
+    }
+
+    if (this.trackLapsDecBtn) {
+      this.trackLapsDecBtn.addEventListener('click', () => {
+        if (this.state.mode === 'career') return;
+        if (this.state.mode === 'practice' && this.state.lapType === 'finite') {
+          this.state.finiteLaps = Math.max(1, (this.state.finiteLaps || 5) - 1);
+          if (this.finiteLapsInput) this.finiteLapsInput.value = String(this.state.finiteLaps);
+          this._syncUI();
+          return;
+        }
+        setQuickRaceLaps((this.state.raceLaps || RACE_TOTAL_LAPS) - 1);
+      });
+    }
+
+    if (this.trackLapsIncBtn) {
+      this.trackLapsIncBtn.addEventListener('click', () => {
+        if (this.state.mode === 'career') return;
+        if (this.state.mode === 'practice' && this.state.lapType === 'finite') {
+          this.state.finiteLaps = Math.min(99, (this.state.finiteLaps || 5) + 1);
+          if (this.finiteLapsInput) this.finiteLapsInput.value = String(this.state.finiteLaps);
+          this._syncUI();
+          return;
+        }
+        setQuickRaceLaps((this.state.raceLaps || RACE_TOTAL_LAPS) + 1);
+      });
+    }
 
     this.careerFormatButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1050,6 +1117,10 @@ export class MenuManager {
 
     if (this.openMenuHudBtn) {
       this.openMenuHudBtn.addEventListener('click', () => {
+        if (this.onOpenHudMenu && !this.isOpen && this.hasActiveSession) {
+          this.onOpenHudMenu();
+          return;
+        }
         this.open();
       });
     }
@@ -1100,6 +1171,32 @@ export class MenuManager {
       });
     });
 
+    const setMpRaceLaps = (rawVal) => {
+      this.mpRaceLaps = Math.max(1, Math.min(99, Math.round(Number(rawVal) || RACE_TOTAL_LAPS)));
+      this.updateMultiplayerUI();
+    };
+
+    this.mpRaceLapsButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setMpRaceLaps(btn.dataset.mpRacelaps);
+      });
+    });
+
+    if (this.mpRaceLapsInput) {
+      this.mpRaceLapsInput.addEventListener('input', () => {
+        const val = parseInt(this.mpRaceLapsInput.value, 10);
+        if (Number.isFinite(val) && val >= 1 && val <= 99) {
+          this.mpRaceLaps = val;
+          this.mpRaceLapsButtons.forEach((b) => {
+            b.classList.toggle('is-selected', Number(b.dataset.mpRacelaps) === val);
+          });
+        }
+      });
+      this.mpRaceLapsInput.addEventListener('blur', () => {
+        setMpRaceLaps(this.mpRaceLapsInput.value);
+      });
+    }
+
     if (this.mpStartSessionBtn) {
       this.mpStartSessionBtn.addEventListener('click', () => {
         if (!this.roomManager?.isHost() || !this.onStartMultiplayerSession) return;
@@ -1112,21 +1209,21 @@ export class MenuManager {
           difficultyId: this.state.difficultyId,
           weather: this.state.weather,
           trackId: this.state.trackId,
+          raceLaps: this.mpRaceLaps,
         });
       });
     }
   }
 
   getLocalPlayerProfile() {
-    const paint = this.careerState.paint || {};
     const specs = buildCarSpecsFromUpgrades(this.careerState.upgrades);
     return {
       playerName: this.careerState.playerName,
       playerCode: this.careerState.playerCode,
       teamId: this.careerState.teamId,
-      customPrimaryColor: paint.useCustomPaint ? rgbToHex(paint.r, paint.g, paint.b) : null,
-      paintRoughness: Math.max(0.05, 1.0 - (paint.smoothness ?? 0.78)),
-      paintMetalness: paint.metallic ?? 0.35,
+      customPrimaryColor: null,
+      paintRoughness: 0.22,
+      paintMetalness: 0.35,
       carSpecs: specs,
     };
   }
@@ -1166,6 +1263,12 @@ export class MenuManager {
     this.mpFormatButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.mpFormat === this.mpFormat);
     });
+    this.mpRaceLapsButtons.forEach((btn) => {
+      btn.classList.toggle('is-selected', Number(btn.dataset.mpRacelaps) === this.mpRaceLaps);
+    });
+    if (this.mpRaceLapsInput && document.activeElement !== this.mpRaceLapsInput) {
+      this.mpRaceLapsInput.value = String(this.mpRaceLaps);
+    }
 
     if (this.mpPlayersListEl) {
       const players = rm.getPlayers();
@@ -1194,65 +1297,99 @@ export class MenuManager {
     const c = this.careerState;
     if (!c) return;
 
-    const paint = c.paint || {};
     const team = F1_2026_TEAMS[c.teamId] || F1_2026_TEAMS.ferrari;
-    const teamRgb = hexToRgb(team.primaryColor);
-    const activeR = paint.useCustomPaint ? paint.r : teamRgb.r;
-    const activeG = paint.useCustomPaint ? paint.g : teamRgb.g;
-    const activeB = paint.useCustomPaint ? paint.b : teamRgb.b;
-    const smoothPct = Math.round((paint.smoothness ?? 0.78) * 100);
-    const metalPct = Math.round((paint.metallic ?? 0.35) * 100);
+    const maxTotal = UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL;
+    const totalLvl = UPGRADE_WINDOW_ORDER.reduce(
+      (acc, key) => acc + (c.upgrades?.[key] ?? 0),
+      0
+    );
+    const specs = buildCarSpecsFromUpgrades(c.upgrades);
 
-    if (this.sliderR) this.sliderR.value = String(activeR);
-    if (this.sliderG) this.sliderG.value = String(activeG);
-    if (this.sliderB) this.sliderB.value = String(activeB);
-    if (this.sliderSmooth) this.sliderSmooth.value = String(smoothPct);
-    if (this.sliderMetal) this.sliderMetal.value = String(metalPct);
-
-    if (this.fillR) this.fillR.style.width = `${Math.round((activeR / 255) * 100)}%`;
-    if (this.fillG) this.fillG.style.width = `${Math.round((activeG / 255) * 100)}%`;
-    if (this.fillB) this.fillB.style.width = `${Math.round((activeB / 255) * 100)}%`;
-    if (this.fillSmooth) this.fillSmooth.style.width = `${smoothPct}%`;
-    if (this.fillMetal) this.fillMetal.style.width = `${metalPct}%`;
-
-    if (this.liveryNameEl) {
-      this.liveryNameEl.textContent = paint.useCustomPaint
-        ? `${team.name} (Vernice Custom)`
-        : team.name;
+    if (this.garageTeamEmblemEl && this._lastGarageTeamId !== team.id) {
+      this.garageTeamEmblemEl.innerHTML = generateTeamEmblemSvg(team);
+      this._lastGarageTeamId = team.id;
+    }
+    if (this.garageTeamNameEl) {
+      this.garageTeamNameEl.textContent = team.name;
+    }
+    if (this.garageSpecBadgeEl) {
+      const tierLabel =
+        totalLvl === 0
+          ? 'SPEC BASE'
+          : totalLvl >= maxTotal
+            ? 'SPEC MAX R&D'
+            : 'SVILUPPO ATTIVO';
+      this.garageSpecBadgeEl.textContent = `${tierLabel} • LV. ${totalLvl}/${maxTotal}`;
+    }
+    if (this.garageBudgetPillEl) {
+      this.garageBudgetPillEl.textContent = formatDollarCash(c.money);
+    }
+    if (this.garageTotalLvlPillEl) {
+      this.garageTotalLvlPillEl.textContent = `SVILUPPO ${totalLvl} / ${maxTotal}`;
+    }
+    if (this.garageOverallBarFillEl) {
+      this.garageOverallBarFillEl.style.width = `${Math.round((totalLvl / maxTotal) * 100)}%`;
     }
 
-    if (this.careerUpgradesGridEl) {
-      const visibleIds = UPGRADE_WINDOW_ORDER.slice(
-        this.upgradeWindowOffset,
-        this.upgradeWindowOffset + 4
-      );
-      this.careerUpgradesGridEl.innerHTML = visibleIds
-        .map((catId) => {
-          const cat = UPGRADE_CATEGORIES[catId];
-          const lvl = c.upgrades[catId] ?? 0;
-          const isMax = lvl >= UPGRADE_MAX_LEVEL;
-          const cost = getUpgradeCost(catId, lvl);
-          const canAfford = cost !== null && c.money >= cost;
-          const labelUpper =
-            catId === 'aero'
-              ? 'AERO-<br>DYNAMICS'
-              : cat.label.toUpperCase();
-          const priceLabel = isMax ? 'MAX' : formatDollarCash(cost);
+    // Aggiorna la strip telemetrica prestazioni live della monoposto
+    const setGauge = (valEl, barEl, pctBoost, maxPct) => {
+      if (valEl) valEl.textContent = `+${pctBoost.toFixed(1)}%`;
+      if (barEl) {
+        const fill = Math.min(100, Math.round(16 + (pctBoost / maxPct) * 84));
+        barEl.style.width = `${fill}%`;
+      }
+    };
+    setGauge(this.gtelEls.speedVal, this.gtelEls.speedBar, (specs.topSpeedMult - 1) * 100, 4.5);
+    setGauge(this.gtelEls.accelVal, this.gtelEls.accelBar, (specs.engineAccelMult - 1) * 100, 13.0);
+    setGauge(this.gtelEls.aeroVal, this.gtelEls.aeroBar, (specs.aeroDownforceMult - 1) * 100, 20.0);
+    setGauge(this.gtelEls.brakesVal, this.gtelEls.brakesBar, (specs.brakeMult - 1) * 100, 14.0);
+    setGauge(this.gtelEls.gripVal, this.gtelEls.gripBar, (specs.tireGripMult - 1) * 100, 10.0);
 
-          return `
-            <button
-              type="button"
-              class="gp-gold-btn gp-upg-card-btn"
-              data-upgrade-id="${catId}"
-              title="${cat.description}"
-              ${isMax || !canAfford ? 'disabled' : ''}
-            >
-              <span class="gp-upg-name">${labelUpper}</span>
-              <span class="gp-upg-meta">Lv.${lvl}/${UPGRADE_MAX_LEVEL} • ${priceLabel}</span>
-            </button>
-          `;
-        })
-        .join('');
+    // Renderizza tutti e 5 i potenziamenti R&D contemporaneamente con icone, segmenti livello e delta prestazionale
+    if (this.careerUpgradesGridEl) {
+      this.careerUpgradesGridEl.innerHTML = UPGRADE_WINDOW_ORDER.map((catId) => {
+        const cat = UPGRADE_CATEGORIES[catId];
+        const meta = UPGRADE_UI_META[catId] || {};
+        const lvl = c.upgrades?.[catId] ?? 0;
+        const isMax = lvl >= UPGRADE_MAX_LEVEL;
+        const cost = getUpgradeCost(catId, lvl);
+        const canAfford = cost !== null && c.money >= cost;
+
+        const segmentsHtml = Array.from({ length: UPGRADE_MAX_LEVEL }, (_, idx) => {
+          const segClass =
+            idx < lvl
+              ? 'f1-rd-seg is-filled'
+              : idx === lvl && !isMax
+                ? 'f1-rd-seg is-next'
+                : 'f1-rd-seg';
+          return `<span class="${segClass}"></span>`;
+        }).join('');
+
+        const ctaHtml = isMax
+          ? `<button type="button" class="f1-rd-buy-btn is-maxed-btn" disabled>
+               <span class="f1-rd-buy-action">MAX</span>
+               <span class="f1-rd-buy-price">LV. 5/5</span>
+             </button>`
+          : `<button type="button" class="f1-rd-buy-btn" data-upgrade-id="${catId}" ${!canAfford ? 'disabled' : ''}>
+               <span class="f1-rd-buy-action">${canAfford ? 'POTENZIA' : 'BLOCCATO'}</span>
+               <span class="f1-rd-buy-price">${formatDollarCash(cost)}</span>
+             </button>`;
+
+        return `
+          <div class="f1-rd-card${isMax ? ' is-maxed' : ''}" style="--rd-accent: ${meta.accent || '#38bdf8'};" title="${cat.description}">
+            <div class="f1-rd-icon" aria-hidden="true">${meta.icon || ''}</div>
+            <div class="f1-rd-info">
+              <div class="f1-rd-card-top">
+                <span class="f1-rd-name">${cat.label}</span>
+                <span class="f1-rd-lvl">LV. ${lvl}/${UPGRADE_MAX_LEVEL}</span>
+              </div>
+              <div class="f1-rd-delta">${meta.statSummary ? meta.statSummary(lvl) : cat.description}</div>
+              <div class="f1-rd-segments" aria-label="Livello ${lvl} su ${UPGRADE_MAX_LEVEL}">${segmentsHtml}</div>
+            </div>
+            ${ctaHtml}
+          </div>
+        `;
+      }).join('');
     }
   }
 
@@ -1263,6 +1400,14 @@ export class MenuManager {
         { key: 'Wheel', label: 'Zoom' },
         { key: '← / →', label: 'Scuderia' },
         { key: 'Enter', label: 'Conferma' },
+        { key: 'Esc', label: 'Home' },
+      ];
+    }
+    if (this.activeTab === 'vehicle') {
+      return [
+        { key: 'Drag', label: 'Ruota Auto 360°' },
+        { key: 'Wheel', label: 'Zoom' },
+        { key: 'Click', label: 'Potenzia R&D' },
         { key: 'Esc', label: 'Home' },
       ];
     }
@@ -1291,8 +1436,9 @@ export class MenuManager {
   }
 
   _syncHomeScreen(career, activeTeam, activeTrack) {
-    if (this.homeTeamEmblemEl) {
+    if (this.homeTeamEmblemEl && this._lastHomeTeamId !== activeTeam.id) {
       this.homeTeamEmblemEl.innerHTML = generateTeamEmblemSvg(activeTeam);
+      this._lastHomeTeamId = activeTeam.id;
     }
     if (this.homeCareerTeamNameEl) {
       this.homeCareerTeamNameEl.textContent = activeTeam.name;
@@ -1305,7 +1451,7 @@ export class MenuManager {
       const maxTotal = UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL;
       this.homeCareerDriverNameEl.textContent = `Pilota: ${career.playerName} • Upgrade ${totalLvl}/${maxTotal}`;
     }
-    if (this.homeNextTrackSvgEl) {
+    if (this.homeNextTrackSvgEl && this._lastHomeTrackId !== activeTrack.id) {
       this.homeNextTrackSvgEl.innerHTML = generateTrackOutlineSvg(activeTrack.controlPoints, {
         width: 145,
         height: 82,
@@ -1313,6 +1459,7 @@ export class MenuManager {
         sectorSplits: activeTrack.sectorSplits,
         strokeWidth: 3.4,
       });
+      this._lastHomeTrackId = activeTrack.id;
     }
     if (this.homeNextGpTitleEl) {
       this.homeNextGpTitleEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} • ${activeTrack.gpName}`;
@@ -1321,6 +1468,12 @@ export class MenuManager {
       const km = (activeTrack.officialLength / 1000).toFixed(3);
       const corners = getTrackCornersCount(activeTrack.id);
       this.homeNextTrackMetaEl.textContent = `${km} KM • ${corners} CURVE • ${activeTrack.name.toUpperCase()}`;
+    }
+    if (this.homeNextTrackRecordsEl) {
+      const rec = getTrackRecord(activeTrack.id);
+      const qStr = rec.qualifyingBestLap ? formatLapTime(rec.qualifyingBestLap.time) : '--:--.---';
+      const rStr = rec.raceBestLap ? formatLapTime(rec.raceBestLap.time) : '--:--.---';
+      this.homeNextTrackRecordsEl.textContent = `Record Q: ${qStr} • G: ${rStr}`;
     }
 
     if (this.quickTeamValEl) {
@@ -1342,9 +1495,18 @@ export class MenuManager {
     }
   }
 
+  _prefersReducedMotion() {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
+
   _syncTeamScreen(activeTeam) {
-    if (this.teamHeroEmblemEl) {
+    if (this.teamHeroEmblemEl && this._lastTeamHeroId !== activeTeam.id) {
       this.teamHeroEmblemEl.innerHTML = generateTeamEmblemSvg(activeTeam);
+      this._lastTeamHeroId = activeTeam.id;
     }
     if (this.teamHeroNameEl) {
       this.teamHeroNameEl.textContent = activeTeam.name;
@@ -1382,7 +1544,11 @@ export class MenuManager {
         this.activeTab === 'team' &&
         (this._lastCarouselTeamId !== activeTeam.id || this._lastCarouselTab !== 'team')
       ) {
-        selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        selectedCard.scrollIntoView({
+          behavior: this._prefersReducedMotion() ? 'auto' : 'smooth',
+          inline: 'center',
+          block: 'nearest',
+        });
         this._lastCarouselTeamId = activeTeam.id;
       }
     }
@@ -1395,7 +1561,7 @@ export class MenuManager {
     if (this.trackHeroSubEl) {
       this.trackHeroSubEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} • ${activeTrack.city}, ${activeTrack.country} • ${activeTrack.gpName}`;
     }
-    if (this.trackDetailSvgEl) {
+    if (this.trackDetailSvgEl && this._lastTrackDetailId !== activeTrack.id) {
       this.trackDetailSvgEl.innerHTML = generateTrackOutlineSvg(activeTrack.controlPoints, {
         width: 340,
         height: 170,
@@ -1404,6 +1570,7 @@ export class MenuManager {
         strokeWidth: 4.5,
         showStartDot: true,
       });
+      this._lastTrackDetailId = activeTrack.id;
     }
     if (this.trackStatLengthEl) {
       this.trackStatLengthEl.textContent = `${(activeTrack.officialLength / 1000).toFixed(3)} km`;
@@ -1412,15 +1579,35 @@ export class MenuManager {
       this.trackStatCornersEl.textContent = String(getTrackCornersCount(activeTrack.id));
     }
     if (this.trackStatWidthEl) {
-      this.trackStatWidthEl.textContent = `${Number(activeTrack.trackWidth || 14).toFixed(1)} m`;
+      const w = Number(activeTrack.width ?? activeTrack.trackWidth ?? 14);
+      const straightW = Number(activeTrack.mainStraightWidth ?? w);
+      this.trackStatWidthEl.textContent =
+        straightW > w + 0.05
+          ? `${w.toFixed(1)} m (Rettilineo ${straightW.toFixed(1)} m)`
+          : `${w.toFixed(1)} m`;
     }
     if (this.trackStatLapsEl) {
-      this.trackStatLapsEl.textContent =
-        this.quickMode === 'practice' && this.state.lapType === 'infinite'
-          ? '∞ Giri'
-          : this.quickMode === 'practice' && this.state.lapType === 'finite'
-            ? `${this.state.finiteLaps} Giri`
-            : '10 Giri';
+      const isCareerMode = this.state.mode === 'career';
+      const isInfinitePractice =
+        this.state.mode === 'practice' && this.state.lapType === 'infinite';
+      const canAdjustOnTrack = !isCareerMode && !isInfinitePractice;
+
+      if (isCareerMode) {
+        this.trackStatLapsEl.textContent = `${CAREER_RACE_LAPS} Giri (Carriera)`;
+      } else if (isInfinitePractice) {
+        this.trackStatLapsEl.textContent = '∞ Giri';
+      } else if (this.state.mode === 'practice') {
+        this.trackStatLapsEl.textContent = `${this.state.finiteLaps} Giri`;
+      } else {
+        this.trackStatLapsEl.textContent = `${this.state.raceLaps} Giri`;
+      }
+
+      if (this.trackLapsDecBtn) {
+        this.trackLapsDecBtn.style.display = canAdjustOnTrack ? 'inline-flex' : 'none';
+      }
+      if (this.trackLapsIncBtn) {
+        this.trackLapsIncBtn.style.display = canAdjustOnTrack ? 'inline-flex' : 'none';
+      }
     }
 
     if (this.trackCarouselEl) {
@@ -1435,8 +1622,76 @@ export class MenuManager {
         this.activeTab === 'track' &&
         (this._lastCarouselTrackId !== activeTrack.id || this._lastCarouselTab !== 'track')
       ) {
-        selectedCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        selectedCard.scrollIntoView({
+          behavior: this._prefersReducedMotion() ? 'auto' : 'smooth',
+          inline: 'center',
+          block: 'nearest',
+        });
         this._lastCarouselTrackId = activeTrack.id;
+      }
+    }
+
+    this._syncTrackRecordsUI(activeTrack);
+  }
+
+  refreshTrackRecords() {
+    const activeTrack = getTrackById(this.state.trackId);
+    this._syncTrackRecordsUI(activeTrack);
+    if (this.homeNextTrackRecordsEl) {
+      const rec = getTrackRecord(activeTrack.id);
+      const qStr = rec.qualifyingBestLap ? formatLapTime(rec.qualifyingBestLap.time) : '--:--.---';
+      const rStr = rec.raceBestLap ? formatLapTime(rec.raceBestLap.time) : '--:--.---';
+      this.homeNextTrackRecordsEl.textContent = `Record Q: ${qStr} • G: ${rStr}`;
+    }
+  }
+
+  _syncTrackRecordsUI(activeTrack) {
+    if (!activeTrack) return;
+    const rec = getTrackRecord(activeTrack.id);
+    const ideal = getTheoreticalBestLap(rec);
+
+    if (this.trackRecIdealEl) {
+      if (ideal !== null) {
+        this.trackRecIdealEl.style.display = 'inline';
+        this.trackRecIdealEl.textContent = `Ideale: ${formatLapTime(ideal)}`;
+      } else {
+        this.trackRecIdealEl.style.display = 'none';
+      }
+    }
+
+    if (this.trackRecQualiTimeEl) {
+      this.trackRecQualiTimeEl.textContent = rec.qualifyingBestLap
+        ? formatLapTime(rec.qualifyingBestLap.time)
+        : '--:--.---';
+    }
+    if (this.trackRecQualiMetaEl) {
+      this.trackRecQualiMetaEl.textContent = rec.qualifyingBestLap
+        ? `${rec.qualifyingBestLap.driverCode} • ${rec.qualifyingBestLap.teamName}`
+        : 'Nessun tempo';
+    }
+
+    if (this.trackRecRaceTimeEl) {
+      this.trackRecRaceTimeEl.textContent = rec.raceBestLap
+        ? formatLapTime(rec.raceBestLap.time)
+        : '--:--.---';
+    }
+    if (this.trackRecRaceMetaEl) {
+      this.trackRecRaceMetaEl.textContent = rec.raceBestLap
+        ? `${rec.raceBestLap.driverCode} • ${rec.raceBestLap.teamName}`
+        : 'Nessun tempo';
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const sec = rec.bestSectors?.[i] || null;
+      const timeEl = this.trackRecSectorTimeEls?.[i];
+      const metaEl = this.trackRecSectorMetaEls?.[i];
+      if (timeEl) {
+        timeEl.textContent = sec ? formatSectorTime(sec.time) : '--.---';
+      }
+      if (metaEl) {
+        const modeTag =
+          sec?.mode === 'qualifying' ? 'Q' : sec?.mode === 'race' ? 'G' : sec ? 'L' : '';
+        metaEl.textContent = sec ? `${sec.driverCode} (${modeTag})` : '—';
       }
     }
   }
@@ -1476,33 +1731,43 @@ export class MenuManager {
       this.resumeBtn.style.display = this.hasActiveSession ? 'inline-block' : 'none';
     }
 
-    // Main Screens Visibility
+    // Main Screens Visibility & GPU entrance animations (Step 5)
     if (this.homeScreenEl) {
-      this.homeScreenEl.style.display = this.activeTab === 'home' ? 'flex' : 'none';
+      const showHome = this.activeTab === 'home';
+      this.homeScreenEl.style.display = showHome ? 'flex' : 'none';
+      this.homeScreenEl.classList.toggle('is-screen-active', showHome);
     }
     if (this.teamScreenEl) {
-      this.teamScreenEl.style.display = this.activeTab === 'team' ? 'block' : 'none';
+      const showTeam = this.activeTab === 'team';
+      this.teamScreenEl.style.display = showTeam ? 'block' : 'none';
+      this.teamScreenEl.classList.toggle('is-screen-active', showTeam);
     }
     if (this.trackScreenEl) {
-      this.trackScreenEl.style.display = this.activeTab === 'track' ? 'block' : 'none';
+      const showTrack = this.activeTab === 'track';
+      this.trackScreenEl.style.display = showTrack ? 'block' : 'none';
+      this.trackScreenEl.classList.toggle('is-screen-active', showTrack);
     }
 
     // Sub-Overlays & Popups Visibility (Step 3: gestiti tramite ModalManager centrato)
     if (this.vehicleOverlayEl) {
-      this.vehicleOverlayEl.style.display = this.activeTab === 'vehicle' ? 'flex' : 'none';
+      const showVehicle = this.activeTab === 'vehicle';
+      this.vehicleOverlayEl.style.display = showVehicle ? 'flex' : 'none';
+      this.vehicleOverlayEl.classList.toggle('is-screen-active', showVehicle);
     }
-    this.modalManager.syncVisibility(
-      'gp-customize-subcard',
-      this.isOpen && this.profileModalOpen
-    );
-    this.modalManager.syncVisibility(
-      'gp-multiplayer-popup',
-      this.isOpen && this.activeTab === 'multiplayer' && !this.profileModalOpen
-    );
-    this.modalManager.syncVisibility(
-      'gp-settings-popup',
-      this.isOpen && this.activeTab === 'settings' && !this.profileModalOpen
-    );
+    if (this.isOpen) {
+      this.modalManager.syncVisibility(
+        'gp-customize-subcard',
+        this.profileModalOpen
+      );
+      this.modalManager.syncVisibility(
+        'gp-multiplayer-popup',
+        this.activeTab === 'multiplayer' && !this.profileModalOpen
+      );
+      this.modalManager.syncVisibility(
+        'gp-settings-popup',
+        this.activeTab === 'settings' && !this.profileModalOpen
+      );
+    }
 
     // Sync Screen 1, Screen 2 & Screen 3 Contents
     this._syncHomeScreen(c, activeTeam, activeTrack);
@@ -1510,10 +1775,20 @@ export class MenuManager {
     this._syncTrackScreen(activeTrack);
     this._lastCarouselTab = this.activeTab;
 
-    // Sync Quick Mode / Career Format / Practice / Settings states
+    // Sync Quick Mode / Race Laps / Career Format / Practice / Settings states
     this.modeButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuMode === this.quickMode);
     });
+    if (this.raceLapsSectionEl) {
+      this.raceLapsSectionEl.style.display =
+        this.quickMode === 'race' || this.quickMode === 'qualifying' ? 'flex' : 'none';
+    }
+    this.raceLapsButtons.forEach((btn) => {
+      btn.classList.toggle('is-selected', Number(btn.dataset.menuRacelaps) === this.state.raceLaps);
+    });
+    if (this.raceLapsInput && document.activeElement !== this.raceLapsInput) {
+      this.raceLapsInput.value = String(this.state.raceLaps);
+    }
     this.careerFormatButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.careerFormat === c.careerFormat);
     });
@@ -1571,13 +1846,6 @@ export class MenuManager {
   }
 
   buildSessionConfig() {
-    const paint = this.careerState.paint || {};
-    const customPrimaryColor = paint.useCustomPaint
-      ? rgbToHex(paint.r, paint.g, paint.b)
-      : null;
-    const paintRoughness = Math.max(0.05, 1.0 - (paint.smoothness ?? 0.78));
-    const paintMetalness = paint.metallic ?? 0.35;
-
     if (this.state.mode === 'career') {
       const repDriver = getRepresentativeDriverForTeam(this.careerState.teamId);
       const customSpecs = buildCarSpecsFromUpgrades(this.careerState.upgrades);
@@ -1587,7 +1855,8 @@ export class MenuManager {
         mode: format,
         difficultyId: this.state.difficultyId,
         withBots: true,
-        lapLimit: format === 'race' ? 10 : null,
+        raceLaps: CAREER_RACE_LAPS,
+        lapLimit: format === 'race' ? CAREER_RACE_LAPS : null,
         carLevel: customSpecs.id,
         weather: this.state.weather,
         playerDriverId: repDriver.id,
@@ -1597,9 +1866,9 @@ export class MenuManager {
         playerCustomName: this.careerState.playerName,
         playerCustomCode: this.careerState.playerCode,
         playerCustomSpecs: customSpecs,
-        customPrimaryColor,
-        paintRoughness,
-        paintMetalness,
+        customPrimaryColor: null,
+        paintRoughness: 0.22,
+        paintMetalness: 0.35,
       };
     }
 
@@ -1608,30 +1877,36 @@ export class MenuManager {
       1,
       Math.min(99, parseInt(this.finiteLapsInput?.value || this.state.finiteLaps, 10) || 5)
     );
+    const chosenRaceLaps = Math.max(
+      1,
+      Math.min(99, parseInt(this.raceLapsInput?.value || this.state.raceLaps, 10) || RACE_TOTAL_LAPS)
+    );
 
     return {
       trackId: this.state.trackId,
       mode: this.state.mode,
       difficultyId: this.state.difficultyId,
       withBots: isPractice ? this.state.withBots : true,
+      raceLaps: chosenRaceLaps,
       lapLimit: isPractice
         ? (this.state.lapType === 'infinite' ? null : finiteCount)
         : this.state.mode === 'qualifying'
           ? null
-          : 10,
+          : chosenRaceLaps,
       carLevel: isPractice ? this.state.carLevel : 'base',
       weather: this.state.weather,
       playerDriverId: this.state.playerDriverId,
       playerGridIndex: isPractice && !this.state.withBots ? 0 : 7,
       isCareer: false,
-      customPrimaryColor,
-      paintRoughness,
-      paintMetalness,
+      customPrimaryColor: null,
+      paintRoughness: 0.22,
+      paintMetalness: 0.35,
     };
   }
 
   open() {
     this.isOpen = true;
+    this.modalManager.syncVisibility('pause-modal', false);
     if (typeof document !== 'undefined') {
       document.body.classList.add('is-garage-open');
     }

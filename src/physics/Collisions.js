@@ -3,7 +3,7 @@
  * Mantiene la simulazione pura e serializzabile in WorldState.
  */
 
-import { COLLISION_CONFIG } from '../config/constants.js';
+import { CAR_PHYSICS_CONFIG, COLLISION_CONFIG } from '../config/constants.js';
 import { queryTrackSurface } from '../tracks/TrackSurface.js';
 
 /**
@@ -101,8 +101,8 @@ export function resolveCarToCarCollisions(carsMap) {
   const count = cars.length;
   if (count < 2) return;
 
-  const rx = 1.92; // somma semi-larghezze (2 * 0.96m)
-  const rz = 4.30; // somma semi-lunghezze (2 * 2.15m)
+  const rx = CAR_PHYSICS_CONFIG.carWidth ?? 1.90; // somma semi-larghezze (2 * 0.95 m)
+  const rz = 5.10; // somma semi-lunghezze sagoma rastremata F1 2026 (~5.32 m)
   const restitution = 0.30;
 
   for (let i = 0; i < count; i++) {

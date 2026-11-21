@@ -41,9 +41,15 @@ export class SceneManager {
     this.scene.background = new THREE.Color(0x87b8e8);
     this.scene.fog = new THREE.FogExp2(0x87b8e8, 0.00045);
 
-    // 3. Camera e controller delle 3 visuali (Chase, Abitacolo, Aerea)
+    // 3. Camera pista (3 visuali: Chase, Abitacolo, Onboard T-Cam) e camera menù completamente isolata
     this.camera = new THREE.PerspectiveCamera(
       62,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      6500
+    );
+    this.menuCamera = new THREE.PerspectiveCamera(
+      58,
       window.innerWidth / window.innerHeight,
       0.1,
       6500
@@ -68,8 +74,11 @@ export class SceneManager {
 
     // 7. Gestione resize finestra
     this._onResize = () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      const aspect = window.innerWidth / window.innerHeight;
+      this.camera.aspect = aspect;
       this.camera.updateProjectionMatrix();
+      this.menuCamera.aspect = aspect;
+      this.menuCamera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     };
     window.addEventListener('resize', this._onResize);
@@ -323,6 +332,10 @@ export class SceneManager {
     return this.garageScene.toggleAutoRotate();
   }
 
+  resetGarageOrbit() {
+    this.garageScene.resetOrbit();
+  }
+
   setTrack(trackData) {
     if (!trackData || (this.trackData?.id === trackData.id && this.trackGroup)) {
       return;
@@ -416,19 +429,24 @@ export class SceneManager {
         const lerpAlpha = Math.min(1, renderDt * 3.5);
         this._trackCamPos.lerp(targetPos, lerpAlpha);
         this._trackCamLook.lerp(targetLook, lerpAlpha);
-        this.camera.position.copy(this._trackCamPos);
-        this.camera.lookAt(this._trackCamLook);
+        this.menuCamera.up.set(0, 1, 0);
+        if (this.menuCamera.fov !== 60) {
+          this.menuCamera.fov = 60;
+          this.menuCamera.updateProjectionMatrix();
+        }
+        this.menuCamera.position.copy(this._trackCamPos);
+        this.menuCamera.lookAt(this._trackCamLook);
 
         this.sunLight.position.set(cx + 220, 320, cz + 160);
         this.sunLight.target.position.set(cx, cy, cz);
-        this.renderer.render(this.scene, this.camera);
+        this.renderer.render(this.scene, this.menuCamera);
         return;
       }
 
       this.garageScene.group.visible = true;
       this.trackGroup.visible = false;
-      this.garageScene.updateCamera(this.camera, renderDt);
-      this.renderer.render(this.scene, this.camera);
+      this.garageScene.updateCamera(this.menuCamera, renderDt);
+      this.renderer.render(this.scene, this.menuCamera);
       return;
     }
 

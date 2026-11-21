@@ -59,7 +59,7 @@ function computeChordCurvature(samples, sampleCount, baseIdx, chordSamples, step
   return dTheta / Math.max(1, chordSamples * stepLen);
 }
 
-const CANDIDATE_LANES = [-3.0, -1.5, 0.0, 1.5, 3.0];
+const CANDIDATE_LANE_FRACTIONS = [-0.92, -0.46, 0.0, 0.46, 0.92];
 
 /**
  * Calcola gli input di guida (forward, backward, analogSteer) per un bot in un dato tick.
@@ -147,8 +147,9 @@ export function computeBotInput(botCar, worldState) {
     }
   }
 
-  // 2. Scelta corsia stabile con isteresi, soglia velocità di avvicinamento e verifica spazio libero
-  const laneLimit = Math.min(3.4, Math.max(1.8, halfTrackWidth - 3.2));
+  // 2. Scelta corsia stabile proporzionale alla larghezza locale del circuito
+  const localHalfWidth = query.halfTrackWidth ?? halfTrackWidth;
+  const laneLimit = Math.max(1.4, localHalfWidth - 2.1);
   if (botCar.preferredLaneOffset === null || botCar.preferredLaneOffset === undefined) {
     botCar.preferredLaneOffset = clamp(query.lateralOffset, -laneLimit, laneLimit);
     botCar.targetLaneOffset = botCar.preferredLaneOffset;
@@ -194,7 +195,7 @@ export function computeBotInput(botCar, worldState) {
   }
 
   // Rientro morbido se il bot è finito molto largo fuori pista
-  if (Math.abs(query.lateralOffset) > halfTrackWidth - 1.2) {
+  if (Math.abs(query.lateralOffset) > localHalfWidth - 1.1) {
     botCar.preferredLaneOffset = clamp(query.lateralOffset, -laneLimit * 0.7, laneLimit * 0.7);
   } else if (nearestAhead) {
     const closingSpeed = currentSpeed - nearestAhead.forwardSpeed;
@@ -222,8 +223,8 @@ export function computeBotInput(botCar, worldState) {
       let bestCand = null;
       let bestScore = Infinity;
 
-      for (const rawCand of CANDIDATE_LANES) {
-        const cand = clamp(rawCand, -laneLimit, laneLimit);
+      for (const frac of CANDIDATE_LANE_FRACTIONS) {
+        const cand = clamp(frac * laneLimit, -laneLimit, laneLimit);
         const isClear = !nearbyCars.some(
           (c) =>
             c.forwardDelta > -4.5 &&

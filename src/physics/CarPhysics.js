@@ -16,6 +16,7 @@ import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { queryTrackSurface } from '../tracks/TrackSurface.js';
 import { createInitialAeroTireState, updateAeroAndTires } from './AeroAndTires.js';
 import { createInitialSuspensionState, updateSuspension } from './Suspension.js';
+import { stepVirtualInput } from '../input/VirtualInputFilter.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -177,15 +178,11 @@ export function stepCarPhysics(
 
   const forward = Boolean(input?.forward);
   const backward = Boolean(input?.backward);
-  const left = Boolean(input?.left);
-  const right = Boolean(input?.right);
 
-  car.throttleInput = forward ? 1 : 0;
-  car.brakeInput = backward ? 1 : 0;
-  car.steerInput =
-    typeof input?.analogSteer === 'number'
-      ? clamp(input.analogSteer, -1, 1)
-      : (left ? 1 : 0) - (right ? 1 : 0);
+  // Filtro Input Virtuale Graduale 0..1 per tastiera WASD (Step 6b; bot/analogici invariati)
+  stepVirtualInput(car, input, dt, difficultyProps);
+  const throttleAmount = car.throttleInput;
+  const brakeAmount = car.brakeInput;
 
   // 0. Rilevamento superficie sotto la vettura (asfalto, cordolo, erba)
   if (trackSurface) {
@@ -226,11 +223,21 @@ export function stepCarPhysics(
   const aeroBonus = car.aeroTire.aeroGripBonus;
 
   // 3. Aggiornamento cambio automatico e giri motore (RPM)
-  updateAutomaticGearbox(car, forwardSpeed, forward, backward, dt, cfg);
+  updateAutomaticGearbox(
+    car,
+    forwardSpeed,
+    throttleAmount > 0.05,
+    brakeAmount > 0.05,
+    dt,
+    cfg
+  );
 
   // 4. Sterzo progressivo (A/← = sinistra +, D/→ = destra -)
+  // Per tastiera umana VirtualInputFilter gestisce già la rampa progressiva: evitiamo doppio ritardo
+  const isHumanKeyboard = !car.isBot && typeof input?.analogSteer !== 'number';
   const targetSteerAngle = car.steerInput * cfg.maxSteerAngle;
-  const steerRate = car.steerInput === 0 ? cfg.steerReturnSpeed : cfg.steerSpeed;
+  const baseSteerRate = car.steerInput === 0 ? cfg.steerReturnSpeed : cfg.steerSpeed;
+  const steerRate = isHumanKeyboard ? baseSteerRate * 2.1 : baseSteerRate;
   car.steerAngle += (targetSteerAngle - car.steerAngle) * Math.min(1, steerRate * dt);
 
   // 5. Forze longitudinali (trazione motore, frenata con effetto pioggia/bloccaggio, drag aero)
@@ -243,9 +250,14 @@ export function stepCarPhysics(
 
   let driveAccel = 0;
 
-  if (forward && !backward) {
+  if (throttleAmount > 0.01 && brakeAmount <= 0.01) {
     if (forwardSpeed < -0.2) {
-      driveAccel = cfg.maxBrakeDecel * surfaceProps.brakeMultiplier * weatherGrip * tireFactor;
+      driveAccel =
+        cfg.maxBrakeDecel *
+        Math.pow(throttleAmount, 0.85) *
+        surfaceProps.brakeMultiplier *
+        weatherGrip *
+        tireFactor;
     } else if (car.gear >= 1) {
       const gearMult = cfg.gearAccelMultipliers[car.gear];
       const gearTop = cfg.gearTopSpeeds[car.gear];
@@ -253,6 +265,7 @@ export function stepCarPhysics(
       const torqueCurve = speedRatio < 0.92 ? 0.85 + 0.25 * Math.sin(speedRatio * Math.PI) : Math.max(0, (1 - speedRatio) * 10);
       driveAccel =
         cfg.baseEngineAccel *
+        throttleAmount *
         gearMult *
         torqueCurve *
         surfaceProps.tractionMultiplier *
@@ -261,26 +274,28 @@ export function stepCarPhysics(
         (car.accelMultiplier ?? 1.0) *
         carSpecs.engineAccelMult;
     }
-  } else if (backward && !forward) {
+  } else if (brakeAmount > 0.01 && throttleAmount <= 0.01) {
     if (forwardSpeed > 0.25) {
       const lockPenalty = car.aeroTire.wheelLockup ? adv.lockupBrakePenalty : 1.0;
       const aeroBrakeBoost = 0.88 + 0.14 * (aeroBonus - 1.0);
+      const progressiveBrake = Math.pow(brakeAmount, 0.85);
       driveAccel =
         -cfg.maxBrakeDecel *
+        progressiveBrake *
         surfaceProps.brakeMultiplier *
         weatherGrip *
         tireFactor *
         aeroBrakeBoost *
         lockPenalty *
         carSpecs.brakeMult;
-    } else if (forwardSpeed > -cfg.maxReverseSpeed) {
-      driveAccel = -cfg.reverseAccel * surfaceProps.tractionMultiplier * weatherGrip;
+    } else if (forwardSpeed > -cfg.maxReverseSpeed && backward) {
+      driveAccel = -cfg.reverseAccel * brakeAmount * surfaceProps.tractionMultiplier * weatherGrip;
     }
   }
 
   forwardSpeed += (driveAccel + aeroDrag + rollingDrag) * dt;
 
-  if (!forward && !backward && Math.abs(forwardSpeed) < 0.08) {
+  if (throttleAmount <= 0.01 && brakeAmount <= 0.01 && Math.abs(forwardSpeed) < 0.08) {
     forwardSpeed = 0;
   }
 

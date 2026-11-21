@@ -7,6 +7,7 @@
 import { CAR_PHYSICS_CONFIG, LOCAL_PLAYER_ID } from '../config/constants.js';
 import { DEFAULT_DIFFICULTY_ID } from '../config/difficulty.js';
 import {
+  CAREER_RACE_LAPS,
   F1_2026_DRIVERS,
   F1_2026_TEAMS,
   RACE_TOTAL_LAPS,
@@ -55,6 +56,8 @@ function cloneCarTiming(timing) {
     currentLapSplits: [...timing.currentLapSplits],
     personalBestSectors: [...timing.personalBestSectors],
     bestLapSplitTimes: [...timing.bestLapSplitTimes],
+    lastCompletedSector: timing.lastCompletedSector ? { ...timing.lastCompletedSector } : null,
+    lastCompletedLap: timing.lastCompletedLap ? { ...timing.lastCompletedLap } : null,
   };
 }
 
@@ -171,9 +174,16 @@ export class WorldState {
           : 'practice';
     const difficultyId = config.difficultyId || DEFAULT_DIFFICULTY_ID;
     const withBots = mode === 'race' || mode === 'qualifying' ? true : Boolean(config.withBots);
+    const isCareer = Boolean(config.isCareer);
+    const rawRaceLaps = Number(config.raceLaps ?? config.lapLimit);
+    const resolvedRaceLaps = isCareer
+      ? CAREER_RACE_LAPS
+      : Number.isFinite(rawRaceLaps) && rawRaceLaps >= 1
+        ? Math.max(1, Math.min(99, Math.round(rawRaceLaps)))
+        : RACE_TOTAL_LAPS;
     const lapLimit =
       mode === 'race'
-        ? RACE_TOTAL_LAPS
+        ? resolvedRaceLaps
         : mode === 'qualifying'
           ? null
           : (config.lapLimit ?? null);
@@ -202,6 +212,7 @@ export class WorldState {
       difficultyId,
       withBots,
       lapLimit,
+      raceLaps: resolvedRaceLaps,
       carLevel,
       playerDriverId: humanPlayers?.[0]?.driverId || playerDriverId,
       playerGridIndex,
@@ -651,18 +662,26 @@ export class WorldState {
     const playerGridIdx = Math.max(0, orderedDriverIds.indexOf(playerDriverId));
     const qualifiedPole = q.finalGrid[0]?.driverId === playerDriverId;
 
+    const rawCfgLaps = Number(cfg.raceLaps ?? cfg.lapLimit);
+    const targetRaceLaps = cfg.isCareer
+      ? CAREER_RACE_LAPS
+      : Number.isFinite(rawCfgLaps) && rawCfgLaps >= 1
+        ? Math.max(1, Math.min(99, Math.round(rawCfgLaps)))
+        : RACE_TOTAL_LAPS;
+
     this.qualifyingState = null;
     this.sessionConfig = {
       ...cfg,
       mode: 'race',
       withBots: true,
-      lapLimit: RACE_TOTAL_LAPS,
+      lapLimit: targetRaceLaps,
+      raceLaps: targetRaceLaps,
       playerGridIndex: playerGridIdx,
       qualifiedPole,
     };
 
     this.spawnFullGrid(playerDriverId, playerGridIdx, localPlayerId, {
-      totalLaps: RACE_TOTAL_LAPS,
+      totalLaps: targetRaceLaps,
       skipCountdown: false,
       mode: 'race',
       carLevel: cfg.carLevel || 'base',

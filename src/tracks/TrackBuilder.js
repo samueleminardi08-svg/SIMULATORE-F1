@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { computeStartingGridTransforms } from '../race/RaceManager.js';
 import { createTrackSurface, queryTrackSurface } from './TrackSurface.js';
 
-function createAsphaltTexture(repeatY) {
+function createAsphaltTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
@@ -17,27 +17,19 @@ function createAsphaltTexture(repeatY) {
   ctx.fillStyle = '#262930';
   ctx.fillRect(0, 0, 512, 512);
 
-  for (let i = 0; i < 4000; i++) {
+  // Grana asfalto omogenea tiling-safe in orizzontale e longitudinale (nessuna linea bianca baked)
+  for (let i = 0; i < 6500; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
-    const shade = 30 + Math.floor(Math.random() * 22);
+    const shade = 28 + Math.floor(Math.random() * 26);
     ctx.fillStyle = `rgb(${shade}, ${shade + 2}, ${shade + 5})`;
     ctx.fillRect(x, y, 2, 2);
   }
 
-  // Linee bianche continue ai bordi pista
-  ctx.fillStyle = '#e2e8f0';
-  ctx.fillRect(14, 0, 10, 512);
-  ctx.fillRect(512 - 24, 0, 10, 512);
-
-  // Leggero gommamento nella zona ideale di traiettoria
-  ctx.fillStyle = 'rgba(12, 14, 18, 0.22)';
-  ctx.fillRect(120, 0, 272, 512);
-
   const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(1, repeatY);
+  texture.repeat.set(1, 1);
   texture.anisotropy = 8;
   return texture;
 }
@@ -146,38 +138,56 @@ function createCheckerTexture() {
 
 /**
  * Costruisce una geometria a nastro orizzontale dai campioni di TrackSurface.
+ * Supporta halfWidth e lateralOffset dinamici per campione (larghezza variabile FIA)
+ * e tiling UV metrico proporzionale alla larghezza effettiva.
  */
 function buildRibbonFromSamples(
   samples,
   halfWidth,
   lateralOffset = 0,
   yOffset = 0.02,
-  filterFn = null
+  filterFn = null,
+  uvOptions = null
 ) {
   const count = samples.length;
   const positions = [];
   const normals = [];
   const uvs = [];
   const indices = [];
+  const hwIsFn = typeof halfWidth === 'function';
+  const latIsFn = typeof lateralOffset === 'function';
 
   for (let i = 0; i <= count; i++) {
-    const s = samples[i % count];
+    const sampleIdx = i % count;
+    const s = samples[sampleIdx];
     const t = i / count;
     const y = (s.y ?? 0) + yOffset;
+    const hw = hwIsFn ? halfWidth(s, sampleIdx) : halfWidth;
+    const lat = latIsFn ? lateralOffset(s, sampleIdx) : lateralOffset;
 
-    const cx = s.x + s.nx * lateralOffset;
-    const cz = s.z + s.nz * lateralOffset;
+    const cx = s.x + s.nx * lat;
+    const cz = s.z + s.nz * lat;
 
-    const lx = cx + s.nx * halfWidth;
-    const lz = cz + s.nz * halfWidth;
-    const rx = cx - s.nx * halfWidth;
-    const rz = cz - s.nz * halfWidth;
+    const lx = cx + s.nx * hw;
+    const lz = cz + s.nz * hw;
+    const rx = cx - s.nx * hw;
+    const rz = cz - s.nz * hw;
 
     positions.push(lx, y, lz);
     positions.push(rx, y, rz);
     normals.push(0, 1, 0, 0, 1, 0);
-    uvs.push(0, t);
-    uvs.push(1, t);
+
+    if (uvOptions) {
+      const vCoord =
+        (i === count ? uvOptions.totalLength : (s.distance ?? 0)) /
+        uvOptions.vTileMeters;
+      const uHalf = hw / uvOptions.uTileMeters;
+      uvs.push(-uHalf, vCoord);
+      uvs.push(uHalf, vCoord);
+    } else {
+      uvs.push(0, t);
+      uvs.push(1, t);
+    }
 
     if (i < count && (!filterFn || filterFn(s, i))) {
       const base = i * 2;
@@ -197,7 +207,7 @@ function buildRibbonFromSamples(
 /**
  * Costruisce la soletta strutturale in cemento sotto i tratti sopraelevati (es. ponte a 8 di Suzuka).
  */
-function buildBridgeDeckGeometry(samples, halfWidth, thickness = 0.45) {
+function buildBridgeDeckGeometry(samples, defaultHalfWidth, thickness = 0.45, kerbWidth = 1.4) {
   const count = samples.length;
   const positions = [];
   const indices = [];
@@ -206,7 +216,7 @@ function buildBridgeDeckGeometry(samples, halfWidth, thickness = 0.45) {
     const s = samples[i % count];
     const topY = (s.y ?? 0) + 0.01;
     const botY = topY - thickness;
-    const spanHalf = halfWidth + 0.55;
+    const spanHalf = (s.halfWidth ?? defaultHalfWidth) + kerbWidth + 0.55;
 
     const lx = s.x + s.nx * spanHalf;
     const lz = s.z + s.nz * spanHalf;
@@ -319,14 +329,18 @@ function addParkTrees(group, trackSurface) {
   for (let i = 0; i < sampleCount; i += step) {
     const s = samples[i];
     for (const side of [1, -1]) {
-      // Distanza esterna alle barriere con leggera variazione deterministica
-      const distOut = barrierHalfWidth + 10 + ((i * 7 + (side > 0 ? 3 : 11)) % 24);
+      const localBar =
+        side > 0
+          ? (s.leftBarrierOffset ?? barrierHalfWidth)
+          : (s.rightBarrierOffset ?? barrierHalfWidth);
+      // Distanza esterna alle barriere locali con leggera variazione deterministica
+      const distOut = localBar + 10 + ((i * 7 + (side > 0 ? 3 : 11)) % 24);
       const tx = s.x + s.nx * side * distOut;
       const tz = s.z + s.nz * side * distOut;
 
       // Assicura che nessun albero finisca su un altro tratto di pista o dentro le barriere
       const check = queryTrackSurface(trackSurface, tx, tz);
-      if (check.absOffset > barrierHalfWidth + 5.5) {
+      if (check.absOffset > (check.barrierHalfWidth ?? barrierHalfWidth) + 5.5) {
         treePositions.push({
           x: tx,
           z: tz,
@@ -367,7 +381,15 @@ export function buildTrackMeshGroup(trackData) {
   group.name = `Track_${trackData.id}`;
 
   const trackSurface = createTrackSurface(trackData, 1600);
-  const { samples, totalLength, halfTrackWidth, kerbWidth, barrierHalfWidth, bounds } = trackSurface;
+  const {
+    samples,
+    totalLength,
+    halfTrackWidth,
+    kerbWidth,
+    barrierHalfWidth,
+    isStreet,
+    bounds,
+  } = trackSurface;
 
   // 1. Piano erboso proporzionato alle dimensioni del tracciato
   const padding = 1600;
@@ -386,10 +408,46 @@ export function buildTrackMeshGroup(trackData) {
   grassMesh.receiveShadow = true;
   group.add(grassMesh);
 
-  // 2. Nastro d'asfalto
-  const asphaltGeo = buildRibbonFromSamples(samples, halfTrackWidth, 0, 0.02);
+  // 2a. Banchine / vie di fuga laterali fino ai muretti (cittadini) o margine cordoli (permanenti)
+  const computeRunoffSpan = (s, barOffset) => {
+    const hw = s.halfWidth ?? halfTrackWidth;
+    const room = Math.max(0.25, barOffset - hw);
+    return isStreet ? room : Math.min(room, kerbWidth + 2.6);
+  };
+  const runoffMat = new THREE.MeshStandardMaterial({
+    color: isStreet ? 0x333a45 : 0x474e59,
+    roughness: 0.92,
+    metalness: 0.04,
+  });
+  const leftRunoffGeo = buildRibbonFromSamples(
+    samples,
+    (s) => computeRunoffSpan(s, s.leftBarrierOffset ?? barrierHalfWidth) * 0.5,
+    (s) => (s.halfWidth ?? halfTrackWidth) + computeRunoffSpan(s, s.leftBarrierOffset ?? barrierHalfWidth) * 0.5,
+    0.012
+  );
+  const rightRunoffGeo = buildRibbonFromSamples(
+    samples,
+    (s) => computeRunoffSpan(s, s.rightBarrierOffset ?? barrierHalfWidth) * 0.5,
+    (s) => -((s.halfWidth ?? halfTrackWidth) + computeRunoffSpan(s, s.rightBarrierOffset ?? barrierHalfWidth) * 0.5),
+    0.012
+  );
+  const leftRunoffMesh = new THREE.Mesh(leftRunoffGeo, runoffMat);
+  const rightRunoffMesh = new THREE.Mesh(rightRunoffGeo, runoffMat);
+  leftRunoffMesh.receiveShadow = true;
+  rightRunoffMesh.receiveShadow = true;
+  group.add(leftRunoffMesh, rightRunoffMesh);
+
+  // 2. Nastro d'asfalto con estrusione dinamica ±(width/2) e tiling UV orizzontale metrico
+  const asphaltGeo = buildRibbonFromSamples(
+    samples,
+    (s) => s.halfWidth ?? halfTrackWidth,
+    0,
+    0.02,
+    null,
+    { uTileMeters: 7.0, vTileMeters: 10.0, totalLength }
+  );
   const asphaltMat = new THREE.MeshStandardMaterial({
-    map: createAsphaltTexture(Math.max(40, Math.round(totalLength / 10))),
+    map: createAsphaltTexture(),
     roughness: 0.85,
     metalness: 0.05,
   });
@@ -397,8 +455,27 @@ export function buildTrackMeshGroup(trackData) {
   asphaltMesh.receiveShadow = true;
   group.add(asphaltMesh);
 
+  // Linee bianche continue FIA a larghezza costante lungo entrambi i bordi della carreggiata
+  const edgeLineMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+  const leftEdgeLineGeo = buildRibbonFromSamples(
+    samples,
+    0.1,
+    (s) => (s.halfWidth ?? halfTrackWidth) - 0.18,
+    0.026
+  );
+  const rightEdgeLineGeo = buildRibbonFromSamples(
+    samples,
+    0.1,
+    (s) => -((s.halfWidth ?? halfTrackWidth) - 0.18),
+    0.026
+  );
+  group.add(
+    new THREE.Mesh(leftEdgeLineGeo, edgeLineMat),
+    new THREE.Mesh(rightEdgeLineGeo, edgeLineMat)
+  );
+
   // 2b. Soletta ponte per tratti sopraelevati (es. cavalcavia a 8 di Suzuka)
-  const bridgeDeckGeo = buildBridgeDeckGeometry(samples, halfTrackWidth + kerbWidth);
+  const bridgeDeckGeo = buildBridgeDeckGeometry(samples, halfTrackWidth, 0.45, kerbWidth);
   if (bridgeDeckGeo) {
     const bridgeDeckMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
@@ -422,14 +499,14 @@ export function buildTrackMeshGroup(trackData) {
   const leftKerbGeo = buildRibbonFromSamples(
     samples,
     halfKerb,
-    halfTrackWidth + halfKerb * 0.9,
+    (s) => (s.halfWidth ?? halfTrackWidth) + halfKerb * 0.92,
     0.03,
     (s) => s.hasKerb
   );
   const rightKerbGeo = buildRibbonFromSamples(
     samples,
     halfKerb,
-    -(halfTrackWidth + halfKerb * 0.9),
+    (s) => -((s.halfWidth ?? halfTrackWidth) + halfKerb * 0.92),
     0.03,
     (s) => s.hasKerb
   );
@@ -457,8 +534,13 @@ export function buildTrackMeshGroup(trackData) {
   rightBarrierMesh.receiveShadow = true;
   group.add(leftBarrierMesh, rightBarrierMesh);
 
-  // 5. Linea di partenza/traguardo a scacchi + Portale F1 orientati sulla tangente reale di partenza
-  const startLineGeo = new THREE.PlaneGeometry(trackData.trackWidth - 0.6, 2.8);
+  // 5. Linea di partenza/traguardo a scacchi + Portale F1 adattati alla larghezza locale e barriere
+  const s0 = samples[0];
+  const startHalfW = s0.halfWidth ?? halfTrackWidth;
+  const startBarrierL = s0.leftBarrierOffset ?? barrierHalfWidth;
+  const startBarrierR = s0.rightBarrierOffset ?? barrierHalfWidth;
+
+  const startLineGeo = new THREE.PlaneGeometry(startHalfW * 2 - 0.5, 2.8);
   startLineGeo.rotateX(-Math.PI / 2);
   const startLineMat = new THREE.MeshBasicMaterial({
     map: createCheckerTexture(),
@@ -467,24 +549,27 @@ export function buildTrackMeshGroup(trackData) {
   startLineMesh.position.set(0, 0.038, 0);
 
   const gantryGroup = new THREE.Group();
-  const s0 = samples[0];
   gantryGroup.position.set(s0.x, s0.y ?? 0, s0.z);
   gantryGroup.rotation.y = Math.atan2(s0.tx, s0.tz);
+
+  const leftPillarX = Math.max(startHalfW + kerbWidth + 1.2, startBarrierL + 0.65);
+  const rightPillarX = -Math.max(startHalfW + kerbWidth + 1.2, startBarrierR + 0.65);
+  const gantrySpan = leftPillarX - rightPillarX;
 
   const pillarGeo = new THREE.BoxGeometry(0.6, 6.5, 0.6);
   const gantryMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.5 });
   const bannerMat = new THREE.MeshStandardMaterial({ color: 0xe10600, roughness: 0.3 });
 
   const leftPillar = new THREE.Mesh(pillarGeo, gantryMat);
-  leftPillar.position.set(halfTrackWidth + 2.2, 3.25, 0);
+  leftPillar.position.set(leftPillarX, 3.25, 0);
   leftPillar.castShadow = true;
 
   const rightPillar = new THREE.Mesh(pillarGeo, gantryMat);
-  rightPillar.position.set(-(halfTrackWidth + 2.2), 3.25, 0);
+  rightPillar.position.set(rightPillarX, 3.25, 0);
   rightPillar.castShadow = true;
 
-  const topBeam = new THREE.Mesh(new THREE.BoxGeometry(trackData.trackWidth + 5.2, 1.1, 0.9), bannerMat);
-  topBeam.position.set(0, 6.2, 0);
+  const topBeam = new THREE.Mesh(new THREE.BoxGeometry(gantrySpan + 1.2, 1.1, 0.9), bannerMat);
+  topBeam.position.set((leftPillarX + rightPillarX) * 0.5, 6.2, 0);
   topBeam.castShadow = true;
 
   gantryGroup.add(startLineMesh, leftPillar, rightPillar, topBeam);

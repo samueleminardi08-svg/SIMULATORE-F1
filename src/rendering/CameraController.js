@@ -2,7 +2,7 @@
  * Gestore delle 3 viste della telecamera (Step 2):
  * 1. Da dietro la macchina (Chase Cam)
  * 2. Prima persona (Abitacolo)
- * 3. Dall'alto al centro (Vista aerea sopra la macchina)
+ * 3. Onboard T-Cam (TV Pod sopra l'airbox / Halo, stile regia F1)
  */
 
 import * as THREE from 'three';
@@ -73,12 +73,24 @@ export class CameraController {
 
     if (carModel) carModel.setCockpitView(false);
 
-    if (mode.id === 'aerial') {
-      this._setFov(50);
-      // Orienta "l'alto" dello schermo nella direzione del musetto della monoposto
-      this.camera.up.set(sinH, 0, cosH);
-      this.camera.position.set(carState.x, carState.y + 42.0, carState.z);
-      this.camera.lookAt(carState.x, carState.y, carState.z);
+    if (mode.id === 'tcam') {
+      this._setFov(64);
+      this.camera.up.set(0, 1, 0);
+
+      const suspHeave = carState.suspension?.heave ?? 0;
+      const suspPitch = carState.suspension?.pitch ?? 0;
+
+      // Posizione T-Cam centrata sull'asse longitudinale della vettura (sopra airbox / Halo)
+      const podX = carState.x - sinH * 0.35;
+      const podY = carState.y + 1.23 + suspHeave - suspPitch * 0.22;
+      const podZ = carState.z - cosH * 0.35;
+      this.camera.position.set(podX, podY, podZ);
+
+      // Inquadratura centrale simmetrica in avanti su Halo, specchietti, ruote anteriori e pista
+      const lookX = carState.x + sinH * 18.0;
+      const lookY = carState.y + 0.52 + suspHeave - suspPitch * 6.5;
+      const lookZ = carState.z + cosH * 18.0;
+      this.camera.lookAt(lookX, lookY, lookZ);
       return;
     }
 
