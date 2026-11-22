@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .DS_Store
+assets_import/sketchfab/*.glb
+assets_import/sketchfab/*.gltf

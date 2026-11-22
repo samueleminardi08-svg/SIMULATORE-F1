@@ -14,6 +14,11 @@ import { GameLoop } from './core/GameLoop.js';
 import { InputManager } from './input/InputManager.js';
 import { getTrackById, getNextCalendarTrackId } from './tracks/calendar2026/index.js';
 import { SceneManager } from './rendering/SceneManager.js';
+import {
+  getNightQualityConfig,
+  loadSavedNightQuality,
+} from './rendering/NightLightingConfig.js';
+import { getSkyPresetById, loadSavedSkyPresetOption } from './rendering/SkyPresets.js';
 import { TrackMapHud } from './ui/TrackMapHud.js';
 import { HudOverlay } from './ui/HudOverlay.js';
 import { MenuManager } from './ui/MenuManager.js';
@@ -56,8 +61,26 @@ function initGame() {
   const inputManager = new InputManager(window);
   const modalManager = new ModalManager(window);
 
-  // 2. Scena 3D
-  const sceneManager = new SceneManager(canvas, activeTrack);
+  // 2. Scena 3D (con profilo qualità grafica notturna persistente + preset cielo 2K Pure Skies)
+  const initialNightQuality = loadSavedNightQuality();
+  const initialSkyPreset = loadSavedSkyPresetOption();
+  const sceneManager = new SceneManager(canvas, activeTrack, {
+    nightQuality: initialNightQuality,
+    skyPreset: initialSkyPreset,
+    onNightQualityAutoFallback: (nextQuality, info = {}) => {
+      // Il fallback automatico vale per la sessione corrente senza sovrascrivere la preferenza salvata dall'utente
+      const label = getNightQualityConfig(nextQuality).label;
+      const fpsText = Number.isFinite(info.measuredFps)
+        ? `${Math.round(info.measuredFps)} FPS`
+        : 'FPS bassi';
+      if (menuManager) {
+        menuManager.setNightQuality(
+          nextQuality,
+          `ridotta automaticamente a ${label} per mantenere fluidità (${fpsText})`
+        );
+      }
+    },
+  });
 
   const applyActiveTrack = (trackId) => {
     const nextTrack = getTrackById(trackId);
@@ -218,7 +241,11 @@ function initGame() {
       }
     }
     if (pauseMetaWeatherEl) {
-      pauseMetaWeatherEl.textContent = worldState.weather === 'rain' ? 'Pioggia' : 'Asciutto';
+      const activePreset = worldState.skyPresetId
+        ? getSkyPresetById(worldState.skyPresetId)
+        : sceneManager.getResolvedSkyPreset(worldState);
+      pauseMetaWeatherEl.textContent =
+        activePreset?.label || (worldState.weather === 'rain' ? 'Pioggia' : 'Asciutto');
     }
     if (pauseMetaDifficultyEl) {
       const diffId = worldState.difficultyId || menuManager?.state?.difficultyId;
@@ -260,6 +287,8 @@ function initGame() {
               ...worldState.sessionConfig,
               difficultyId: menuManager.state.difficultyId,
               weather: menuManager.state.weather,
+              skyPresetId:
+                worldState.sessionConfig.requestedSkyPresetId || menuManager.state.skyPreset,
             }
           : menuManager.buildSessionConfig();
       startConfiguredSession(baseCfg);
@@ -273,6 +302,9 @@ function initGame() {
     pauseSettingsBtn.addEventListener('click', () => {
       if (menuManager) {
         menuManager.state.weather = worldState.weather;
+        if (!worldState.sessionConfig?.isCareer && worldState.skyPresetId) {
+          menuManager.state.skyPreset = worldState.skyPresetId;
+        }
         menuManager._syncUI();
       }
       modalManager.open('gp-settings-popup');
@@ -291,6 +323,31 @@ function initGame() {
     careerState,
     roomManager,
     modalManager,
+    nightQuality: initialNightQuality,
+    skyPreset: initialSkyPreset,
+    onNightQualityChange: (nextQuality) => {
+      sceneManager.setNightQuality(nextQuality);
+    },
+    onSkyPresetChange: (nextSky) => {
+      if (!menuManager?.isOpen && !roomManager.isClient()) {
+        const applied = worldState.setSkyPreset(nextSky);
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
+        hudOverlay?.setSkyPreset(applied);
+        syncPauseModalMeta();
+      }
+      const resolved = sceneManager.setSkyPreset(nextSky);
+      if (resolved) {
+        if (menuManager?.isOpen) {
+          sceneManager.setWeatherPreview(resolved.physicsWeather);
+        }
+        if (hudOverlay) {
+          hudOverlay.setSkyPreset(resolved);
+        }
+      }
+      return resolved;
+    },
     onOpenHudMenu: () => openPauseModal(),
     onSettingsClose: () => syncPauseModalMeta(),
     onCareerChange: (nextCareerState) => {
@@ -318,7 +375,7 @@ function initGame() {
       }
       syncPauseModalMeta();
     },
-    onStartMultiplayerSession: ({ mode, difficultyId, weather, trackId, raceLaps }) => {
+    onStartMultiplayerSession: ({ mode, difficultyId, weather, skyPresetId, trackId, raceLaps }) => {
       if (!roomManager.isHost()) return;
       const humanPlayers = roomManager.getPlayers();
       const safeRaceLaps = Math.max(
@@ -330,6 +387,7 @@ function initGame() {
         mode,
         difficultyId,
         weather,
+        skyPresetId: skyPresetId || menuManager.state.skyPreset,
         withBots: true,
         raceLaps: safeRaceLaps,
         lapLimit: mode === 'race' ? safeRaceLaps : null,
@@ -476,7 +534,12 @@ function initGame() {
       }
 
       if (!blockTrackInput && inputManager.consumeWeatherToggle()) {
-        worldState.toggleWeather();
+        const nextPreset = worldState.cycleWeatherPreset();
+        hudOverlay?.setSkyPreset(nextPreset);
+        syncPauseModalMeta();
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
       } else if (blockTrackInput) {
         inputManager.consumeWeatherToggle();
       }
@@ -504,6 +567,10 @@ function initGame() {
 
       sceneManager.render(worldState, activePlayerId);
       if (!menuManager.isOpen) {
+        const activePreset = sceneManager.getResolvedSkyPreset?.(worldState);
+        if (activePreset) {
+          hudOverlay.setSkyPreset(activePreset);
+        }
         if (trackMapHud) {
           trackMapHud.render(worldState, activePlayerId);
         }
@@ -531,7 +598,7 @@ function initGame() {
             ? `menu:${menuManager.activeTab}`
             : worldState.sessionConfig?.mode || 'track';
           console.info(
-            `[F1-PERF] mode=${modeTag} fps=${fps.toFixed(1)} frames=${sorted.length} avg=${avgMs.toFixed(2)}ms p95=${p95Ms.toFixed(2)}ms max=${maxMs.toFixed(2)}ms`
+            `[F1-PERF] mode=${modeTag} track=${activeTrack?.id || 'unknown'} nightQ=${sceneManager.getNightQuality()} fps=${fps.toFixed(1)} frames=${sorted.length} avg=${avgMs.toFixed(2)}ms p95=${p95Ms.toFixed(2)}ms max=${maxMs.toFixed(2)}ms`
           );
           perfWindowStart = now;
           perfSamples = [];

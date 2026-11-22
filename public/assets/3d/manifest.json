@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-22T01:56:31.638Z",
+  "dracoDecoderPath": "draco/",
+  "textures": {
+    "asphalt_pit_lane": {
+      "diff": "assets/3d/textures/asphalt_pit_lane/diff.webp",
+      "nor_gl": "assets/3d/textures/asphalt_pit_lane/nor_gl.webp",
+      "rough": "assets/3d/textures/asphalt_pit_lane/rough.webp"
+    },
+    "asphalt_track": {
+      "diff": "assets/3d/textures/asphalt_track/diff.webp",
+      "nor_gl": "assets/3d/textures/asphalt_track/nor_gl.webp",
+      "rough": "assets/3d/textures/asphalt_track/rough.webp"
+    },
+    "coast_sand_01": {
+      "diff": "assets/3d/textures/coast_sand_01/diff.webp",
+      "nor_gl": "assets/3d/textures/coast_sand_01/nor_gl.webp",
+      "rough": "assets/3d/textures/coast_sand_01/rough.webp"
+    },
+    "concrete_floor_painted": {
+      "diff": "assets/3d/textures/concrete_floor_painted/diff.webp",
+      "nor_gl": "assets/3d/textures/concrete_floor_painted/nor_gl.webp",
+      "rough": "assets/3d/textures/concrete_floor_painted/rough.webp"
+    },
+    "concrete_wall_007": {
+      "diff": "assets/3d/textures/concrete_wall_007/diff.webp",
+      "nor_gl": "assets/3d/textures/concrete_wall_007/nor_gl.webp",
+      "rough": "assets/3d/textures/concrete_wall_007/rough.webp"
+    },
+    "grass_004": {
+      "diff": "assets/3d/textures/grass_004/diff.webp",
+      "nor_gl": "assets/3d/textures/grass_004/nor_gl.webp",
+      "rough": "assets/3d/textures/grass_004/rough.webp"
+    },
+    "gravelly_sand": {
+      "diff": "assets/3d/textures/gravelly_sand/diff.webp",
+      "nor_gl": "assets/3d/textures/gravelly_sand/nor_gl.webp",
+      "rough": "assets/3d/textures/gravelly_sand/rough.webp"
+    },
+    "metal_plate": {
+      "diff": "assets/3d/textures/metal_plate/diff.webp",
+      "nor_gl": "assets/3d/textures/metal_plate/nor_gl.webp",
+      "rough": "assets/3d/textures/metal_plate/rough.webp"
+    }
+  },
+  "hdri": {
+    "clear_day": "assets/3d/hdri/autumn_field_puresky.hdr",
+    "partly_cloudy": "assets/3d/hdri/kloofendal_48d_partly_cloudy_puresky.hdr",
+    "sunrise": "assets/3d/hdri/qwantani_sunrise_puresky.hdr",
+    "sunset": "assets/3d/hdri/kloppenheim_06_puresky.hdr",
+    "cloudy_sunset": "assets/3d/hdri/citrus_orchard_road_puresky.hdr",
+    "overcast": "assets/3d/hdri/kloofendal_overcast_puresky.hdr",
+    "rain": "assets/3d/hdri/overcast_soil_puresky.hdr",
+    "heavy_rain": "assets/3d/hdri/kloppenheim_07_puresky.hdr",
+    "night_clear": "assets/3d/hdri/kloppenheim_02_puresky.hdr",
+    "studio": "assets/3d/hdri/studio_small_09.hdr",
+    "dry": "assets/3d/hdri/autumn_field_puresky.hdr",
+    "night": "assets/3d/hdri/kloppenheim_02_puresky.hdr"
+  },
+  "models": {
+    "nature": {
+      "fern_02": {
+        "path": "assets/3d/models/nature/fern_02.glb",
+        "format": "glb",
+        "sizeBytes": 178556,
+        "draco": true
+      },
+      "grass_medium_01": {
+        "path": "assets/3d/models/nature/grass_medium_01.glb",
+        "format": "glb",
+        "sizeBytes": 667304,
+        "draco": true
+      },
+      "namaqualand_boulder_02": {
+        "path": "assets/3d/models/nature/namaqualand_boulder_02.glb",
+        "format": "glb",
+        "sizeBytes": 988192,
+        "draco": true
+      },
+      "rock_moss_set_01": {
+        "path": "assets/3d/models/nature/rock_moss_set_01.glb",
+        "format": "glb",
+        "sizeBytes": 548544,
+        "draco": true
+      }
+    },
+    "track": {
+      "Barrel_01": {
+        "path": "assets/3d/models/track/Barrel_01.glb",
+        "format": "glb",
+        "sizeBytes": 369108,
+        "draco": true
+      },
+      "modular_chainlink_fence": {
+        "path": "assets/3d/models/track/modular_chainlink_fence.glb",
+        "format": "glb",
+        "sizeBytes": 1011012,
+        "draco": true
+      },
+      "street_lamp_01": {
+        "path": "assets/3d/models/track/street_lamp_01.glb",
+        "format": "glb",
+        "sizeBytes": 258380,
+        "draco": true
+      }
+    },
+    "garage": {
+      "Drill_01": {
+        "path": "assets/3d/models/garage/Drill_01.glb",
+        "format": "glb",
+        "sizeBytes": 210828,
+        "draco": true
+      },
+      "metal_tool_chest": {
+        "path": "assets/3d/models/garage/metal_tool_chest.glb",
+        "format": "glb",
+        "sizeBytes": 318392,
+        "draco": true
+      },
+      "power_box_01": {
+        "path": "assets/3d/models/garage/power_box_01.glb",
+        "format": "glb",
+        "sizeBytes": 327044,
+        "draco": true
+      },
+      "security_camera_01": {
+        "path": "assets/3d/models/garage/security_camera_01.glb",
+        "format": "glb",
+        "sizeBytes": 222768,
+        "draco": true
+      },
+      "steel_frame_shelves_01": {
+        "path": "assets/3d/models/garage/steel_frame_shelves_01.glb",
+        "format": "glb",
+        "sizeBytes": 178064,
+        "draco": true
+      }
+    },
+    "optional": {}
+  },
+  "cars": {
+    "ferrari": {
+      "path": "assets/3d/cars/ferrari.glb",
+      "sizeBytes": 4131208,
+      "draco": true,
+      "source": "Tyler_Dave"
+    }
+  },
+  "drivers": {},
+  "garage": {}
+}

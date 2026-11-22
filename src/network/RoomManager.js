@@ -6,10 +6,26 @@
  *   l'Host simula a 60 Hz e invia gli snapshot di WorldState ai Client.
  */
 
-import * as PeerJSModule from 'peerjs';
+let cachedPeerClass = null;
+let peerLoadPromise = null;
 
-const Peer =
-  PeerJSModule.Peer || PeerJSModule.default?.Peer || PeerJSModule.default || null;
+/**
+ * Carica PeerJS on-demand solo quando l'utente crea o entra in una stanza online,
+ * evitando di includerlo nel bundle di avvio per il gioco offline.
+ */
+async function loadPeerClass() {
+  if (cachedPeerClass) return cachedPeerClass;
+  if (typeof window === 'undefined') return null;
+  if (!peerLoadPromise) {
+    peerLoadPromise = import('peerjs')
+      .then((mod) => {
+        cachedPeerClass = mod.Peer || mod.default?.Peer || mod.default || null;
+        return cachedPeerClass;
+      })
+      .catch(() => null);
+  }
+  return peerLoadPromise;
+}
 
 export function normalizeRoomCode(raw) {
   const cleaned = String(raw || '')
@@ -298,24 +314,32 @@ export class RoomManager {
     this._emitRoster();
     this._emitStatus(`Creazione stanza ${this.roomCode}...`);
 
-    if (typeof window !== 'undefined' && typeof Peer === 'function') {
-      try {
-        const peerId = getBrokerPeerId(this.roomCode);
-        this._peer = new Peer(peerId);
-        this._peer.on('open', () => {
-          this._emitStatus(`Stanza ${this.roomCode} online (condividi il codice)`);
-        });
-        this._peer.on('connection', (conn) => {
-          conn.on('data', (data) => {
-            this._handleIncomingMessage(data, conn);
+    if (typeof window !== 'undefined') {
+      const targetCode = this.roomCode;
+      loadPeerClass().then((Peer) => {
+        if (this.role !== 'host' || this.roomCode !== targetCode) return;
+        if (typeof Peer !== 'function') {
+          this._emitStatus(`Stanza ${targetCode} pronta (locale/Broadcast)`);
+          return;
+        }
+        try {
+          const peerId = getBrokerPeerId(targetCode);
+          this._peer = new Peer(peerId);
+          this._peer.on('open', () => {
+            this._emitStatus(`Stanza ${targetCode} online (condividi il codice)`);
           });
-        });
-        this._peer.on('error', () => {
-          this._emitStatus(`Stanza ${this.roomCode} pronta (locale/P2P)`);
-        });
-      } catch {
-        this._emitStatus(`Stanza ${this.roomCode} pronta (locale/Broadcast)`);
-      }
+          this._peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+              this._handleIncomingMessage(data, conn);
+            });
+          });
+          this._peer.on('error', () => {
+            this._emitStatus(`Stanza ${targetCode} pronta (locale/P2P)`);
+          });
+        } catch {
+          this._emitStatus(`Stanza ${targetCode} pronta (locale/Broadcast)`);
+        }
+      });
     } else {
       this._emitStatus(`Stanza ${this.roomCode} pronta`);
     }
@@ -349,31 +373,36 @@ export class RoomManager {
       this._channel.postMessage(joinReq);
     }
 
-    if (typeof window !== 'undefined' && typeof Peer === 'function') {
-      try {
-        this._peer = new Peer();
-        this._peer.on('open', () => {
-          const hostPeerId = getBrokerPeerId(code);
-          const conn = this._peer.connect(hostPeerId, { reliable: true });
-          this._hostConn = conn;
-          conn.on('open', () => {
-            conn.send(joinReq);
+    if (typeof window !== 'undefined') {
+      loadPeerClass().then((Peer) => {
+        if (this.role !== 'client' || this.roomCode !== code || typeof Peer !== 'function') {
+          return;
+        }
+        try {
+          this._peer = new Peer();
+          this._peer.on('open', () => {
+            const hostPeerId = getBrokerPeerId(code);
+            const conn = this._peer.connect(hostPeerId, { reliable: true });
+            this._hostConn = conn;
+            conn.on('open', () => {
+              conn.send(joinReq);
+            });
+            conn.on('data', (data) => {
+              this._handleIncomingMessage(data, conn);
+            });
+            conn.on('close', () => {
+              if (this.role === 'client') {
+                this._emitStatus('Disconnesso dalla stanza.');
+              }
+            });
           });
-          conn.on('data', (data) => {
-            this._handleIncomingMessage(data, conn);
+          this._peer.on('error', () => {
+            this._emitStatus(`Ricerca stanza ${code} (P2P / locale)...`);
           });
-          conn.on('close', () => {
-            if (this.role === 'client') {
-              this._emitStatus('Disconnesso dalla stanza.');
-            }
-          });
-        });
-        this._peer.on('error', () => {
-          this._emitStatus(`Ricerca stanza ${code} (P2P / locale)...`);
-        });
-      } catch {
-        // Fallback BroadcastChannel attivo
-      }
+        } catch {
+          // Fallback BroadcastChannel attivo
+        }
+      });
     }
 
     return true;

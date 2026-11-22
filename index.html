@@ -82,6 +82,19 @@
       height: 100vh;
     }
 
+    /* Vignettatura cinematografica leggera (13% agli angoli, costo GPU zero, sotto HUD) */
+    #camera-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(
+        ellipse 76% 72% at 50% 50%,
+        rgba(0, 0, 0, 0) 56%,
+        rgba(4, 6, 12, 0.13) 100%
+      );
+    }
+
     .hud-card {
       position: fixed;
       background: var(--f1-card-bg);
@@ -753,30 +766,28 @@
       pointer-events: none;
     }
 
-    /* 4B. F1 2026 Broadcast Onboard Halo Telemetry HUD */
+    /* 4B. F1 2026 Broadcast Onboard Halo Telemetry HUD (semicircolare sopra l'arco Halo 3D) */
     #f1-halo-hud {
       position: fixed;
-      bottom: clamp(6px, 1.2vh, 18px);
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(clamp(600px, 57vw, 950px), calc(100vw - clamp(216px, 14.5vw, 276px) * 2));
+      inset: 0;
       pointer-events: none;
       display: none;
-      flex-direction: column;
-      align-items: center;
       z-index: 16;
       contain: layout style;
     }
 
     body[data-camera-mode="tcam"]:not(.is-garage-open) #f1-halo-hud {
-      display: flex;
+      display: block;
     }
 
     .halo-arc-stage {
-      position: relative;
-      width: 100%;
+      position: fixed;
+      top: 39.5vh;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(clamp(600px, 60vw, 1020px), 107vh, calc(100vw - clamp(206px, 14vw, 266px) * 2));
       aspect-ratio: 920 / 306;
-      filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.68));
+      pointer-events: none;
     }
 
     .halo-arc-svg {
@@ -784,6 +795,7 @@
       height: 100%;
       display: block;
       overflow: visible;
+      filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.68));
     }
 
     .halo-speed-arc,
@@ -878,17 +890,17 @@
       fill: #bae6fd;
     }
 
-    /* Card Pilota Broadcast sotto l'ala sinistra dell'Halo (nessuna sovrapposizione con i tag sull'arco) */
+    /* Card Pilota Broadcast in basso a sinistra (a destra della torre tempi, fuori dall'abitacolo) */
     .halo-driver-card {
-      position: absolute;
-      left: 20%;
-      bottom: 0;
-      width: clamp(182px, 24.5%, 236px);
-      background: rgba(11, 14, 21, 0.92);
+      position: fixed;
+      left: calc(clamp(198px, 13.4vw, 256px) + clamp(14px, 1.4vw, 22px));
+      bottom: clamp(8px, 1.1vh, 18px);
+      width: clamp(174px, 14.4vw, 224px);
+      background: rgba(11, 14, 21, 0.88);
       border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 4px;
+      border-radius: 5px;
       overflow: hidden;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.65);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.62);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
@@ -1407,7 +1419,11 @@
     }
 
     .weather-dry { background: #1e293b; border: 1px solid rgba(250, 204, 21, 0.3); color: #fde047; }
+    .weather-warm { background: rgba(154, 52, 18, 0.85); border: 1px solid rgba(251, 146, 60, 0.58); color: #fed7aa; }
+    .weather-overcast { background: #334155; border: 1px solid rgba(148, 163, 184, 0.45); color: #e2e8f0; }
     .weather-rain { background: #0284c7; border: 1px solid #7dd3fc; color: #e0f2fe; }
+    .weather-storm { background: #0369a1; border: 1px solid #38bdf8; color: #f0f9ff; box-shadow: 0 0 10px rgba(56, 189, 248, 0.35); }
+    .weather-night { background: #1e1b4b; border: 1px solid rgba(129, 140, 248, 0.55); color: #e0e7ff; }
 
     .physics-alert {
       font-family: var(--f1-font-display);
@@ -3302,7 +3318,10 @@
     #career-team-select,
     #menu-driver-select,
     #menu-track-select,
-    #mp-track-select {
+    #mp-track-select,
+    #menu-sky-select,
+    #quick-sky-select,
+    #mp-sky-select {
       width: 100%;
       background: rgba(8, 12, 20, 0.92);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -3322,10 +3341,25 @@
     #menu-driver-select:focus,
     #menu-track-select:focus,
     #mp-track-select:focus,
+    #menu-sky-select:focus,
+    #quick-sky-select:focus,
+    #mp-sky-select:focus,
     #mp-join-code-input:focus {
       outline: none;
       border-color: var(--f1-accent-blue);
       box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+    }
+
+    .f1-career-weather-note {
+      font-family: var(--f1-font-ui);
+      font-size: 11px;
+      line-height: 1.35;
+      color: #cbd5e1;
+      background: rgba(14, 165, 233, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.26);
+      border-left: 3px solid var(--f1-accent-blue);
+      border-radius: 7px;
+      padding: 6px 10px;
     }
 
     #menu-finite-laps-input {
@@ -4539,6 +4573,7 @@
 
 <body class="is-garage-open">
   <canvas id="game-canvas"></canvas>
+  <div id="camera-vignette" aria-hidden="true"></div>
 
   <!-- Semaforo di partenza F1 -->
   <div id="start-lights-gantry">
@@ -4709,8 +4744,8 @@
       <svg class="halo-arc-svg" viewBox="0 0 920 306" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="haloBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#111827" stop-opacity="0.93"/>
-            <stop offset="100%" stop-color="#05080f" stop-opacity="0.92"/>
+            <stop offset="0%" stop-color="#111827" stop-opacity="0.86"/>
+            <stop offset="100%" stop-color="#05080f" stop-opacity="0.82"/>
           </linearGradient>
           <linearGradient id="haloCyanStroke" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.12"/>
@@ -4720,9 +4755,9 @@
             <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.12"/>
           </linearGradient>
           <radialGradient id="haloCenterDialGrad" cx="50%" cy="38%" r="60%">
-            <stop offset="0%" stop-color="#1e293b" stop-opacity="0.96"/>
-            <stop offset="75%" stop-color="#0a0f1c" stop-opacity="0.97"/>
-            <stop offset="100%" stop-color="#04070e" stop-opacity="0.99"/>
+            <stop offset="0%" stop-color="#1e293b" stop-opacity="0.93"/>
+            <stop offset="75%" stop-color="#0a0f1c" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#04070e" stop-opacity="0.97"/>
           </radialGradient>
         </defs>
 
@@ -4849,8 +4884,8 @@
           <text x="0" y="-44" text-anchor="middle" class="halo-label-micro" fill="#cbd5e1">KM/H</text>
           <text id="halo-speed-kmh" x="0" y="-6" text-anchor="middle" class="halo-speed-kmh-text">0</text>
 
-          <!-- Pillola 1: BOOST / DRS / LOCKUP -->
-          <rect id="halo-status-primary-bg" x="-42" y="4" width="84" height="13" rx="6.5" fill="rgba(148,163,184,0.26)"/>
+          <!-- Pillola 1: BOOST / DRS / LOCKUP / PIOGGIA FORTE -->
+          <rect id="halo-status-primary-bg" x="-48" y="4" width="96" height="13" rx="6.5" fill="rgba(148,163,184,0.26)"/>
           <text id="halo-status-primary" x="0" y="13.5" text-anchor="middle" class="halo-pill-primary">BOOST</text>
 
           <!-- Pillola 2: OVERTAKE / GRIP OK -->
@@ -4866,36 +4901,36 @@
           <rect id="halo-tire-fill" x="-24" y="67" width="48" height="4.5" rx="2.2" fill="#38bdf8"/>
         </g>
       </svg>
+    </div>
 
-      <!-- Card Pilota Broadcast F1 2026 in basso a sinistra dell'Halo -->
-      <div class="halo-driver-card">
-        <div class="halo-driver-card-top">
-          <span id="halo-card-pos" class="halo-card-pos">1</span>
-          <img id="halo-card-logo" class="halo-card-logo" src="" alt="" style="display:none;" />
-          <span id="halo-card-name" class="halo-card-name">LECLERC</span>
-          <span id="halo-card-compound" class="halo-card-compound compound-s">S</span>
+    <!-- Card Pilota Broadcast F1 2026 in basso a sinistra dell'inquadratura -->
+    <div class="halo-driver-card">
+      <div class="halo-driver-card-top">
+        <span id="halo-card-pos" class="halo-card-pos">1</span>
+        <img id="halo-card-logo" class="halo-card-logo" src="" alt="" style="display:none;" />
+        <span id="halo-card-name" class="halo-card-name">LECLERC</span>
+        <span id="halo-card-compound" class="halo-card-compound compound-s">S</span>
+      </div>
+      <div id="halo-card-accent" class="halo-card-accent"></div>
+      <div class="halo-driver-card-mid">
+        <span id="halo-card-lap" class="halo-card-lap">0:00.0</span>
+        <div class="halo-card-ref">
+          <span id="halo-card-ref-time" class="halo-card-ref-time">--:--.---</span>
+          <span id="halo-card-ref-label" class="halo-card-ref-label">BEST</span>
         </div>
-        <div id="halo-card-accent" class="halo-card-accent"></div>
-        <div class="halo-driver-card-mid">
-          <span id="halo-card-lap" class="halo-card-lap">0:00.0</span>
-          <div class="halo-card-ref">
-            <span id="halo-card-ref-time" class="halo-card-ref-time">--:--.---</span>
-            <span id="halo-card-ref-label" class="halo-card-ref-label">BEST</span>
-          </div>
+      </div>
+      <div class="halo-driver-card-sectors">
+        <div id="halo-s1" class="halo-sector-chip status-pending">
+          <span>S1</span>
+          <div class="halo-sector-bar"></div>
         </div>
-        <div class="halo-driver-card-sectors">
-          <div id="halo-s1" class="halo-sector-chip status-pending">
-            <span>S1</span>
-            <div class="halo-sector-bar"></div>
-          </div>
-          <div id="halo-s2" class="halo-sector-chip status-pending">
-            <span>S2</span>
-            <div class="halo-sector-bar"></div>
-          </div>
-          <div id="halo-s3" class="halo-sector-chip status-pending">
-            <span>S3</span>
-            <div class="halo-sector-bar"></div>
-          </div>
+        <div id="halo-s2" class="halo-sector-chip status-pending">
+          <span>S2</span>
+          <div class="halo-sector-bar"></div>
+        </div>
+        <div id="halo-s3" class="halo-sector-chip status-pending">
+          <span>S3</span>
+          <div class="halo-sector-bar"></div>
         </div>
       </div>
     </div>
@@ -5125,6 +5160,8 @@
                 </div>
               </div>
 
+              <div id="career-weather-info" class="f1-career-weather-note">Meteo Carriera (Opzione A): sorteggio casuale realistico ad ogni weekend di gara.</div>
+
               <button id="home-start-career-btn" class="f1-primary-cta" type="button">AVVIA WEEKEND CARRIERA ▶</button>
             </div>
           </div>
@@ -5185,6 +5222,11 @@
                 <select id="menu-track-select" style="flex: 1;"></select>
                 <button id="home-go-track-btn" class="f1-secondary-cta" type="button" title="Apri Track Select 3D">MAPPA 3D</button>
               </div>
+            </div>
+
+            <div class="menu-section">
+              <div class="menu-section-label">Cielo &amp; Meteo (2K Pure Skies)</div>
+              <select id="quick-sky-select" aria-label="Cielo e Meteo Sessione Rapida"></select>
             </div>
 
             <div class="f1-quick-session-footer">
@@ -5297,6 +5339,7 @@
           <div class="f1-weather-tabs" role="group" aria-label="Condizioni Meteo Circuito">
             <button type="button" class="f1-weather-tab is-selected" data-menu-weather="dry">ASCIUTTO</button>
             <button type="button" class="f1-weather-tab" data-menu-weather="rain">PIOGGIA</button>
+            <select id="track-sky-select" title="Cielo e Atmosfera 2K Pure Skies" aria-label="Cielo e Atmosfera" style="margin-left: 8px; background: rgba(8,12,20,0.9); border: 1px solid rgba(255,255,255,0.22); border-radius: 6px; color: #f8fafc; padding: 5px 10px; font-family: var(--f1-font-display); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;"></select>
           </div>
 
           <div class="f1-track-rule"></div>
@@ -5543,6 +5586,18 @@
             <button type="button" class="menu-choice-btn is-selected" data-menu-weather="dry">Asciutto</button>
             <button type="button" class="menu-choice-btn" data-menu-weather="rain">Pioggia</button>
           </div>
+          <div class="menu-section-label" style="margin-top: 8px;">Cielo &amp; Atmosfera (HDRI 2K Pure Skies)</div>
+          <select id="menu-sky-select"></select>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-section-label">Qualità Grafica Notturna (Stelle, Fari &amp; Bloom)</div>
+          <div class="menu-btn-group">
+            <button type="button" class="menu-choice-btn" data-menu-night-quality="low">Bassa</button>
+            <button type="button" class="menu-choice-btn is-selected" data-menu-night-quality="medium">Media</button>
+            <button type="button" class="menu-choice-btn" data-menu-night-quality="high">Alta</button>
+          </div>
+          <div id="menu-night-quality-desc" class="menu-desc-box"></div>
         </div>
       </div>
       <div class="f1-modal-footer">
@@ -5594,6 +5649,8 @@
         <div id="mp-host-controls" class="menu-section" style="display: none;">
           <div class="menu-section-label">Circuito Weekend Online</div>
           <select id="mp-track-select"></select>
+          <div class="menu-section-label">Cielo &amp; Meteo Weekend Online</div>
+          <select id="mp-sky-select" aria-label="Cielo e Meteo Weekend Online"></select>
           <div class="menu-section-label">Formato Weekend Online</div>
           <div class="menu-btn-group">
             <button type="button" class="menu-choice-btn is-selected" data-mp-format="qualifying">Qualifiche Q1–Q3 + Gara</button>

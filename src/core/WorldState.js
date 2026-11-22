@@ -40,6 +40,12 @@ import {
   updateQualifyingState,
   voteSkipQualifying,
 } from '../race/QualifyingManager.js';
+import {
+  SKY_PRESETS,
+  getNextWeatherCyclePreset,
+  getSkyPresetById,
+  resolveSkyPreset,
+} from '../rendering/SkyPresets.js';
 
 function cloneCarTiming(timing) {
   if (!timing) return null;
@@ -97,6 +103,7 @@ export class WorldState {
     this.tick = 0;
     this.elapsedTime = 0;
     this.weather = 'dry'; // 'dry' | 'rain'
+    this.skyPresetId = resolveSkyPreset('dry', trackData).id;
     this.difficultyId = 'realistic';
     this.sessionConfig = null;
     this.trackData = trackData;
@@ -112,14 +119,42 @@ export class WorldState {
     this.cars = {};
   }
 
+  _resolveDefaultAutoSky(trackData = this.trackData) {
+    return resolveSkyPreset('dry', trackData).isNight
+      ? SKY_PRESETS.night_clear
+      : SKY_PRESETS.sunset;
+  }
+
+  setSkyPreset(requestedId, rng = Math.random) {
+    const preset =
+      requestedId === 'auto'
+        ? this._resolveDefaultAutoSky(this.trackData)
+        : resolveSkyPreset(requestedId, this.trackData, rng);
+    this.skyPresetId = preset.id;
+    this.weather = preset.physicsWeather === 'rain' ? 'rain' : 'dry';
+    return preset;
+  }
+
   setWeather(weatherId) {
     this.weather = weatherId === 'rain' ? 'rain' : 'dry';
+    const currentSky = getSkyPresetById(this.skyPresetId);
+    if (this.weather === 'rain' && currentSky.physicsWeather !== 'rain') {
+      this.skyPresetId = 'rain';
+    } else if (this.weather === 'dry' && currentSky.physicsWeather === 'rain') {
+      this.skyPresetId = resolveSkyPreset('dry', this.trackData).id;
+    }
     return this.weather;
   }
 
   toggleWeather() {
-    this.weather = this.weather === 'dry' ? 'rain' : 'dry';
-    return this.weather;
+    return this.setWeather(this.weather === 'dry' ? 'rain' : 'dry');
+  }
+
+  cycleWeatherPreset() {
+    const nextPreset = getNextWeatherCyclePreset(this.skyPresetId, this.trackData);
+    this.skyPresetId = nextPreset.id;
+    this.weather = nextPreset.physicsWeather === 'rain' ? 'rain' : 'dry';
+    return nextPreset;
   }
 
   /**
@@ -131,6 +166,9 @@ export class WorldState {
     this.sessionTiming = this.trackSurface
       ? createSessionTimingState(this.trackSurface, trackData?.startTransform)
       : null;
+    if (this.skyPresetId === 'clear_day' || this.skyPresetId === 'night_clear') {
+      this.skyPresetId = resolveSkyPreset('dry', trackData).id;
+    }
   }
 
   /**
@@ -191,8 +229,38 @@ export class WorldState {
     const playerDriverId = config.playerDriverId || 'leclerc';
     const playerGridIndex = config.playerGridIndex ?? 7;
 
-    if (config.weather) {
-      this.setWeather(config.weather);
+    if (isCareer) {
+      const resolvedSky =
+        config.skyPresetId &&
+        config.skyPresetId !== 'random' &&
+        config.skyPresetId !== 'auto' &&
+        SKY_PRESETS[config.skyPresetId]
+          ? SKY_PRESETS[config.skyPresetId]
+          : resolveSkyPreset('random', this.trackData, config.skyRng);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
+    } else if (config.skyPresetId === 'random') {
+      const resolvedSky = resolveSkyPreset('random', this.trackData, config.skyRng);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
+    } else if (config.skyPresetId === 'auto') {
+      const resolvedSky =
+        config.weather === 'rain' ? SKY_PRESETS.rain : this._resolveDefaultAutoSky(this.trackData);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
+    } else if (config.skyPresetId) {
+      const resolvedSky = resolveSkyPreset(config.skyPresetId, this.trackData, config.skyRng);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
+    } else if (config.weather) {
+      const resolvedSky =
+        config.weather === 'rain' ? SKY_PRESETS.rain : resolveSkyPreset('dry', this.trackData);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
+    } else {
+      const resolvedSky = resolveSkyPreset('dry', this.trackData);
+      this.skyPresetId = resolvedSky.id;
+      this.weather = resolvedSky.physicsWeather === 'rain' ? 'rain' : 'dry';
     }
 
     const humanPlayers =
@@ -226,6 +294,8 @@ export class WorldState {
       customPrimaryColor: config.customPrimaryColor || null,
       paintRoughness: config.paintRoughness ?? null,
       paintMetalness: config.paintMetalness ?? null,
+      skyPresetId: this.skyPresetId,
+      requestedSkyPresetId: isCareer ? 'random' : (config.skyPresetId || null),
       qualifiedPole: false,
     };
 
@@ -802,6 +872,7 @@ export class WorldState {
       elapsedTime: this.elapsedTime,
       trackId: this.trackData?.id || this.sessionConfig?.trackId || DEFAULT_TRACK_ID,
       weather: this.weather,
+      skyPresetId: this.skyPresetId,
       difficultyId: this.difficultyId,
       careerRewardGranted: this.careerRewardGranted,
       lastCareerReward: this.lastCareerReward ? { ...this.lastCareerReward } : null,
@@ -831,6 +902,14 @@ export class WorldState {
     this.elapsedTime = snapshot.elapsedTime ?? this.elapsedTime;
     if (snapshot.weather) {
       this.weather = snapshot.weather;
+    }
+    if (snapshot.skyPresetId && SKY_PRESETS[snapshot.skyPresetId]) {
+      this.skyPresetId = snapshot.skyPresetId;
+      if (!snapshot.weather) {
+        this.weather = SKY_PRESETS[snapshot.skyPresetId].physicsWeather === 'rain' ? 'rain' : 'dry';
+      }
+    } else if (snapshot.weather) {
+      this.setWeather(snapshot.weather);
     }
     if (snapshot.difficultyId) {
       this.difficultyId = snapshot.difficultyId;

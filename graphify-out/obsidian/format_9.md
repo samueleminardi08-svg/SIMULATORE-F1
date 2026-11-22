@@ -1,0 +1,17 @@
+---
+source_file: "public/assets/3d/manifest.json"
+type: "code"
+community: "Community 53"
+location: "L129"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Community_53
+---
+
+# format
+
+## Connections
+- [[security_camera_01]] - `contains` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Community_53

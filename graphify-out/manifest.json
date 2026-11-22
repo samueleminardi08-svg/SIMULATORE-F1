@@ -12,15 +12,15 @@
     "semantic_hash": "dfe5fa7939121e96d61b54077cc9ab84"
   },
   "package.json": {
-    "mtime": 1794959019.457394,
-    "seen": 1794959402.5894215,
-    "ast_hash": "e5090b1efea4102e104d81697f6712a4",
+    "mtime": 1795283344.3753393,
+    "seen": 1795283624.8375764,
+    "ast_hash": "61ed1a9fd3a9ef101740908cb44025f0",
     "semantic_hash": ""
   },
   "src/cars/CarModel3D.js": {
-    "mtime": 1795131848.2234938,
-    "seen": 1795134325.0387702,
-    "ast_hash": "7d3d77f5068cd2b9dff4d9142c292763",
+    "mtime": 1795357603.9476335,
+    "seen": 1795357620.632,
+    "ast_hash": "6eb22fb36a1fc4d32cc62dd0a94ed82f",
     "semantic_hash": ""
   },
   "src/config/constants.js": {
@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "src/core/WorldState.js": {
-    "mtime": 1795230022.7299368,
-    "seen": 1795230123.4678893,
-    "ast_hash": "b951f8ae2586d2598a68c73db7a7c5ef",
+    "mtime": 1795352603.0830925,
+    "seen": 1795353560.8999522,
+    "ast_hash": "b38150f7e557b8f416d5953748bc4dac",
     "semantic_hash": ""
   },
   "src/input/InputManager.js": {
@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "src/main.js": {
-    "mtime": 1795230062.2256372,
-    "seen": 1795230123.4678936,
-    "ast_hash": "ff18cf60a1ad290b079fd6b538e8fc68",
+    "mtime": 1795352603.4206173,
+    "seen": 1795353560.899956,
+    "ast_hash": "7943fcc470b62bcddb09f001f34cb076",
     "semantic_hash": ""
   },
   "src/physics/CarPhysics.js": {
@@ -60,15 +60,15 @@
     "semantic_hash": ""
   },
   "src/rendering/SceneManager.js": {
-    "mtime": 1795134360.8364818,
-    "seen": 1795134640.6399827,
-    "ast_hash": "4dbae2d3fdb0ffa2c138c77f02e2fd82",
+    "mtime": 1795357083.0030344,
+    "seen": 1795357243.46513,
+    "ast_hash": "c3b9a6fbf776ae0a9b0acc5aa2ebe4f3",
     "semantic_hash": ""
   },
   "src/tracks/TrackBuilder.js": {
-    "mtime": 1795131848.8616009,
-    "seen": 1795134325.0388155,
-    "ast_hash": "24bf71788ca0be96069e4097333e9e1f",
+    "mtime": 1795355880.7309482,
+    "seen": 1795357243.4651403,
+    "ast_hash": "2d9ab71f4333113e92214cdc1f7c643f",
     "semantic_hash": ""
   },
   "src/tracks/test_track.js": {
@@ -84,15 +84,15 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1795233662.1432104,
-    "seen": 1795233687.6023223,
-    "ast_hash": "eacc5eeb228c1e8886bd57e5502f976b",
+    "mtime": 1795357294.1882966,
+    "seen": 1795357620.632078,
+    "ast_hash": "dfd1d8461efbc3de90c7155e8b53b6df",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
-    "mtime": 1795135430.8349116,
-    "seen": 1795135634.85089,
-    "ast_hash": "0fe33144ee59085b9cb04a075dc24414",
+    "mtime": 1795357294.5480888,
+    "seen": 1795357620.6320224,
+    "ast_hash": "6d842bf9cf7cf4841cf07d6de9ff9d9d",
     "semantic_hash": ""
   },
   "src/physics/Collisions.js": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "src/ui/HudOverlay.js": {
-    "mtime": 1795230048.0892951,
-    "seen": 1795230123.4679372,
-    "ast_hash": "e16132ceed0be2eedbceece19aa59b34",
+    "mtime": 1795352604.05381,
+    "seen": 1795353560.900007,
+    "ast_hash": "7601d39c5f6e50b33fbbf1cee43b9de0",
     "semantic_hash": ""
   },
   "src/physics/AeroAndTires.js": {
@@ -174,9 +174,9 @@
     "semantic_hash": ""
   },
   "src/ui/MenuManager.js": {
-    "mtime": 1795230056.6586905,
-    "seen": 1795230123.4679384,
-    "ast_hash": "b7ef90b7cebe1274395418d459b60c64",
+    "mtime": 1795352604.26996,
+    "seen": 1795353560.9000077,
+    "ast_hash": "052f4690c77d5f423eb6ac5a8d352628",
     "semantic_hash": ""
   },
   "src/race/QualifyingManager.js": {
@@ -198,15 +198,15 @@
     "semantic_hash": ""
   },
   "src/network/RoomManager.js": {
-    "mtime": 1794959297.9079745,
-    "seen": 1794959402.5894406,
-    "ast_hash": "eb3fd1e3fa152f6e9c0685d55f51a18f",
+    "mtime": 1795311077.5549798,
+    "seen": 1795312187.3889008,
+    "ast_hash": "be465683ce0968aeaf16210d108f6009",
     "semantic_hash": ""
   },
   "vite.config.js": {
-    "mtime": 1794962195.3800387,
-    "seen": 1794962207.2354443,
-    "ast_hash": "2be309a117bd27a88d1898f4c2ac9823",
+    "mtime": 1795310535.7832587,
+    "seen": 1795310684.9474096,
+    "ast_hash": "541b437607e52bc0c1b5a9f28ff9d78d",
     "semantic_hash": ""
   },
   "src/tracks/calendar2026/index.js": {
@@ -467,10 +467,280 @@
     "ast_hash": "ab3050fad5b25f8b8e5725f7bcbcc980",
     "semantic_hash": ""
   },
+  "public/assets/3d/manifest.json": {
+    "mtime": 1795312591.6550696,
+    "seen": 1795312599.085174,
+    "ast_hash": "60f23a916d2ee7fbec100514be006c55",
+    "semantic_hash": ""
+  },
+  "public/draco/draco_decoder.js": {
+    "mtime": 1794950657.5600712,
+    "seen": 1795283624.837582,
+    "ast_hash": "5fcad04db3893d9fbb79418b1f8e44a1",
+    "semantic_hash": ""
+  },
+  "public/draco/draco_wasm_wrapper.js": {
+    "mtime": 1794950657.581425,
+    "seen": 1795283624.8375835,
+    "ast_hash": "7a48a3fdc5785631621f4b20cd0937dc",
+    "semantic_hash": ""
+  },
+  "scripts/asset-catalog.mjs": {
+    "mtime": 1795312643.9432528,
+    "seen": 1795314034.394174,
+    "ast_hash": "919ec1c2d3404e339ad163d8f2699606",
+    "semantic_hash": ""
+  },
+  "scripts/fetch-cc0-assets.mjs": {
+    "mtime": 1795305266.6068363,
+    "seen": 1795306329.6651704,
+    "ast_hash": "4f3f406e204b279451bb04485aba34f1",
+    "semantic_hash": ""
+  },
+  "scripts/import-and-optimize-glbs.mjs": {
+    "mtime": 1795283462.964987,
+    "seen": 1795283624.8375895,
+    "ast_hash": "152ef5361edbd473007742aedaa2ce82",
+    "semantic_hash": ""
+  },
+  "src/rendering/AssetManager3D.js": {
+    "mtime": 1795305266.7391481,
+    "seen": 1795306329.665208,
+    "ast_hash": "f0b1252e8387d7dd8c31485cb3de3770",
+    "semantic_hash": ""
+  },
+  "CREDITS_ASSETS.md": {
+    "mtime": 1795312591.6550696,
+    "seen": 1795312599.0852604,
+    "ast_hash": "edea5f3132623a546ef56f29e6f5d692",
+    "semantic_hash": ""
+  },
+  "assets_import/sketchfab/README.md": {
+    "mtime": 1795283223.2080798,
+    "seen": 1795283624.837668,
+    "ast_hash": "19c08285f1d8700a7171a6cfbf552baa",
+    "semantic_hash": ""
+  },
+  "src/tracks/TrackBiomes.js": {
+    "mtime": 1795355880.3469582,
+    "seen": 1795357243.465138,
+    "ast_hash": "c0bbe23831d1046c45fc55530eec4a13",
+    "semantic_hash": ""
+  },
+  "src/rendering/SkyPresets.js": {
+    "mtime": 1795355880.2621887,
+    "seen": 1795357243.4651325,
+    "ast_hash": "90e0155d962e1011292cff9e0a4e0865",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1795352602.2158217,
+    "seen": 1795353560.900021,
+    "ast_hash": "17144aa7cbd2956f39de36274baef4e0",
+    "semantic_hash": ""
+  },
+  "src/rendering/NightLightingConfig.js": {
+    "mtime": 1795354096.1948447,
+    "seen": 1795354633.9232755,
+    "ast_hash": "075941e5d9aa931cd80fd53d1df39e46",
+    "semantic_hash": ""
+  },
+  "src/rendering/NightSky.js": {
+    "mtime": 1795309263.3590467,
+    "seen": 1795309287.7439408,
+    "ast_hash": "81dfd37868b2175a5592baafaa4b2b9f",
+    "semantic_hash": ""
+  },
+  "src/tracks/TrackFloodlights.js": {
+    "mtime": 1795307243.9086823,
+    "seen": 1795307645.729126,
+    "ast_hash": "f5114b22f819302de23eec2fb292fe1e",
+    "semantic_hash": ""
+  },
+  "PROMPT/prompt-F1-cielo-notturno-realistico.md": {
+    "mtime": 1795306871.6214538,
+    "seen": 1795307645.7291658,
+    "ast_hash": "16966ea6e7295f9bdc10ac2f56b09a7c",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_pit_lane/diff.webp": {
+    "mtime": 1795310590.106,
+    "seen": 1795310684.9474216,
+    "ast_hash": "78390c4d821b2ca4802a80007f28a963",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_pit_lane/nor_gl.webp": {
+    "mtime": 1795310590.316,
+    "seen": 1795310684.9474225,
+    "ast_hash": "7b6b7f0e5dbb48b10b4f8ddca10ec4e0",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_pit_lane/rough.webp": {
+    "mtime": 1795310590.43,
+    "seen": 1795310684.9474235,
+    "ast_hash": "624d31fa54dea725cad325ea181ebc06",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_track/diff.webp": {
+    "mtime": 1795355826.834,
+    "seen": 1795355835.6456506,
+    "ast_hash": "dba4149a2b0477c094246260baa4eea4",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_track/nor_gl.webp": {
+    "mtime": 1795355827.035,
+    "seen": 1795355835.6456518,
+    "ast_hash": "9fc0d2ed74d0d944ca0f4b5e0085d876",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/asphalt_track/rough.webp": {
+    "mtime": 1795355827.205,
+    "seen": 1795355835.6456528,
+    "ast_hash": "21013b7cf455aba34c46a9535e8c50a8",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/coast_sand_01/diff.webp": {
+    "mtime": 1795310591.213,
+    "seen": 1795310684.9474273,
+    "ast_hash": "e6ec2461ed645b7865828cabc2af2e3d",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/coast_sand_01/nor_gl.webp": {
+    "mtime": 1795310591.411,
+    "seen": 1795310684.947428,
+    "ast_hash": "235c2f904aaf989c327209f71db20ca0",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/coast_sand_01/rough.webp": {
+    "mtime": 1795310591.514,
+    "seen": 1795310684.947429,
+    "ast_hash": "527a938cd602240b13deda7b6be46ef0",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_floor_painted/diff.webp": {
+    "mtime": 1795310591.698,
+    "seen": 1795310684.9474297,
+    "ast_hash": "a79c1674109f0bddee56dfd12a5a8c72",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_floor_painted/nor_gl.webp": {
+    "mtime": 1795310591.902,
+    "seen": 1795310684.9474304,
+    "ast_hash": "966c2cab0675ad9d15dc2bae002c2af4",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_floor_painted/rough.webp": {
+    "mtime": 1795310592.057,
+    "seen": 1795310684.947431,
+    "ast_hash": "e4f7f2edf799795eed5adedf6c3f2eb1",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_wall_007/diff.webp": {
+    "mtime": 1795310592.25,
+    "seen": 1795310684.947432,
+    "ast_hash": "0afaacfd80427a5cbf981aefdfffca58",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_wall_007/nor_gl.webp": {
+    "mtime": 1795310592.421,
+    "seen": 1795310684.947433,
+    "ast_hash": "6f7076c4c2e35af3ae94a1b1e8795324",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/concrete_wall_007/rough.webp": {
+    "mtime": 1795310592.606,
+    "seen": 1795310684.9474337,
+    "ast_hash": "d1c3becbfdb37035d57736f5b8c09d7a",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/grass_004/diff.webp": {
+    "mtime": 1795310592.89,
+    "seen": 1795310684.9474344,
+    "ast_hash": "3533ce297f15c7f5e41e024ac10772b1",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/grass_004/nor_gl.webp": {
+    "mtime": 1795310593.258,
+    "seen": 1795310684.9474354,
+    "ast_hash": "247c601449b33b4a3efacc05f8dd56f7",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/grass_004/rough.webp": {
+    "mtime": 1795310593.506,
+    "seen": 1795310684.947436,
+    "ast_hash": "6805e096a25cfdad0be77d1c167389cc",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/gravelly_sand/diff.webp": {
+    "mtime": 1795310593.85,
+    "seen": 1795310684.9474368,
+    "ast_hash": "9b5ebaef2fee1baa3ecdc61073371805",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/gravelly_sand/nor_gl.webp": {
+    "mtime": 1795310594.259,
+    "seen": 1795310684.9474375,
+    "ast_hash": "3c88384e86f429646533ca2148517c26",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/gravelly_sand/rough.webp": {
+    "mtime": 1795310594.405,
+    "seen": 1795310684.9474385,
+    "ast_hash": "d942b7615784ca27dba3304e25a69953",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/metal_plate/diff.webp": {
+    "mtime": 1795310594.638,
+    "seen": 1795310684.9474394,
+    "ast_hash": "b57831683e7b851f242c079c3aa67a87",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/metal_plate/nor_gl.webp": {
+    "mtime": 1795310594.876,
+    "seen": 1795310684.9474401,
+    "ast_hash": "818e9c7f135959450ce1fce7f3e00607",
+    "semantic_hash": ""
+  },
+  "public/assets/3d/textures/metal_plate/rough.webp": {
+    "mtime": 1795310595.109,
+    "seen": 1795310684.9474418,
+    "ast_hash": "b047256d8749014af2df9240da6e7591",
+    "semantic_hash": ""
+  },
+  "src/rendering/DaySkyDome.js": {
+    "mtime": 1795312555.107142,
+    "seen": 1795312599.0852125,
+    "ast_hash": "5a27490f92f12a15f08ada87581def89",
+    "semantic_hash": ""
+  },
+  "PROMPT/prompt-APP-F1-grafica asfalto.md": {
+    "mtime": 1795347979.6404989,
+    "seen": 1795348535.6056437,
+    "ast_hash": "15b734041eff29b3fd76d15139036930",
+    "semantic_hash": ""
+  },
+  "src/rendering/WeatherAndTireFx.js": {
+    "mtime": 1795350468.6463358,
+    "seen": 1795350528.8762043,
+    "ast_hash": "6e7d5a9ec87ea6257e0cb92cb3cf6702",
+    "semantic_hash": ""
+  },
+  "scripts/build-custom-asphalt-pbr.mjs": {
+    "mtime": 1795355880.058308,
+    "seen": 1795357243.4650323,
+    "ast_hash": "675acfdf2c5b2266d11db86f7dccc32d",
+    "semantic_hash": ""
+  },
+  "assets_import/textures/custom_asphalt_source.jpg": {
+    "mtime": 1795354420.1257129,
+    "seen": 1795354633.923329,
+    "ast_hash": "9378ce84e85f26d7c9d3080c0dd0f871",
+    "semantic_hash": ""
+  },
   "package-lock.json": {
-    "mtime": 1794959019.4780376,
-    "seen": 1794959402.5894647,
-    "ast_hash": "16dd49ffef7e01656e1669d2a07378bb",
+    "mtime": 1795283140.6958566,
+    "seen": 1795283624.837724,
+    "ast_hash": "f2feb07703be24263be6159ca43cfc05",
     "semantic_hash": ""
   }
 }

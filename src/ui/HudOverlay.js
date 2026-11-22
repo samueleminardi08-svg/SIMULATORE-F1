@@ -21,6 +21,7 @@ import { formatDeltaTime, formatLapTime, formatSectorTime } from '../race/Timing
 import { computeCarTelemetrySnapshot } from '../physics/PhysicsDiagnostics.js';
 import { ModalManager } from './ModalManager.js';
 import { getTeamLogoUrl, TEAM_LOGO_INVERT_ON_DARK } from './UiTheme.js';
+import { getSkyPresetById } from '../rendering/SkyPresets.js';
 
 const COMPOUND_POOL = ['S', 'S', 'M', 'M', 'H'];
 
@@ -216,8 +217,19 @@ export class HudOverlay {
     this.pdiagLockupStateEl = document.getElementById('pdiag-lockup-state');
     this.pdiagEnvEl = document.getElementById('pdiag-env');
 
+    this._activeSkyLabel = null;
+    this._activeSkyPreset = null;
     this._buildSectorCards();
     this._registerModals();
+  }
+
+  setSkyLabel(label) {
+    this._activeSkyLabel = label || null;
+  }
+
+  setSkyPreset(preset) {
+    this._activeSkyPreset = preset || null;
+    this._activeSkyLabel = preset?.label || preset?.shortLabel || null;
   }
 
   _setAttr(el, name, value) {
@@ -837,7 +849,11 @@ export class HudOverlay {
     }
 
     this._updateSurfaceBadge(playerCar);
-    this._updateAdvancedPhysics(playerCar, worldState.weather || 'dry');
+    this._updateAdvancedPhysics(
+      playerCar,
+      worldState.weather || 'dry',
+      worldState.skyPresetId || null
+    );
     this._updateTrackLimitsHud(playerCar, sessionMode);
     this._updateRaceOverlays(worldState, localPlayerId);
     if (this._cameraModeId === 'tcam') {
@@ -1103,14 +1119,19 @@ export class HudOverlay {
     }
     this._setText(this.haloDownforceValEl, `${downforceKg} KG`);
 
-    // Pillole centrali BOOST / OVERTAKE / LOCKUP / PIOGGIA
+    // Pillole centrali BOOST / OVERTAKE / LOCKUP / PIOGGIA / PIOGGIA FORTE
     const isRain = worldState.weather === 'rain';
+    const isHeavyRain = worldState.skyPresetId === 'heavy_rain';
     if (aero?.wheelLockup) {
       this._setText(this.haloStatusPrimaryEl, 'LOCKUP');
       this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(220,38,38,0.86)');
     } else if (isRain) {
-      this._setText(this.haloStatusPrimaryEl, 'PIOGGIA');
-      this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(2,132,199,0.78)');
+      this._setText(this.haloStatusPrimaryEl, isHeavyRain ? 'PIOGGIA FORTE' : 'PIOGGIA');
+      this._setAttr(
+        this.haloStatusPrimaryBgEl,
+        'fill',
+        isHeavyRain ? 'rgba(14,116,144,0.92)' : 'rgba(2,132,199,0.78)'
+      );
     } else if (speedKmh >= 295 && (playerCar.throttleInput || 0) > 0.8) {
       this._setText(this.haloStatusPrimaryEl, 'BOOST');
       this._setAttr(this.haloStatusPrimaryBgEl, 'fill', 'rgba(56,189,248,0.45)');
@@ -1506,14 +1527,17 @@ export class HudOverlay {
     }
   }
 
-  _updateAdvancedPhysics(carState, weatherId) {
+  _updateAdvancedPhysics(carState, weatherId, skyPresetId = null) {
     if (this.weatherBadgeEl) {
       const wProps = WEATHER_CONFIG[weatherId] || WEATHER_CONFIG.dry;
-      this._setText(
-        this.weatherBadgeEl,
-        weatherId === 'rain' ? 'Pioggia' : wProps.label
-      );
-      this._setClass(this.weatherBadgeEl, `weather-badge weather-${weatherId}`);
+      const preset = skyPresetId ? getSkyPresetById(skyPresetId) : this._activeSkyPreset;
+      const badgeText =
+        preset?.label ||
+        this._activeSkyLabel ||
+        (weatherId === 'rain' ? 'Pioggia' : wProps.label);
+      const badgeTheme = preset?.badgeTheme || weatherId;
+      this._setText(this.weatherBadgeEl, badgeText);
+      this._setClass(this.weatherBadgeEl, `weather-badge weather-${badgeTheme}`);
     }
 
     const aero = carState.aeroTire;

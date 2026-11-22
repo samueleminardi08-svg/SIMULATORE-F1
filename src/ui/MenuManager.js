@@ -13,6 +13,7 @@ import {
   RACE_TOTAL_LAPS,
 } from '../config/f1_2026_data.js';
 import { CALENDAR_2026_TRACKS, getTrackById } from '../tracks/calendar2026/index.js';
+import { getTrackBiomeConfig } from '../tracks/TrackBiomes.js';
 import { ModalManager } from './ModalManager.js';
 import {
   generateTeamEmblemSvg,
@@ -39,6 +40,19 @@ import {
 } from '../career/CareerStorage.js';
 import { getTheoreticalBestLap, getTrackRecord } from '../career/TrackRecordsStorage.js';
 import { formatLapTime, formatSectorTime } from '../race/TimingSystem.js';
+import {
+  DEFAULT_NIGHT_QUALITY,
+  getNightQualityConfig,
+  loadSavedNightQuality,
+  saveNightQuality,
+} from '../rendering/NightLightingConfig.js';
+import {
+  DEFAULT_SKY_PRESET_OPTION,
+  SKY_PRESETS,
+  SKY_SELECTOR_OPTIONS,
+  loadSavedSkyPresetOption,
+  saveSkyPresetOption,
+} from '../rendering/SkyPresets.js';
 
 const UPGRADE_WINDOW_ORDER = ['engine', 'aero', 'tires', 'brakes', 'suspension'];
 const TEAM_IDS = Object.keys(F1_2026_TEAMS);
@@ -133,6 +147,10 @@ export class MenuManager {
     onStartMultiplayerSession = null,
     onOpenHudMenu = null,
     onSettingsClose = null,
+    nightQuality = null,
+    onNightQualityChange = null,
+    skyPreset = null,
+    onSkyPresetChange = null,
   }) {
     this.onStartSession = onStartSession;
     this.onResume = onResume;
@@ -149,6 +167,9 @@ export class MenuManager {
     this.onStartMultiplayerSession = onStartMultiplayerSession;
     this.onOpenHudMenu = onOpenHudMenu;
     this.onSettingsClose = onSettingsClose;
+    this.onNightQualityChange = onNightQualityChange;
+    this.onSkyPresetChange = onSkyPresetChange;
+    this._nightQualityAutoNote = '';
 
     this.careerState = careerState || loadCareerState();
     this.isOpen = true;
@@ -198,6 +219,7 @@ export class MenuManager {
     this.homeNextGpTitleEl = document.getElementById('home-next-gp-title');
     this.homeNextTrackMetaEl = document.getElementById('home-next-track-meta');
     this.homeNextTrackRecordsEl = document.getElementById('home-next-track-records');
+    this.careerWeatherInfoEl = document.getElementById('career-weather-info');
     this.homeStartCareerBtn = document.getElementById('home-start-career-btn');
     this.homeGoTrackBtn = document.getElementById('home-go-track-btn');
     this.quickTabBtns = [...document.querySelectorAll('[data-quick-tab]')];
@@ -325,10 +347,23 @@ export class MenuManager {
     this.difficultyButtons = [...document.querySelectorAll('[data-menu-difficulty]')];
     this.difficultyDescEl = document.getElementById('menu-difficulty-desc');
     this.weatherButtons = [...document.querySelectorAll('[data-menu-weather]')];
+    this.skySelectEls = [
+      document.getElementById('menu-sky-select'),
+      document.getElementById('quick-sky-select'),
+      document.getElementById('track-sky-select'),
+      document.getElementById('mp-sky-select'),
+    ].filter(Boolean);
+    this.nightQualityButtons = [...document.querySelectorAll('[data-menu-night-quality]')];
+    this.nightQualityDescEl = document.getElementById('menu-night-quality-desc');
     this.driverSelectEl = document.getElementById('menu-driver-select');
     this.trackSelectEl = document.getElementById('menu-track-select');
     this.mpTrackSelectEl = document.getElementById('mp-track-select');
     this.startBtn = document.getElementById('menu-start-btn');
+
+    const resolvedInitialSkyPreset =
+      skyPreset || loadSavedSkyPresetOption() || DEFAULT_SKY_PRESET_OPTION;
+    const resolvedInitialWeather =
+      SKY_PRESETS[resolvedInitialSkyPreset]?.physicsWeather || 'dry';
 
     this.state = {
       mode: 'career',
@@ -338,7 +373,9 @@ export class MenuManager {
       finiteLaps: 5,
       raceLaps: RACE_TOTAL_LAPS,
       carLevel: 'base',
-      weather: 'dry',
+      weather: resolvedInitialWeather,
+      skyPreset: resolvedInitialSkyPreset,
+      nightQuality: nightQuality || loadSavedNightQuality() || DEFAULT_NIGHT_QUALITY,
       playerDriverId: 'leclerc',
       trackId: getTrackById(this.careerState.selectedTrackId).id,
     };
@@ -346,6 +383,7 @@ export class MenuManager {
     this._populateDrivers();
     this._populateCareerTeams();
     this._populateTracks();
+    this._populateSkyOptions();
     this._populateCarousels();
     this._registerModals();
     this._bindEvents();
@@ -1061,9 +1099,61 @@ export class MenuManager {
 
     this.weatherButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.state.weather = btn.dataset.menuWeather;
+        const nextWeather = btn.dataset.menuWeather;
+        this.state.weather = nextWeather;
+        if (nextWeather === 'rain') {
+          if (this.state.skyPreset !== 'heavy_rain') {
+            this.state.skyPreset = 'rain';
+          }
+        } else if (SKY_PRESETS[this.state.skyPreset]?.physicsWeather === 'rain') {
+          this.state.skyPreset = DEFAULT_SKY_PRESET_OPTION;
+        }
+        saveSkyPresetOption(this.state.skyPreset);
+        if (this.onSkyPresetChange) {
+          this.onSkyPresetChange(this.state.skyPreset);
+        }
         if (this.onWeatherChange) {
           this.onWeatherChange(this.state.weather);
+        }
+        this._syncUI();
+      });
+    });
+
+    this.skySelectEls.forEach((selectEl) => {
+      selectEl.addEventListener('change', () => {
+        const nextSky = selectEl.value || DEFAULT_SKY_PRESET_OPTION;
+        this.state.skyPreset = nextSky;
+        saveSkyPresetOption(nextSky);
+        const presetCfg = SKY_PRESETS[nextSky];
+        if (presetCfg) {
+          this.state.weather = presetCfg.physicsWeather;
+          if (this.onWeatherChange) {
+            this.onWeatherChange(this.state.weather);
+          }
+        } else if (nextSky === 'auto' && this.state.weather === 'rain') {
+          this.state.weather = 'dry';
+          if (this.onWeatherChange) {
+            this.onWeatherChange('dry');
+          }
+        }
+        if (this.onSkyPresetChange) {
+          const resolvedPreview = this.onSkyPresetChange(nextSky);
+          if (nextSky === 'random' && resolvedPreview?.physicsWeather) {
+            this.state.weather = resolvedPreview.physicsWeather;
+          }
+        }
+        this._syncUI();
+      });
+    });
+
+    this.nightQualityButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nextQuality = getNightQualityConfig(btn.dataset.menuNightQuality).id;
+        this.state.nightQuality = nextQuality;
+        this._nightQualityAutoNote = '';
+        saveNightQuality(nextQuality);
+        if (this.onNightQualityChange) {
+          this.onNightQualityChange(nextQuality);
         }
         this._syncUI();
       });
@@ -1208,6 +1298,7 @@ export class MenuManager {
           mode: this.mpFormat,
           difficultyId: this.state.difficultyId,
           weather: this.state.weather,
+          skyPresetId: this.state.skyPreset,
           trackId: this.state.trackId,
           raceLaps: this.mpRaceLaps,
         });
@@ -1482,9 +1573,23 @@ export class MenuManager {
         .join(' / ');
       this.quickTeamValEl.textContent = `${activeTeam.name}${drivers ? ` (${drivers})` : ''}`;
     }
+    if (this.careerWeatherInfoEl) {
+      const biome = getTrackBiomeConfig(activeTrack);
+      this.careerWeatherInfoEl.textContent = biome?.isNight
+        ? 'Meteo Carriera (Opzione A): sorteggio casuale GP notturno — Notte Serena, Tramonto, Tramonto Nuv., Pioggia o Pioggia Forte.'
+        : 'Meteo Carriera (Opzione A): sorteggio casuale ad ogni weekend — Sereno, Poco Nuv., Alba, Tramonto, Nuvoloso, Pioggia o Pioggia Forte.';
+    }
     if (this.quickTrackValEl) {
-      const weatherLabel = this.state.weather === 'rain' ? 'Pioggia' : 'Asciutto';
-      this.quickTrackValEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} ${activeTrack.name} • ${weatherLabel}`;
+      const skyId = this.state.skyPreset;
+      const skyLabel =
+        skyId === 'random'
+          ? 'Casuale'
+          : skyId === 'auto'
+            ? (this.state.weather === 'rain' ? 'Pioggia' : 'Auto')
+            : SKY_PRESETS[skyId]?.shortLabel ||
+              SKY_PRESETS[skyId]?.label ||
+              (this.state.weather === 'rain' ? 'Pioggia' : 'Asciutto');
+      this.quickTrackValEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} ${activeTrack.name} • ${skyLabel}`;
     }
     if (this.quickGarageValEl) {
       const totalLvl = UPGRADE_WINDOW_ORDER.reduce(
@@ -1818,6 +1923,21 @@ export class MenuManager {
     this.weatherButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuWeather === this.state.weather);
     });
+    this.skySelectEls.forEach((selectEl) => {
+      selectEl.value = this.state.skyPreset;
+    });
+    this.nightQualityButtons.forEach((btn) => {
+      btn.classList.toggle(
+        'is-selected',
+        btn.dataset.menuNightQuality === this.state.nightQuality
+      );
+    });
+    const nightQCfg = getNightQualityConfig(this.state.nightQuality);
+    if (this.nightQualityDescEl && nightQCfg) {
+      this.nightQualityDescEl.textContent = this._nightQualityAutoNote
+        ? `${nightQCfg.description} (${this._nightQualityAutoNote})`
+        : nightQCfg.description;
+    }
     if (this.trackSelectEl) {
       this.trackSelectEl.value = this.state.trackId;
     }
@@ -1845,6 +1965,29 @@ export class MenuManager {
     this._notifyShowroom();
   }
 
+  _populateSkyOptions() {
+    if (!this.skySelectEls || this.skySelectEls.length === 0) return;
+    const options = [
+      SKY_SELECTOR_OPTIONS[0],
+      { id: 'auto', label: 'Automatico (Tramonto / Notte GP)' },
+      ...SKY_SELECTOR_OPTIONS.slice(1),
+    ];
+    const markup = options
+      .map((opt) => `<option value="${opt.id}">${opt.label}</option>`)
+      .join('');
+    for (const sel of this.skySelectEls) {
+      sel.innerHTML = markup;
+      sel.value = this.state.skyPreset;
+    }
+  }
+
+  setNightQuality(level, note = '') {
+    const resolved = getNightQualityConfig(level).id;
+    this.state.nightQuality = resolved;
+    this._nightQualityAutoNote = note || '';
+    this._syncUI();
+  }
+
   buildSessionConfig() {
     if (this.state.mode === 'career') {
       const repDriver = getRepresentativeDriverForTeam(this.careerState.teamId);
@@ -1858,7 +2001,7 @@ export class MenuManager {
         raceLaps: CAREER_RACE_LAPS,
         lapLimit: format === 'race' ? CAREER_RACE_LAPS : null,
         carLevel: customSpecs.id,
-        weather: this.state.weather,
+        skyPresetId: 'random',
         playerDriverId: repDriver.id,
         playerGridIndex: 7,
         isCareer: true,
@@ -1895,6 +2038,7 @@ export class MenuManager {
           : chosenRaceLaps,
       carLevel: isPractice ? this.state.carLevel : 'base',
       weather: this.state.weather,
+      skyPresetId: this.state.skyPreset,
       playerDriverId: this.state.playerDriverId,
       playerGridIndex: isPractice && !this.state.withBots ? 0 : 7,
       isCareer: false,
