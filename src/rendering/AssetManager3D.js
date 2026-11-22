@@ -48,19 +48,31 @@ export class AssetManager3D {
     this._pmremTargets = [];
     this._hdriBackgroundTextures = [];
     this._baseTextures = [];
+
+    // Su GitHub Pages (deploy diretto dal branch `main` senza bundler Vite), `import.meta.env`
+    // non è definito e gli asset statici risiedono sotto `./public/...` anziché `./...`.
+    const isUnbundledBrowserRoot =
+      typeof window !== 'undefined' && typeof import.meta?.env === 'undefined';
+    this._publicPrefix = isUnbundledBrowserRoot ? 'public/' : '';
   }
 
   /**
-   * Risolve un percorso relativo dentro `public/` in modo sicuro sia su localhost che su GitHub Pages.
+   * Risolve un percorso relativo dentro `public/` in modo sicuro sia su Vite (dev/dist)
+   * sia su GitHub Pages servito direttamente dalla root del repository (`public/...`).
    * @param {string} relPath
+   * @param {string} [prefixOverride]
    * @returns {string}
    */
-  resolvePublicUrl(relPath) {
+  resolvePublicUrl(relPath, prefixOverride = this._publicPrefix) {
     const cleanPath = String(relPath || '').replace(/^(\.\/|\/)+/, '');
+    const prefixedPath =
+      prefixOverride && !cleanPath.startsWith('public/')
+        ? `${prefixOverride}${cleanPath}`
+        : cleanPath;
     if (typeof document !== 'undefined' && document.baseURI) {
-      return new URL(cleanPath, document.baseURI).href;
+      return new URL(prefixedPath, document.baseURI).href;
     }
-    return `./${cleanPath}`;
+    return `./${prefixedPath}`;
   }
 
   /**
@@ -87,13 +99,24 @@ export class AssetManager3D {
       return this._manifest;
     }
 
-    const url = this.resolvePublicUrl('assets/3d/manifest.json');
-    this._manifestPromise = fetch(url, { cache: 'default' })
+    const primaryPrefix = this._publicPrefix;
+    const fallbackPrefix = primaryPrefix === 'public/' ? '' : 'public/';
+    const primaryUrl = this.resolvePublicUrl('assets/3d/manifest.json', primaryPrefix);
+
+    this._manifestPromise = fetch(primaryUrl, { cache: 'default' })
       .then(async (res) => {
-        if (!res.ok) {
+        if (res.ok) {
+          return res.json();
+        }
+        const altUrl = this.resolvePublicUrl('assets/3d/manifest.json', fallbackPrefix);
+        const altRes = await fetch(altUrl, { cache: 'default' });
+        if (!altRes.ok) {
           throw new Error(`HTTP ${res.status} loading manifest.json`);
         }
-        const json = await res.json();
+        this._publicPrefix = fallbackPrefix;
+        return altRes.json();
+      })
+      .then((json) => {
         this._manifest = { ...createEmptyManifest(), ...json };
         return this._manifest;
       })

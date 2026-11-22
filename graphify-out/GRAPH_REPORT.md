@@ -1,9 +1,9 @@
 # Graph Report - GIOCO F1  (2026-11-22)
 
 ## Corpus Check
-- 86 files · ~138,318 words
+- 86 files · ~138,572 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 27 file(s) not represented in the graph (top: .glb 14, .hdr 11, (none) 1)
+- Unclassified: 28 file(s) not represented in the graph (top: .glb 14, .hdr 11, (none) 2)
 
 ## Summary
 - 1360 nodes · 3823 edges · 71 communities (63 shown, 8 thin omitted)
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fa171ab8`
+- Built from commit: `62976c45`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -386,7 +386,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Prompt per Antigravity — Gioco di F1 realistico (web app 3D)` be split into smaller, more focused modules?**
   _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
 - **Why does `Yh()` connect `draco_wasm_wrapper.js` to `Db`, `v`, `ma`, `ha`?**
-  _High betweenness centrality (0.150) - this node is a cross-community bridge._
+  _High betweenness centrality (0.156) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `ja()` (e.g. with `ha()` and `e()`) actually correct?**
   _`ja()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `package.json` be split into smaller, more focused modules?**

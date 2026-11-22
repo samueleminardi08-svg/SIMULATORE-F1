@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1795357294.1882966,
-    "seen": 1795357620.632078,
-    "ast_hash": "dfd1d8461efbc3de90c7155e8b53b6df",
+    "mtime": 1795358161.597769,
+    "seen": 1795366184.5814145,
+    "ast_hash": "00e429cd15f35992de93f01231ca561f",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
@@ -504,9 +504,9 @@
     "semantic_hash": ""
   },
   "src/rendering/AssetManager3D.js": {
-    "mtime": 1795305266.7391481,
-    "seen": 1795306329.665208,
-    "ast_hash": "f0b1252e8387d7dd8c31485cb3de3770",
+    "mtime": 1795366148.0706563,
+    "seen": 1795366184.5813558,
+    "ast_hash": "eefb0d17a34189a486064b5edfc3a8cc",
     "semantic_hash": ""
   },
   "CREDITS_ASSETS.md": {
