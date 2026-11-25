@@ -18,6 +18,8 @@ import { CameraController } from './CameraController.js';
 import { GarageScene3D } from './GarageScene3D.js';
 import { DaySkyDome } from './DaySkyDome.js';
 import { NightSky } from './NightSky.js';
+import { PitGuideOverlay3D } from './PitGuideOverlay3D.js';
+import { PitStopAnimator3D } from './PitStopAnimator3D.js';
 import { WeatherAndTireFx } from './WeatherAndTireFx.js';
 import {
   AUTO_QUALITY_FALLBACK,
@@ -150,11 +152,11 @@ export class SceneManager {
     this.scene.background = this._bgColor;
     this.scene.fog = new THREE.FogExp2(0x07090e, 0.022);
 
-    // 3. Camera pista (3 visuali: Chase, Abitacolo, Onboard T-Cam) e camera menù completamente isolata
+    // 3. Camera pista (2 visuali: Onboard T-Cam e Prima Persona Abitacolo) e camera menù isolata
     this.camera = new THREE.PerspectiveCamera(
       62,
       window.innerWidth / window.innerHeight,
-      0.1,
+      0.035,
       6500
     );
     this.menuCamera = new THREE.PerspectiveCamera(
@@ -163,7 +165,7 @@ export class SceneManager {
       0.1,
       6500
     );
-    this.cameraController = new CameraController(this.camera);
+    this.cameraController = new CameraController(this.camera, options.defaultCameraMode || null);
 
     // 4. Illuminazione & Cupole Celesti (Diurna HDRI 2K con grading + Notturna procedurale)
     this._setupLights();
@@ -180,11 +182,19 @@ export class SceneManager {
     this.trackGroup = builtTrack.group;
     this.trackSurface = builtTrack.trackSurface;
     this.asphaltMaterial = builtTrack.asphaltMaterial;
+    this.pitAsphaltMaterial = builtTrack.pitAsphaltMaterial || null;
     this.kerbMaterial = builtTrack.kerbMaterial || null;
     this.edgeLineMaterial = builtTrack.edgeLineMaterial || null;
     this.biomeConfig = builtTrack.biome || getTrackBiomeConfig(this.trackData);
     this._disposeTrackPbr = builtTrack.disposePbr || null;
     this.scene.add(this.trackGroup);
+
+    this.pitGuide = new PitGuideOverlay3D();
+    this.pitGuide.setTrackSurface(this.trackSurface);
+    this.scene.add(this.pitGuide.group);
+
+    this.pitStopAnimator = new PitStopAnimator3D();
+    this.scene.add(this.pitStopAnimator.group);
 
     this.floodlights = null;
     this._syncTrackFloodlights();
@@ -195,6 +205,8 @@ export class SceneManager {
     this.scene.add(this.weatherFx.group);
     this.garageScene = new GarageScene3D();
     this.scene.add(this.garageScene.group);
+    this._recoveryMarker = this._createRecoveryLandingMarker();
+    this.scene.add(this._recoveryMarker.group);
     this._applyStudioEnvironment();
 
     // 7. Gestione resize finestra (aggiorna pixelRatio cap 1.5, camere, renderer e EffectComposer)
@@ -212,6 +224,92 @@ export class SceneManager {
       this._resizeNightComposer();
     };
     window.addEventListener('resize', this._onResize);
+  }
+
+  _createRecoveryLandingMarker() {
+    const group = new THREE.Group();
+    group.visible = false;
+
+    const ringGeo = new THREE.RingGeometry(1.75, 2.15, 48);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.78,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    group.add(ringMesh);
+
+    const innerGeo = new THREE.RingGeometry(0.95, 1.15, 36);
+    innerGeo.rotateX(-Math.PI / 2);
+    const innerMat = new THREE.MeshBasicMaterial({
+      color: 0xfacc15,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+    innerMesh.position.y = 0.01;
+    group.add(innerMesh);
+
+    // Due chevron direzionali orientati lungo +Z locale (= heading della pista)
+    const chevShape = new THREE.Shape();
+    chevShape.moveTo(0, 0.52);
+    chevShape.lineTo(0.62, -0.22);
+    chevShape.lineTo(0.40, -0.22);
+    chevShape.lineTo(0, 0.24);
+    chevShape.lineTo(-0.40, -0.22);
+    chevShape.lineTo(-0.62, -0.22);
+    chevShape.closePath();
+    const chevGeo = new THREE.ShapeGeometry(chevShape);
+    chevGeo.rotateX(-Math.PI / 2);
+    const chevMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.82,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const chevFront = new THREE.Mesh(chevGeo, chevMat);
+    chevFront.position.set(0, 0.02, 1.35);
+    const chevRear = new THREE.Mesh(chevGeo, chevMat);
+    chevRear.position.set(0, 0.02, 0.35);
+    group.add(chevFront, chevRear);
+
+    return {
+      group,
+      ringGeo,
+      innerGeo,
+      chevGeo,
+      ringMat,
+      innerMat,
+      chevMat,
+      innerMesh,
+    };
+  }
+
+  _updateRecoveryMarker(activeCar) {
+    const marker = this._recoveryMarker;
+    if (!marker) return;
+    const anim = activeCar?.trackRecoveryAnim || null;
+    if (!anim) {
+      marker.group.visible = false;
+      return;
+    }
+    const u = Math.max(0, Math.min(1, anim.progress ?? 0));
+    const pulse = Math.sin(Math.PI * u);
+    marker.group.visible = true;
+    marker.group.position.set(anim.targetX, (anim.targetY ?? 0) + 0.05, anim.targetZ);
+    marker.group.rotation.y = anim.targetHeading ?? 0;
+    const scale = 1.24 - 0.30 * u;
+    marker.group.scale.set(scale, 1, scale);
+    marker.innerMesh.rotation.y = u * Math.PI * 1.5;
+    marker.ringMat.opacity = 0.85 * pulse;
+    marker.innerMat.opacity = 0.65 * pulse;
+    marker.chevMat.opacity = 0.90 * pulse;
   }
 
   _setShadowFrustumHalfSize(halfSize) {
@@ -607,20 +705,35 @@ export class SceneManager {
     specularIntensity = 0.24,
     colorScale = 1.0,
   }) {
-    if (!this.asphaltMaterial) return;
-    this.asphaltMaterial.roughness = roughness;
-    this.asphaltMaterial.metalness = metalness;
-    this.asphaltMaterial.envMapIntensity = envMapIntensity;
-    if ('specularIntensity' in this.asphaltMaterial) {
-      this.asphaltMaterial.specularIntensity = specularIntensity;
+    if (this.asphaltMaterial) {
+      this.asphaltMaterial.roughness = roughness;
+      this.asphaltMaterial.metalness = metalness;
+      this.asphaltMaterial.envMapIntensity = envMapIntensity;
+      if ('specularIntensity' in this.asphaltMaterial) {
+        this.asphaltMaterial.specularIntensity = specularIntensity;
+      }
+      this.asphaltMaterial.userData.colorScale = colorScale;
+      const baseTintHex =
+        this.asphaltMaterial.userData?.baseTintHex ??
+        this.biomeConfig?.asphaltTint ??
+        0xa4aab4;
+      this.asphaltMaterial.color.setHex(baseTintHex).multiplyScalar(colorScale);
+      this.asphaltMaterial.needsUpdate = true;
     }
-    this.asphaltMaterial.userData.colorScale = colorScale;
-    const baseTintHex =
-      this.asphaltMaterial.userData?.baseTintHex ??
-      this.biomeConfig?.asphaltTint ??
-      0xa4aab4;
-    this.asphaltMaterial.color.setHex(baseTintHex).multiplyScalar(colorScale);
-    this.asphaltMaterial.needsUpdate = true;
+    if (this.pitAsphaltMaterial) {
+      this.pitAsphaltMaterial.roughness = Math.max(0.45, roughness - 0.04);
+      this.pitAsphaltMaterial.metalness = metalness;
+      this.pitAsphaltMaterial.envMapIntensity = envMapIntensity;
+      if ('specularIntensity' in this.pitAsphaltMaterial) {
+        this.pitAsphaltMaterial.specularIntensity = specularIntensity;
+      }
+      this.pitAsphaltMaterial.userData.colorScale = Math.min(1.0, colorScale * 1.05);
+      const pitBaseTint = this.pitAsphaltMaterial.userData?.baseTintHex ?? 0x8f97a3;
+      this.pitAsphaltMaterial.color
+        .setHex(pitBaseTint)
+        .multiplyScalar(this.pitAsphaltMaterial.userData.colorScale);
+      this.pitAsphaltMaterial.needsUpdate = true;
+    }
   }
 
   _updateWeatherVisuals(weatherId, explicitSkyPresetId = null) {
@@ -826,6 +939,10 @@ export class SceneManager {
     return this.cameraController.cycleMode();
   }
 
+  setCameraMode(modeId) {
+    return this.cameraController.setModeById(modeId);
+  }
+
   getCameraMode() {
     return this.cameraController.getCurrentMode();
   }
@@ -937,6 +1054,7 @@ export class SceneManager {
     this.trackGroup = builtTrack.group;
     this.trackSurface = builtTrack.trackSurface;
     this.asphaltMaterial = builtTrack.asphaltMaterial;
+    this.pitAsphaltMaterial = builtTrack.pitAsphaltMaterial || null;
     this.kerbMaterial = builtTrack.kerbMaterial || null;
     this.edgeLineMaterial = builtTrack.edgeLineMaterial || null;
     this.biomeConfig = builtTrack.biome || getTrackBiomeConfig(this.trackData);
@@ -944,6 +1062,11 @@ export class SceneManager {
     const isTrackPreview = this.isGarageMode && this._garageViewMode === 'track';
     this.trackGroup.visible = !this.isGarageMode || isTrackPreview;
     this.scene.add(this.trackGroup);
+    this.pitGuide?.setTrackSurface(this.trackSurface);
+    if (this.isGarageMode) {
+      this.pitStopAnimator?.setVisible(false);
+      this.pitGuide?.setVisible(false);
+    }
 
     this._syncTrackFloodlights();
     this._resetNightFallbackTimer();
@@ -976,6 +1099,8 @@ export class SceneManager {
     }
 
     if (this.isGarageMode) {
+      this.pitStopAnimator?.setVisible(false);
+      this.pitGuide?.setVisible(false);
       if (this._garageViewMode === 'track') {
         this.garageScene.group.visible = false;
         this.trackGroup.visible = true;
@@ -1163,7 +1288,12 @@ export class SceneManager {
       );
       this.sunLight.target.position.set(activeCar.x, activeCar.y || 0, activeCar.z);
       this.sunLight.target.updateMatrixWorld();
-      this.cameraController.update(activeCar, this.carMeshes.get(followedCarId), renderDt);
+      this.cameraController.update(
+        activeCar,
+        this.carMeshes.get(followedCarId),
+        renderDt,
+        this.trackSurface
+      );
     }
 
     if (this._isNightActive) {
@@ -1202,6 +1332,15 @@ export class SceneManager {
       dt: renderDt,
     });
 
+    this.pitGuide?.update({
+      worldState,
+      activeCar,
+      dt: renderDt,
+    });
+
+    this.pitStopAnimator?.update(worldState, this.carMeshes, followedCarId, renderDt);
+    this._updateRecoveryMarker(activeCar);
+
     const useTrackPost = this._isNightActive
       ? getNightQualityConfig(this.nightQuality).bloomEnabled
       : SCENE_VISUAL_CONFIG.postProcessing.enabled;
@@ -1215,6 +1354,18 @@ export class SceneManager {
     this.nightSky?.dispose();
     this.floodlights?.dispose();
     this.weatherFx?.dispose();
+    this.pitGuide?.dispose();
+    this.pitStopAnimator?.dispose();
+    if (this._recoveryMarker) {
+      this.scene.remove(this._recoveryMarker.group);
+      this._recoveryMarker.ringGeo.dispose();
+      this._recoveryMarker.innerGeo.dispose();
+      this._recoveryMarker.chevGeo.dispose();
+      this._recoveryMarker.ringMat.dispose();
+      this._recoveryMarker.innerMat.dispose();
+      this._recoveryMarker.chevMat.dispose();
+      this._recoveryMarker = null;
+    }
     this._nightBloomPass?.dispose?.();
     this._nightComposer?.dispose?.();
     this._nightRenderTarget?.dispose?.();

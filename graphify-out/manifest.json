@@ -18,15 +18,15 @@
     "semantic_hash": ""
   },
   "src/cars/CarModel3D.js": {
-    "mtime": 1795357603.9476335,
-    "seen": 1795357620.632,
-    "ast_hash": "6eb22fb36a1fc4d32cc62dd0a94ed82f",
+    "mtime": 1795642761.6345425,
+    "seen": 1795643426.176511,
+    "ast_hash": "1db5b345c914f91a0e6e05d4f0841bd7",
     "semantic_hash": ""
   },
   "src/config/constants.js": {
-    "mtime": 1795225613.950433,
-    "seen": 1795227593.484819,
-    "ast_hash": "c0c11ea427e003efda6ec38304313ceb",
+    "mtime": 1795642761.7017229,
+    "seen": 1795643426.1765132,
+    "ast_hash": "f765398dba1cd83254e60ea21adf752f",
     "semantic_hash": ""
   },
   "src/core/GameLoop.js": {
@@ -36,39 +36,39 @@
     "semantic_hash": ""
   },
   "src/core/WorldState.js": {
-    "mtime": 1795352603.0830925,
-    "seen": 1795353560.8999522,
-    "ast_hash": "b38150f7e557b8f416d5953748bc4dac",
+    "mtime": 1795645173.9012828,
+    "seen": 1795645549.7764764,
+    "ast_hash": "f41ec82030755b75378d71de58a08b2a",
     "semantic_hash": ""
   },
   "src/input/InputManager.js": {
-    "mtime": 1794955408.8378787,
-    "seen": 1794955678.9461036,
-    "ast_hash": "4658e3f87d91b5f6d92901860aa90fd8",
+    "mtime": 1795644536.1929853,
+    "seen": 1795644650.1143475,
+    "ast_hash": "2ce1ab6d76ae52229dbbd1143b85c87b",
     "semantic_hash": ""
   },
   "src/main.js": {
-    "mtime": 1795352603.4206173,
-    "seen": 1795353560.899956,
-    "ast_hash": "7943fcc470b62bcddb09f001f34cb076",
+    "mtime": 1795644830.2636201,
+    "seen": 1795645112.8239393,
+    "ast_hash": "78aa39f3f4a27dcc14eb8d38b53d69ae",
     "semantic_hash": ""
   },
   "src/physics/CarPhysics.js": {
-    "mtime": 1795227661.2197173,
-    "seen": 1795230123.4678965,
-    "ast_hash": "acb4d47cbaef9b75677f537c6a9c393b",
+    "mtime": 1795612810.8117712,
+    "seen": 1795612850.146979,
+    "ast_hash": "cbdf467eac537dc6dcdcb55ceb6440ee",
     "semantic_hash": ""
   },
   "src/rendering/SceneManager.js": {
-    "mtime": 1795357083.0030344,
-    "seen": 1795357243.46513,
-    "ast_hash": "c3b9a6fbf776ae0a9b0acc5aa2ebe4f3",
+    "mtime": 1795645088.167274,
+    "seen": 1795645112.8239615,
+    "ast_hash": "a64666f89d0709553ea77f20d0289202",
     "semantic_hash": ""
   },
   "src/tracks/TrackBuilder.js": {
-    "mtime": 1795355880.7309482,
-    "seen": 1795357243.4651403,
-    "ast_hash": "2d9ab71f4333113e92214cdc1f7c643f",
+    "mtime": 1795560104.8925464,
+    "seen": 1795561628.1126263,
+    "ast_hash": "1b3f331e7c1d0717782d26242e898451",
     "semantic_hash": ""
   },
   "src/tracks/test_track.js": {
@@ -84,27 +84,27 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1795358161.597769,
-    "seen": 1795366184.5814145,
-    "ast_hash": "00e429cd15f35992de93f01231ca561f",
+    "mtime": 1795645091.816023,
+    "seen": 1795645112.824019,
+    "ast_hash": "c0168482eaea5bb63f11eab123325063",
     "semantic_hash": ""
   },
   "src/rendering/CameraController.js": {
-    "mtime": 1795357294.5480888,
-    "seen": 1795357620.6320224,
-    "ast_hash": "6d842bf9cf7cf4841cf07d6de9ff9d9d",
+    "mtime": 1795645173.953741,
+    "seen": 1795645549.7764945,
+    "ast_hash": "331d956f7890f9d30416b807b77d4bcb",
     "semantic_hash": ""
   },
   "src/physics/Collisions.js": {
-    "mtime": 1795131848.5124934,
-    "seen": 1795134325.0387998,
-    "ast_hash": "8ab9fccf39f9d6fb201deb76370523ef",
+    "mtime": 1795644537.5872912,
+    "seen": 1795644650.1143537,
+    "ast_hash": "6523cb73a6ea594e0ced1194ac4c4241",
     "semantic_hash": ""
   },
   "src/tracks/TrackSurface.js": {
-    "mtime": 1795131848.9430935,
-    "seen": 1795134325.0388176,
-    "ast_hash": "ead114fb1f450a835d4b7318c3fba892",
+    "mtime": 1795609188.289351,
+    "seen": 1795609958.6617725,
+    "ast_hash": "f2bff3e60391077510aa90b304ea5764",
     "semantic_hash": ""
   },
   "src/tracks/calendar2026/monza.js": {
@@ -120,21 +120,21 @@
     "semantic_hash": ""
   },
   "src/race/TimingSystem.js": {
-    "mtime": 1795230020.8381085,
-    "seen": 1795230123.4679031,
-    "ast_hash": "c5594e5dd8bd678cbacc0940d2285fcf",
+    "mtime": 1795642762.1183515,
+    "seen": 1795643426.1765335,
+    "ast_hash": "f138ff46dd9e3d1d5606299aa86fac39",
     "semantic_hash": ""
   },
   "src/ui/HudOverlay.js": {
-    "mtime": 1795352604.05381,
-    "seen": 1795353560.900007,
-    "ast_hash": "7601d39c5f6e50b33fbbf1cee43b9de0",
+    "mtime": 1795645174.1612823,
+    "seen": 1795645549.7765417,
+    "ast_hash": "fdef9d3b6a5513d594aceeaf198919a7",
     "semantic_hash": ""
   },
   "src/physics/AeroAndTires.js": {
-    "mtime": 1795225614.1359138,
-    "seen": 1795227593.4848306,
-    "ast_hash": "d3f0c02d12113b72469e9cb4bb5e9437",
+    "mtime": 1795636098.8919992,
+    "seen": 1795636467.1617358,
+    "ast_hash": "bbe6ad675b20b613704416b9f5d76fee",
     "semantic_hash": ""
   },
   "src/physics/Suspension.js": {
@@ -144,21 +144,21 @@
     "semantic_hash": ""
   },
   "src/ai/BotController.js": {
-    "mtime": 1795131848.105547,
-    "seen": 1795134325.0387642,
-    "ast_hash": "12efe25d6b7863745501868dd0c2b462",
+    "mtime": 1795612809.535648,
+    "seen": 1795612850.1469564,
+    "ast_hash": "f2fe774a927d91bee639033b085fef9f",
     "semantic_hash": ""
   },
   "src/config/f1_2026_data.js": {
-    "mtime": 1795133975.0983725,
-    "seen": 1795134325.038781,
-    "ast_hash": "b943420f7f435222558d9e642a14366a",
+    "mtime": 1795643203.0260663,
+    "seen": 1795643426.176515,
+    "ast_hash": "c218e60c3d44c27ccd45126ca244b7a2",
     "semantic_hash": ""
   },
   "src/race/RaceManager.js": {
-    "mtime": 1795223841.1191022,
-    "seen": 1795224130.4797795,
-    "ast_hash": "a372164cfb606847c82801f79013b616",
+    "mtime": 1795561709.779423,
+    "seen": 1795562036.973552,
+    "ast_hash": "9b839a22429549604814e865cbcaa324",
     "semantic_hash": ""
   },
   "src/cars/CarSpecs.js": {
@@ -168,27 +168,27 @@
     "semantic_hash": ""
   },
   "src/config/difficulty.js": {
-    "mtime": 1795225497.0119855,
-    "seen": 1795225529.1123493,
-    "ast_hash": "52996a3384f4c8bf01338f06d2c6e5cd",
+    "mtime": 1795612810.1360807,
+    "seen": 1795612850.1469676,
+    "ast_hash": "f02f25765c15ffc2a7e7d854bca0549c",
     "semantic_hash": ""
   },
   "src/ui/MenuManager.js": {
-    "mtime": 1795352604.26996,
-    "seen": 1795353560.9000077,
-    "ast_hash": "052f4690c77d5f423eb6ac5a8d352628",
+    "mtime": 1795644830.7991233,
+    "seen": 1795645112.8240006,
+    "ast_hash": "ea9a41a02c91f66aa88377f09bcc5cab",
     "semantic_hash": ""
   },
   "src/race/QualifyingManager.js": {
-    "mtime": 1795223844.785231,
-    "seen": 1795224130.479778,
-    "ast_hash": "7b475ac55e8775e6affeea7ca03e89dc",
+    "mtime": 1795643473.4267187,
+    "seen": 1795643691.081874,
+    "ast_hash": "77bdf283dc11bf54aada334d9f0e05fd",
     "semantic_hash": ""
   },
   "src/career/CareerStorage.js": {
-    "mtime": 1795019781.0988514,
-    "seen": 1795019915.54417,
-    "ast_hash": "c2e908e43d8f58c69445ec174c644cfa",
+    "mtime": 1795643975.6970417,
+    "seen": 1795644650.114334,
+    "ast_hash": "b4a7e0d1a54acca2fa34e35496b6f36c",
     "semantic_hash": ""
   },
   "src/rendering/GarageScene3D.js": {
@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "src/ui/ModalManager.js": {
-    "mtime": 1795128629.1569352,
-    "seen": 1795129178.154398,
-    "ast_hash": "f09f30f650acdc4b47a50b96162a2ede",
+    "mtime": 1795642762.6530125,
+    "seen": 1795643426.1765819,
+    "ast_hash": "240cfab91d4f2160badeee770d5b8c56",
     "semantic_hash": ""
   },
   "PROMPT/prompt-giocoF1-larghezza-piste.md": {
@@ -450,15 +450,15 @@
     "semantic_hash": ""
   },
   "src/physics/PhysicsDiagnostics.js": {
-    "mtime": 1795225614.2808125,
-    "seen": 1795227593.4848337,
-    "ast_hash": "20132c468dd4965afadc4b453ffad2f9",
+    "mtime": 1795612810.9324477,
+    "seen": 1795612850.1469815,
+    "ast_hash": "2a15f7c951f8dbb8283960401c820462",
     "semantic_hash": ""
   },
   "src/input/VirtualInputFilter.js": {
-    "mtime": 1795225487.0979903,
-    "seen": 1795225529.1123552,
-    "ast_hash": "04602e46ff38e0df13238cd7fcc6f6c2",
+    "mtime": 1795609784.8370073,
+    "seen": 1795609958.6617212,
+    "ast_hash": "1e24dc0d9abb4d94f886ac6acb607490",
     "semantic_hash": ""
   },
   "src/career/TrackRecordsStorage.js": {
@@ -504,8 +504,8 @@
     "semantic_hash": ""
   },
   "src/rendering/AssetManager3D.js": {
-    "mtime": 1795366148.0706563,
-    "seen": 1795366184.5813558,
+    "mtime": 1795366240.937158,
+    "seen": 1795557221.0234597,
     "ast_hash": "eefb0d17a34189a486064b5edfc3a8cc",
     "semantic_hash": ""
   },
@@ -534,9 +534,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795352602.2158217,
-    "seen": 1795353560.900021,
-    "ast_hash": "17144aa7cbd2956f39de36274baef4e0",
+    "mtime": 1795643698.302747,
+    "seen": 1795643954.4534175,
+    "ast_hash": "087d44409912cf9483b51c36bee9dd35",
     "semantic_hash": ""
   },
   "src/rendering/NightLightingConfig.js": {
@@ -735,6 +735,84 @@
     "mtime": 1795354420.1257129,
     "seen": 1795354633.923329,
     "ast_hash": "9378ce84e85f26d7c9d3080c0dd0f871",
+    "semantic_hash": ""
+  },
+  "src/rendering/PitGuideOverlay3D.js": {
+    "mtime": 1795561709.8708785,
+    "seen": 1795562036.9735742,
+    "ast_hash": "18ece3a3ceca94962499091d7847b9fb",
+    "semantic_hash": ""
+  },
+  "src/tracks/PitLaneConfig.js": {
+    "mtime": 1795556866.258571,
+    "seen": 1795557221.023472,
+    "ast_hash": "e907a31f23019db548ce2ec6ab36af12",
+    "semantic_hash": ""
+  },
+  "src/tracks/PitLaneGeometry.js": {
+    "mtime": 1795558470.5143726,
+    "seen": 1795558501.002462,
+    "ast_hash": "33f7aad228448f03cfaf1d4667f578b7",
+    "semantic_hash": ""
+  },
+  "PROMPT/prompt-PIANO-PRE-STEP-3.md": {
+    "mtime": 1795540725.6581535,
+    "seen": 1795557221.02352,
+    "ast_hash": "b78a896f0bde76e2e0cd475e9b303f07",
+    "semantic_hash": ""
+  },
+  "docs/PIANO_GRAFICA_3D.md": {
+    "mtime": 1795542729.8170419,
+    "seen": 1795557221.0235264,
+    "ast_hash": "6472c74a4d0289ca1e499d747ac248bd",
+    "semantic_hash": ""
+  },
+  "src/ui/LoadingScreenManager.js": {
+    "mtime": 1795640624.4960468,
+    "seen": 1795640725.4005477,
+    "ast_hash": "49328664e73e9301aac597f20817f676",
+    "semantic_hash": ""
+  },
+  "src/ui/PitLaneMapHud.js": {
+    "mtime": 1795559960.0920336,
+    "seen": 1795560019.6506474,
+    "ast_hash": "3abdf8e9d8d4615d18979217ab53dcfd",
+    "semantic_hash": ""
+  },
+  "src/race/PitLaneManager.js": {
+    "mtime": 1795645527.8062007,
+    "seen": 1795645549.7764888,
+    "ast_hash": "dac88a5f42d66b7895f862776a01d1e9",
+    "semantic_hash": ""
+  },
+  "src/ai/DriverProfiles.js": {
+    "mtime": 1795609140.0019913,
+    "seen": 1795609958.6616979,
+    "ast_hash": "4eed56227ee88a0772e3507f195e25d2",
+    "semantic_hash": ""
+  },
+  "src/ai/RacingLineSolver.js": {
+    "mtime": 1795609721.3073905,
+    "seen": 1795609958.6616998,
+    "ast_hash": "0aafe64240514caaf3f8e4fffdf69fca",
+    "semantic_hash": ""
+  },
+  "src/config/physicsSettings.js": {
+    "mtime": 1795611804.0174232,
+    "seen": 1795612806.3503063,
+    "ast_hash": "fcdc2eb8dc9f2429891a1668048d5665",
+    "semantic_hash": ""
+  },
+  "src/rendering/PitStopAnimator3D.js": {
+    "mtime": 1795612834.2540612,
+    "seen": 1795612850.1469963,
+    "ast_hash": "6edeac83ac0813a6624affe974712edf",
+    "semantic_hash": ""
+  },
+  "src/config/keybindings.js": {
+    "mtime": 1795644530.1052654,
+    "seen": 1795644650.1143432,
+    "ast_hash": "fc2d666da8d75acb696d0adf347b0337",
     "semantic_hash": ""
   },
   "package-lock.json": {

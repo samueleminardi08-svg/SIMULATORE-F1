@@ -189,16 +189,20 @@ export function createCarTimingState(
     currentLapSplits: new Array(nSectors).fill(null),
     personalBestSectors: personalBaseline,
     bestLapSplitTimes: buildSplitTimes(personalBaseline),
-    // Track Limits & Penalità (Step 8)
+    // Track Limits & Penalità ufficiali FIA Art. 33.3
     trackLimitsCount: 0,
     penaltySeconds: 0,
+    blackAndWhiteFlag: false,
     currentLapInvalidated: false,
+    nextLapInvalidated: false,
     lastLapInvalidated: false,
     inTrackLimitsViolation: false,
     offTrackDuration: 0,
     trackLimitCooldown: 0,
     trackLimitAlertTimer: 0,
     trackLimitAlertText: '',
+    trackLimitAlertSeverity: 'warn', // 'warn' | 'bw_flag' | 'penalty'
+    wheelsOutsideCount: 0,
     // Eventi completamento settore/giro per record persistenti pista
     sectorCompletionSeq: 0,
     lastCompletedSector: null,
@@ -248,31 +252,162 @@ function finalizeSector(timing, sessionTiming, sectorIdx, duration, isLapInvalid
 }
 
 /**
- * Registra una violazione di Track Limits e applica la sanzione prevista:
- * - Qualifica / Prove Libere: 1 track limit annulla immediatamente il giro corrente.
- * - Gara: fino a 3 avvertimenti gratis; dal 4° in poi +5s per ogni violazione aggiuntiva.
+ * Valuta la regola ufficiale FIA Formula 1 Articolo 33.3:
+ * - Le linee bianche che delimitano la pista fanno parte della pista; i cordoli NO.
+ * - La vettura è giudicata fuori pista SOLO quando TUTTE E 4 LE RUOTE superano
+ *   completamente il bordo esterno della linea bianca sullo stesso lato (nessuna parte
+ *   di alcuno pneumatico resta a contatto con la linea bianca).
+ * - Qualsiasi ruota in pit lane esenta dal controllo Track Limits.
+ *
+ * @param {object} car
+ * @param {object} trackSurface
+ * @param {object} centerQuery
+ * @returns {{ allFourOut: boolean, wheelsOutside: number, inPitExempt: boolean }}
  */
-export function recordTrackLimitViolation(timing, sessionMode = 'race') {
+export function evaluateFiaTrackLimits(car, trackSurface, centerQuery) {
+  if (!car || !trackSurface || !centerQuery) {
+    return { allFourOut: false, wheelsOutside: 0, inPitExempt: false };
+  }
+  if (centerQuery.inPitLane || centerQuery.surface === 'pitlane') {
+    return { allFourOut: false, wheelsOutside: 0, inPitExempt: true };
+  }
+
+  const cfg = TIMING_CONFIG.fiaTrackLimits;
+  const localHalfW = centerQuery.halfTrackWidth ?? trackSurface.halfTrackWidth;
+  // Fast-path: se il baricentro è ben all'interno della carreggiata nessuna ruota può superare la linea bianca
+  if (centerQuery.absOffset <= localHalfW - 1.75) {
+    return { allFourOut: false, wheelsOutside: 0, inPitExempt: false };
+  }
+
+  const heading = car.heading ?? 0;
+  const sinH = Math.sin(heading);
+  const cosH = Math.cos(heading);
+  const leftX = cosH;
+  const leftZ = -sinH;
+
+  const wheelDefs = [
+    [cfg.frontTrackHalfM, cfg.frontAxleZ, cfg.frontTireHalfWidthM],
+    [-cfg.frontTrackHalfM, cfg.frontAxleZ, cfg.frontTireHalfWidthM],
+    [cfg.rearTrackHalfM, cfg.rearAxleZ, cfg.rearTireHalfWidthM],
+    [-cfg.rearTrackHalfM, cfg.rearAxleZ, cfg.rearTireHalfWidthM],
+  ];
+
+  let wheelsOutside = 0;
+  let firstOutSide = 0;
+  let sameSide = true;
+
+  for (let i = 0; i < 4; i++) {
+    const [latLocal, fwdLocal, tireHalfW] = wheelDefs[i];
+    const wx = car.x + leftX * latLocal + sinH * fwdLocal;
+    const wz = car.z + leftZ * latLocal + cosH * fwdLocal;
+    const wq = queryTrackSurface(trackSurface, wx, wz, centerQuery.sampleIndex);
+
+    if (wq.inPitLane || wq.surface === 'pitlane') {
+      return { allFourOut: false, wheelsOutside: 0, inPitExempt: true };
+    }
+
+    const whiteLineOuterEdge =
+      (wq.halfTrackWidth ?? trackSurface.halfTrackWidth) - cfg.whiteLineOuterInsetM;
+    // Bordo interno dello pneumatico rivolto verso il centro pista: se <= bordo esterno linea bianca è LEGALE
+    const tireInnerEdgeAbs = wq.absOffset - tireHalfW;
+    if (tireInnerEdgeAbs > whiteLineOuterEdge) {
+      wheelsOutside += 1;
+      const sideSign = wq.lateralOffset >= 0 ? 1 : -1;
+      if (firstOutSide === 0) {
+        firstOutSide = sideSign;
+      } else if (sideSign !== firstOutSide) {
+        sameSide = false;
+      }
+    }
+  }
+
+  return {
+    allFourOut: wheelsOutside === 4 && sameSide,
+    wheelsOutside,
+    inPitExempt: false,
+  };
+}
+
+/**
+ * Registra una violazione di Track Limits secondo il Regolamento Sportivo FIA Art. 33.3:
+ * - Qualifiche / Prove Libere: annulla immediatamente il giro corrente; se avviene nell'ultima
+ *   curva (ultimi 12% del giro), annulla anche il giro successivo (vantaggio sul rettilineo).
+ * - Gara: annulla il tempo giro per il Giro Veloce + sistema progressivo FIA "3 Strikes":
+ *   1° Avvertimento, 2° Ultimo Avviso, 3° Bandiera Bianco-Nera, 4° +5s, 5° +10s, 6°+ +5s.
+ */
+export function recordTrackLimitViolation(timing, sessionMode = 'race', options = {}) {
   if (!timing) return;
+  const lapProgress = options.lapProgress ?? timing.lapProgress ?? 0;
+  const finalCornerMin = TIMING_CONFIG.fiaTrackLimits.finalCornerProgressMin;
+  const isFinalCorner = lapProgress >= finalCornerMin;
+
   timing.trackLimitsCount = (timing.trackLimitsCount ?? 0) + 1;
+  // In tutte le sessioni FIA un giro con track limits non può valere per miglior tempo / giro veloce
+  timing.currentLapInvalidated = true;
 
   if (sessionMode === 'qualifying') {
-    timing.currentLapInvalidated = true;
-    timing.trackLimitAlertText = 'DIREZIONE GARA: GIRO ANNULLATO — TRACK LIMITS';
-    timing.trackLimitAlertTimer = 3.8;
-  } else if (sessionMode === 'race') {
-    if (timing.trackLimitsCount <= 3) {
-      timing.trackLimitAlertText = `DIREZIONE GARA: TRACK LIMITS (${timing.trackLimitsCount}/3) — AVVERTIMENTO`;
-      timing.trackLimitAlertTimer = 3.2;
+    if (isFinalCorner) {
+      timing.nextLapInvalidated = true;
+      timing.trackLimitAlertText =
+        'FIA ART. 33.3: GIRO ATTUALE E PROSSIMO ANNULLATI — ULTIMA CURVA';
+      timing.trackLimitAlertTimer = 4.4;
     } else {
-      timing.penaltySeconds = (timing.trackLimitsCount - 3) * 5;
-      timing.trackLimitAlertText = `PENALITÀ +5s — TRACK LIMITS (${timing.trackLimitsCount}) • TOTALE: +${timing.penaltySeconds}s`;
-      timing.trackLimitAlertTimer = 4.2;
+      timing.trackLimitAlertText =
+        'FIA ART. 33.3: GIRO ANNULLATO — 4 RUOTE OLTRE LA LINEA BIANCA';
+      timing.trackLimitAlertTimer = 3.8;
+    }
+    timing.trackLimitAlertSeverity = 'penalty';
+  } else if (sessionMode === 'race') {
+    const count = timing.trackLimitsCount;
+    if (count === 1) {
+      timing.trackLimitAlertText = 'FIA ART. 33.3: TRACK LIMITS (1/3) — AVVERTIMENTO';
+      timing.trackLimitAlertSeverity = 'warn';
+      timing.trackLimitAlertTimer = 3.2;
+    } else if (count === 2) {
+      timing.trackLimitAlertText = 'FIA ART. 33.3: TRACK LIMITS (2/3) — ULTIMO AVVISO';
+      timing.trackLimitAlertSeverity = 'warn';
+      timing.trackLimitAlertTimer = 3.4;
+    } else if (count === 3) {
+      timing.blackAndWhiteFlag = true;
+      timing.trackLimitAlertText =
+        'BANDIERA BIANCO-NERA (3/3) — PROSSIMA INFRAZIONE: PENALITÀ +5s';
+      timing.trackLimitAlertSeverity = 'bw_flag';
+      timing.trackLimitAlertTimer = 4.5;
+    } else if (count === 4) {
+      timing.blackAndWhiteFlag = true;
+      timing.penaltySeconds = (timing.penaltySeconds ?? 0) + 5;
+      timing.trackLimitAlertText =
+        `PENALITÀ +5s — FIA ART. 33.3 (4ª INFRAZIONE) • TOTALE: +${timing.penaltySeconds}s`;
+      timing.trackLimitAlertSeverity = 'penalty';
+      timing.trackLimitAlertTimer = 4.6;
+    } else if (count === 5) {
+      timing.blackAndWhiteFlag = true;
+      timing.penaltySeconds = (timing.penaltySeconds ?? 0) + 10;
+      timing.trackLimitAlertText =
+        `PENALITÀ +10s — FIA ART. 33.3 (5ª INFRAZIONE) • TOTALE: +${timing.penaltySeconds}s`;
+      timing.trackLimitAlertSeverity = 'penalty';
+      timing.trackLimitAlertTimer = 4.8;
+    } else {
+      timing.blackAndWhiteFlag = true;
+      const added = count % 5 === 0 ? 10 : 5;
+      timing.penaltySeconds = (timing.penaltySeconds ?? 0) + added;
+      timing.trackLimitAlertText =
+        `PENALITÀ +${added}s — FIA ART. 33.3 (${count}ª INFRAZIONE) • TOTALE: +${timing.penaltySeconds}s`;
+      timing.trackLimitAlertSeverity = 'penalty';
+      timing.trackLimitAlertTimer = 4.6;
     }
   } else {
-    timing.currentLapInvalidated = true;
-    timing.trackLimitAlertText = `TRACK LIMITS (${timing.trackLimitsCount}) — GIRO ANNULLATO`;
-    timing.trackLimitAlertTimer = 3.2;
+    if (isFinalCorner) {
+      timing.nextLapInvalidated = true;
+      timing.trackLimitAlertText =
+        'TRACK LIMITS (ART. 33.3): GIRO ATTUALE E PROSSIMO ANNULLATI';
+      timing.trackLimitAlertTimer = 4.0;
+    } else {
+      timing.trackLimitAlertText =
+        `TRACK LIMITS (${timing.trackLimitsCount}) — GIRO ANNULLATO (4 RUOTE FUORI)`;
+      timing.trackLimitAlertTimer = 3.4;
+    }
+    timing.trackLimitAlertSeverity = 'penalty';
   }
 }
 
@@ -295,8 +430,11 @@ export function updateCarTiming(
 
   timing.trackLimitCooldown = Math.max(0, (timing.trackLimitCooldown ?? 0) - dt);
   timing.trackLimitAlertTimer = Math.max(0, (timing.trackLimitAlertTimer ?? 0) - dt);
+  if ((car.recentCarContactTimer ?? 0) > 0) {
+    car.recentCarContactTimer = Math.max(0, car.recentCarContactTimer - dt);
+  }
 
-  if (raceStatus === 'countdown') {
+  if (raceStatus === 'countdown' || raceStatus === 'grid_wait') {
     return;
   }
 
@@ -313,25 +451,39 @@ export function updateCarTiming(
   const query = queryTrackSurface(trackSurface, car.x, car.z, car.trackSampleIndex);
   car.trackSampleIndex = query.sampleIndex;
 
-  // Controllo uscita dai limiti della pista (erba oltre il cordolo)
+  // Controllo ufficiale FIA Articolo 33.3: tutte e 4 le ruote completamente oltre la linea bianca
+  // (i cordoli non fanno parte della pista; pit lane, velocità < 4.5 m/s e contatti recenti esentati)
+  const fiaCfg = TIMING_CONFIG.fiaTrackLimits;
   if (!car.raceFinished && raceStatus === 'racing') {
-    if (query.surface === 'grass' && Math.abs(car.forwardSpeed) > 3.0) {
-      timing.offTrackDuration = (timing.offTrackDuration ?? 0) + dt;
-      if (
-        !timing.inTrackLimitsViolation &&
-        timing.trackLimitCooldown <= 0 &&
-        timing.offTrackDuration >= 0.08
-      ) {
-        timing.inTrackLimitsViolation = true;
-        timing.trackLimitCooldown = 2.5;
-        recordTrackLimitViolation(timing, sessionMode);
-      }
-    } else if (
-      query.surface === 'asphalt' &&
-      query.absOffset <= (query.halfTrackWidth ?? trackSurface.halfTrackWidth) - 0.25
-    ) {
+    const pitExemptState = car.pitState && car.pitState !== 'ON_TRACK';
+    const justifiedContact = (car.recentCarContactTimer ?? 0) > 0 || Boolean(car.collidingWithBarrier);
+    if (pitExemptState || query.surface === 'pitlane' || query.inPitLane) {
       timing.offTrackDuration = 0;
       timing.inTrackLimitsViolation = false;
+      timing.wheelsOutsideCount = 0;
+    } else {
+      const tlEval = evaluateFiaTrackLimits(car, trackSurface, query);
+      timing.wheelsOutsideCount = tlEval.wheelsOutside;
+
+      if (tlEval.inPitExempt) {
+        timing.offTrackDuration = 0;
+        timing.inTrackLimitsViolation = false;
+      } else if (tlEval.allFourOut && Math.abs(car.forwardSpeed) >= 4.5 && !justifiedContact) {
+        timing.offTrackDuration = (timing.offTrackDuration ?? 0) + dt;
+        if (
+          !timing.inTrackLimitsViolation &&
+          timing.trackLimitCooldown <= 0 &&
+          timing.offTrackDuration >= fiaCfg.minViolationDurationS
+        ) {
+          timing.inTrackLimitsViolation = true;
+          timing.trackLimitCooldown = fiaCfg.violationCooldownS;
+          recordTrackLimitViolation(timing, sessionMode, { lapProgress: timing.lapProgress });
+        }
+      } else if (!tlEval.allFourOut && tlEval.wheelsOutside <= 2) {
+        // Rientro confermato dentro la linea bianca: azzera stato violazione corrente
+        timing.offTrackDuration = 0;
+        timing.inTrackLimitsViolation = false;
+      }
     }
   }
 
@@ -372,9 +524,8 @@ export function updateCarTiming(
     timing.lastLapSectorStatuses = [...timing.currentSectorStatuses];
     timing.lastLapSectorTimes = [...timing.currentSectorTimes];
 
-    const recordAllowed = !(
-      lapInvalid && (sessionMode === 'qualifying' || sessionMode === 'practice')
-    );
+    // Regola FIA Art. 33.3: un giro con violazione track limits non può valere per best lap / giro veloce
+    const recordAllowed = !lapInvalid;
 
     if (recordAllowed) {
       if (timing.bestLapTime === null || timing.lastLapTime < timing.bestLapTime) {
@@ -399,13 +550,21 @@ export function updateCarTiming(
       sessionMode,
     };
 
+    const carryNextInvalid = Boolean(timing.nextLapInvalidated);
     timing.completedLaps += 1;
     timing.currentLap += 1;
     timing.currentLapTime = 0;
     timing.sectorStartTime = 0;
     timing.currentSectorIndex = 0;
     timing.highestSectorReached = 0;
-    timing.currentLapInvalidated = false;
+    timing.currentLapInvalidated = carryNextInvalid;
+    timing.nextLapInvalidated = false;
+    if (carryNextInvalid) {
+      timing.trackLimitAlertText =
+        'FIA ART. 33.3: GIRO ANNULLATO (TRACK LIMITS ULTIMA CURVA GIRO PREC.)';
+      timing.trackLimitAlertSeverity = 'penalty';
+      timing.trackLimitAlertTimer = 3.2;
+    }
     timing.currentSectorStatuses = new Array(nSectors).fill('pending');
     timing.currentSectorTimes = new Array(nSectors).fill(null);
     timing.currentLapSplits = new Array(nSectors).fill(null);

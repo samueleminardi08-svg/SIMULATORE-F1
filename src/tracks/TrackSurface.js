@@ -2,10 +2,13 @@
  * Sistema Piste matematico/fisico in JavaScript puro (Step 3).
  * Valuta la spline chiusa (Catmull-Rom centripeta), pre-campiona il tracciato
  * a passo uniforme e permette di interrogare in O(1) ammortizzato:
- * - la superficie sotto una vettura ('asphalt', 'kerb', 'grass');
+ * - la superficie sotto una vettura ('asphalt', 'pitlane', 'kerb', 'grass');
  * - la distanza laterale dal centro pista e dalle barriere;
  * - tangente e normale per la fisica delle collisioni.
  */
+
+import { buildPitLaneData, queryPitLane } from './PitLaneGeometry.js';
+import { computeTrackRacingLine } from '../ai/RacingLineSolver.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -272,7 +275,7 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
     }
   }
 
-  return {
+  const surfaceObj = {
     id: trackData.id,
     name: trackData.name,
     width: trackWidth,
@@ -288,7 +291,12 @@ export function createTrackSurface(trackData, sampleCount = 1600) {
     barrierHalfWidth: maxBarrierHalfWidth,
     sectorSplits,
     bounds: { minX, maxX, minY, maxY, minZ, maxZ },
+    pitLane: null,
   };
+
+  surfaceObj.pitLane = buildPitLaneData(surfaceObj, trackData);
+  surfaceObj.racingLine = computeTrackRacingLine(surfaceObj);
+  return surfaceObj;
 }
 
 function searchClosestInRange(samples, x, z, startIdx, count, totalCount) {
@@ -393,22 +401,59 @@ export function queryTrackSurface(trackSurface, x, z, hintIndex = null) {
     surface = 'kerb';
   }
 
-  const arcDistance = a.distance + tSeg * (trackSurface.totalLength / sampleCount);
+  let arcDistance = a.distance + tSeg * (trackSurface.totalLength / sampleCount);
+  let outElevation = elevation;
+  let outLateralOffset = lateralOffset;
+  let outAbsOffset = absOffset;
+  let outSampleIndex = match.bestIdx;
+  let outClosestX = match.bestProjX;
+  let outClosestZ = match.bestProjZ;
+  let outTx = tx;
+  let outTz = tz;
+  let outNx = nx;
+  let outNz = nz;
+  let outHalfWidth = localHalfWidth;
+
+  const pitQuery = trackSurface.pitLane ? queryPitLane(trackSurface.pitLane, x, z) : null;
+  let inPitLane = false;
+  let pitZone = null;
+
+  if (pitQuery && pitQuery.inPitLane) {
+    inPitLane = true;
+    pitZone = pitQuery.zone;
+    surface = 'pitlane';
+    outElevation = pitQuery.elevation;
+    // Garantisce coerenza di arco/direzione sul rettilineo principale anche su piste compatte (es. Zandvoort)
+    outSampleIndex = pitQuery.sample?.trackSampleIndex ?? outSampleIndex;
+    arcDistance = pitQuery.sample?.trackArcDist ?? arcDistance;
+    outClosestX = pitQuery.trackX;
+    outClosestZ = pitQuery.trackZ;
+    outTx = pitQuery.trackTx;
+    outTz = pitQuery.trackTz;
+    outNx = pitQuery.trackNx;
+    outNz = pitQuery.trackNz;
+    outLateralOffset = pitQuery.lateralFromTrackCenter * pitQuery.sideSign;
+    outAbsOffset = Math.abs(outLateralOffset);
+    outHalfWidth = pitQuery.trackHalfWidth;
+  }
 
   return {
     surface,
-    elevation,
-    lateralOffset,
-    absOffset,
-    sampleIndex: match.bestIdx,
+    inPitLane,
+    pitZone,
+    pitQuery,
+    elevation: outElevation,
+    lateralOffset: outLateralOffset,
+    absOffset: outAbsOffset,
+    sampleIndex: outSampleIndex,
     arcDistance,
-    closestX: match.bestProjX,
-    closestZ: match.bestProjZ,
-    tx,
-    tz,
-    nx,
-    nz,
-    halfTrackWidth: localHalfWidth,
+    closestX: outClosestX,
+    closestZ: outClosestZ,
+    tx: outTx,
+    tz: outTz,
+    nx: outNx,
+    nz: outNz,
+    halfTrackWidth: outHalfWidth,
     barrierHalfWidth: localBarrierHalfWidth,
   };
 }

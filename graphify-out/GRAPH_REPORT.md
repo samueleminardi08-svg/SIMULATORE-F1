@@ -1,17 +1,17 @@
-# Graph Report - GIOCO F1  (2026-11-22)
+# Graph Report - GIOCO F1  (2026-11-25)
 
 ## Corpus Check
-- 86 files · ~138,572 words
+- 99 files · ~193,165 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 28 file(s) not represented in the graph (top: .glb 14, .hdr 11, (none) 2)
+- Unclassified: 29 file(s) not represented in the graph (top: .glb 14, .hdr 11, (none) 2)
 
 ## Summary
-- 1360 nodes · 3823 edges · 71 communities (63 shown, 8 thin omitted)
-- Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 533 edges (avg confidence: 0.86)
+- 1637 nodes · 4571 edges · 91 communities (79 shown, 12 thin omitted)
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 564 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `62976c45`
+- Built from commit: `ea4d6efb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,24 +22,24 @@
 - MenuManager
 - CarModel3D.js
 - index.js
-- WeatherAndTireFx
-- initGame
+- Proposed Changes (Step-by-Step)
+- 4. Workflow Operativo (tutto in un colpo)
 - main.js
 - test_track.js
-- TimingSystem.js
+- queryTrackSurface
 - ha
 - WorldState
 - Prompt per Antigravity — Gioco di F1: modifiche a interfaccia, animazioni e fisica
-- WorldState.js
+- CareerStorage.js
 - draco_wasm_wrapper.js
 - ma
 - v
-- TrackBuilder.js
+- LoadingScreenManager.js
 - draco_decoder.js
 - Vc
 - AssetManager3D
 - DaySkyDome
-- TrackFloodlights
+- BotController.js
 - fetch-cc0-assets.mjs
 - createWasm
 - ExceptionInfo
@@ -49,65 +49,85 @@
 - Barrel_01
 - nature
 - generate_f1_2026_tracks.mjs
-- CareerStorage.js
-- c
-- SceneManager.js
+- PitLaneManager.js
+- Na
+- .startSession
 - callRuntimeCallbacks
-- Crediti e Licenze Asset 3D
+- NightLightingConfig.js
 - scripts
 - manifest.json
-- ferrari
+- RoomManager
 - SceneManager
 - NightSky
-- fern_02
-- grass_medium_01
+- keybindings.js
+- PitLaneConfig.js
 - garage
 - CameraController
-- TrackFloodlights
+- HudOverlay.js
 - hdri
 - metal_tool_chest
-- power_box_01
-- security_camera_01
+- TrackSurface.js
+- initGame
 - steel_frame_shelves_01
-- modular_chainlink_fence
+- ModalManager
 - Importazione Modelli Sketchfab (Drop-in Automatico)
 - textures
 - asphalt_pit_lane
-- coast_sand_01
-- concrete_wall_007
+- WeatherAndTireFx
+- WorldState.js
 - grass_004
 - gravelly_sand
-- metal_plate
+- createF1CarMesh
 - emscripten_realloc_buffer
 - intArrayFromString
-- TrackMapHud
-- PhysicsDiagnostics.js
-- Db
+- .constructor
+- CarPhysics.js
+- UiTheme.js
+- MenuManager.js
+- SceneManager.js
+- PitLaneMapHud
 - build-custom-asphalt-pbr.mjs
+- PitGuideOverlay3D
+- Richiesta Pianificazione — PIANO PRE STEP 4
+- PitStopAnimator3D.js
+- Vc
+- TrackMapHud
+- ._syncHomeScreen
+- ferrari
+- fern_02
+- power_box_01
+- security_camera_01
+- TrackFloodlights
+- grass_medium_01
+- modular_chainlink_fence
+- coast_sand_01
+- concrete_wall_007
+- metal_plate
+- Ib
 
 ## God Nodes (most connected - your core abstractions)
 1. `ha()` - 234 edges
 2. `ja()` - 144 edges
 3. `Ka()` - 94 edges
-4. `v()` - 79 edges
-5. `initGame()` - 69 edges
+4. `initGame()` - 92 edges
+5. `v()` - 79 edges
 6. `Na()` - 61 edges
-7. `c()` - 50 edges
-8. `e()` - 50 edges
-9. `ma()` - 48 edges
-10. `ih()` - 44 edges
+7. `MenuManager` - 52 edges
+8. `c()` - 50 edges
+9. `e()` - 50 edges
+10. `ma()` - 48 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `6. Regole d'Oro & Vincoli per Claude / Agenti` --references--> `AssetManager3D`  [INFERRED]
   README.md → src/rendering/AssetManager3D.js
-- `Cartella `src/`` --references--> `HudOverlay`  [INFERRED]
-  README.md → src/ui/HudOverlay.js
-- `Cartella `src/`` --references--> `RoomManager`  [INFERRED]
-  README.md → src/network/RoomManager.js
-- `Cartella `src/`` --references--> `WeatherAndTireFx`  [INFERRED]
-  README.md → src/rendering/WeatherAndTireFx.js
-- `Cartella `src/`` --references--> `SceneManager`  [INFERRED]
-  README.md → src/rendering/SceneManager.js
+- `3. Vincoli & Regole Critiche (tassativi)` --references--> `WorldState`  [INFERRED]
+  PROMPT/prompt-F1-cielo-notturno-realistico.md → src/core/WorldState.js
+- `2. Architettura a Layer` --references--> `WorldState`  [INFERRED]
+  README.md → src/core/WorldState.js
+- `B. `PIANO SUB-STEP 2` (Realismo Visivo Monoposto, Particelle & Cieli HDRI — 100% Estetico)` --references--> `WorldState`  [INFERRED]
+  README.md → src/core/WorldState.js
+- `Cartella `src/`` --references--> `WorldState`  [INFERRED]
+  README.md → src/core/WorldState.js
 
 ## Import Cycles
 - None detected.
@@ -115,7 +135,7 @@
 ## Hyperedges (group relationships)
 - **Graphify Query CLI Commands** — claude_graphify_query, claude_graphify_path, claude_graphify_explain, claude_graphify_section [EXTRACTED 1.00]
 
-## Communities (71 total, 8 thin omitted)
+## Communities (91 total, 12 thin omitted)
 
 ### Community 0 - "Graphify Knowledge Graph Rules"
 Cohesion: 0.24
@@ -130,80 +150,76 @@ Cohesion: 0.11
 Nodes (22): dependencies, peerjs@^1.5.5, three@^0.170.0, devDependencies, draco3dgltf@^1.5.9, @gltf-transform/core@^4.5.1, @gltf-transform/extensions@^4.5.1, @gltf-transform/functions@^4.5.1 (+14 more)
 
 ### Community 3 - "MenuManager"
-Cohesion: 0.06
-Nodes (41): getRepresentativeDriverForTeam(), buildEntry(), createEmptyTrackRecord(), evaluateLapRecord(), evaluateSectorRecord(), getLapFieldForMode(), getTheoreticalBestLap(), getTrackRecord() (+33 more)
+Cohesion: 0.14
+Nodes (3): updateCareerProfile(), hexToRgb(), MenuManager
 
 ### Community 4 - "CarModel3D.js"
 Cohesion: 0.08
-Nodes (34): AI_DISTANT_HIDE_MATERIALS, AI_SKIP_BODY_MATERIALS, buildGlbDriverGroup(), buildTemplateFromGltfScene(), calibrateCarPbrMaterial(), CAR_VISUAL_CONFIG, clamp(), computeWheelAxleVector() (+26 more)
+Nodes (29): AI_DISTANT_HIDE_MATERIALS, AI_SKIP_BODY_MATERIALS, buildTemplateFromGltfScene(), calibrateCarPbrMaterial(), CAR_VISUAL_CONFIG, computeWheelAxleVector(), ensureGlbTemplateLoaded(), GLB_SCALE_X (+21 more)
 
 ### Community 5 - "index.js"
 Cohesion: 0.06
-Nodes (27): ABU_DHABI_TRACK_DATA, AUSTIN_TRACK_DATA, AUSTRIA_TRACK_DATA, BAHRAIN_TRACK_DATA, BAKU_TRACK_DATA, BARCELONA_TRACK_DATA, HUNGARORING_TRACK_DATA, CALENDAR_2026_TRACKS (+19 more)
+Nodes (25): ABU_DHABI_TRACK_DATA, AUSTIN_TRACK_DATA, AUSTRIA_TRACK_DATA, BAHRAIN_TRACK_DATA, BAKU_TRACK_DATA, BARCELONA_TRACK_DATA, HUNGARORING_TRACK_DATA, DEFAULT_TRACK_ID (+17 more)
 
-### Community 6 - "WeatherAndTireFx"
-Cohesion: 0.10
-Nodes (19): 1. Stack Tecnico & Comandi Rapidi, 2. Architettura a Layer, 3. Struttura Completa del Progetto, 4. Contenuti & Gameplay, 5. Stato Attuale dei Lavori (Roadmap), 6. Regole d'Oro & Vincoli per Claude / Agenti, A. `PIANO GRAFICA 3D` (Upgrade Asset 3D Ad Alta Risoluzione), B. `PIANO SUB-STEP 2` (Realismo Visivo Monoposto, Particelle & Cieli HDRI — 100% Estetico) (+11 more)
-
-### Community 7 - "initGame"
+### Community 6 - "Proposed Changes (Step-by-Step)"
 Cohesion: 0.06
-Nodes (14): GameLoop, ARROW_CODES, InputManager, MOVEMENT_CODES, initGame(), generateRoomCode(), getBrokerPeerId(), loadPeerClass() (+6 more)
+Nodes (46): A. Monoposto delle 11 Scuderie F1 2026, Architettura della Pipeline Asset 3D, Automated Tests, B. Corpi dei Piloti 3D (Seduti in Abitacolo), C. Alberi, Erba e Natura Circostante (100% Download Automatico CC0), Catalogo Verificato degli Asset 3D Trovati, D. Pista Realistica & Strutture Bordo Pista (Download Automatico CC0), E. Garage F1 3D (`GARAGE & UPGRADE`) (+38 more)
+
+### Community 7 - "4. Workflow Operativo (tutto in un colpo)"
+Cohesion: 0.14
+Nodes (13): 1. Ruolo & Obiettivo, 2. Problemi attuali da risolvere, 3. Vincoli & Regole Critiche (tassativi), 4. Workflow Operativo (tutto in un colpo), 5. Formato di Output, 6. Criteri di accettazione, A. Cupola celeste notturna procedurale (stelle, Luna, Via Lattea), B. Alone luminoso all'orizzonte (light pollution) (+5 more)
 
 ### Community 8 - "main.js"
-Cohesion: 0.12
-Nodes (11): formatDeltaTime(), formatLapTime(), formatSectorTime(), extractDriverSurname(), formatTimerMMSS(), getDeltaColorClass(), getLogoClassName(), getRpmBarColor() (+3 more)
+Cohesion: 0.08
+Nodes (27): buildEntry(), createEmptyTrackRecord(), evaluateLapRecord(), evaluateSectorRecord(), getLapFieldForMode(), getTheoreticalBestLap(), getTrackRecord(), loadAllTrackRecords() (+19 more)
 
-### Community 10 - "TimingSystem.js"
-Cohesion: 0.16
-Nodes (20): COLLISION_CONFIG, resolveCarToCarCollisions(), resolveTrackBarrierCollision(), updateCarLocalVelocityFromWorld(), buildSplitTimes(), clamp(), computeBaselineSectors(), createCarTimingState() (+12 more)
+### Community 10 - "queryTrackSurface"
+Cohesion: 0.27
+Nodes (14): buildSplitTimes(), clamp(), computeBaselineSectors(), createCarTimingState(), createSessionTimingState(), evaluateFiaTrackLimits(), finalizeSector(), getInterpolatedReferenceTime() (+6 more)
 
 ### Community 11 - "ha"
-Cohesion: 0.04
-Nodes (69): ha(), Ae(), ah(), Be(), bg(), bh(), bi(), Ce() (+61 more)
+Cohesion: 0.05
+Nodes (68): ha(), Aa(), Ae(), ah(), ai(), Bb(), bg(), bh() (+60 more)
 
 ### Community 13 - "WorldState"
-Cohesion: 0.14
-Nodes (9): cloneCarTiming(), cloneQualifyingState(), cloneSessionTiming(), WorldState, createInitialRaceState(), getEffectiveTotalProgress(), updateRaceState(), createSessionTimingState() (+1 more)
+Cohesion: 0.11
+Nodes (7): cloneCarTiming(), cloneQualifyingState(), cloneSessionTiming(), WorldState, canSkipQualifying(), getQualifyingStageDuration(), voteSkipQualifying()
 
 ### Community 14 - "Prompt per Antigravity — Gioco di F1: modifiche a interfaccia, animazioni e fisica"
 Cohesion: 0.08
 Nodes (23): 10. Vincoli importanti, 1. Ruolo e obiettivo, 2. Come lavoriamo (regole di processo), 3. Modifica 1 — Pop up al centro dello schermo, 4. Modifica 2 — Animazioni fluide, 5. Modifica 3 — Finestra tempi / delta / nomi più lunga in verticale, 6.1 Linguaggio visivo da riprodurre, 6.2 Schermate di riferimento (adattale alle mie modalità e funzioni già esistenti) (+15 more)
 
-### Community 15 - "WorldState.js"
-Cohesion: 0.12
-Nodes (32): CANDIDATE_LANE_FRACTIONS, clamp(), computeBotInput(), computeChordCurvature(), normalizeAngle(), sampleTrackAtArcDistance(), CAR_PHYSICS_CONFIG, FIXED_DT (+24 more)
+### Community 15 - "CareerStorage.js"
+Cohesion: 0.11
+Nodes (36): calculateRacePrize(), CAREER_SCHEMA_VERSION, CAREER_STORAGE_KEY, clampByte(), clampCareerRoundIndex(), clampUnit(), clampUpgrade(), createDefaultCareerState() (+28 more)
 
 ### Community 17 - "draco_wasm_wrapper.js"
 Cohesion: 0.07
-Nodes (25): Yh(), A(), B(), C(), D(), E(), G(), H() (+17 more)
+Nodes (24): Yh(), A(), B(), C(), D(), E(), G(), H() (+16 more)
 
 ### Community 18 - "ma"
-Cohesion: 0.14
-Nodes (49): Ab(), ac(), ag(), Bb(), bc(), Cb(), cc(), Cf() (+41 more)
+Cohesion: 0.16
+Nodes (35): Ab(), ac(), bc(), $c(), Cb(), cc(), de(), ee() (+27 more)
 
 ### Community 19 - "v"
-Cohesion: 0.20
-Nodes (45): $a(), Aa(), Ad(), ai(), Bd(), $c(), Cd(), $d() (+37 more)
-
-### Community 20 - "TrackBuilder.js"
 Cohesion: 0.25
-Nodes (14): computeStartingGridTransforms(), addDistantHorizonHills(), addParkTrees(), buildBarrierGeometry(), buildBridgeDeckGeometry(), buildRibbonFromSamples(), buildTrackMeshGroup(), createAsphaltTexture() (+6 more)
+Nodes (31): $a(), Bd(), Cd(), Cf(), Da(), Dd(), di(), Ea() (+23 more)
+
+### Community 20 - "LoadingScreenManager.js"
+Cohesion: 0.23
+Nodes (4): assetManager3D, LoadingScreenManager, nextAnimationFrame(), sleepMs()
 
 ### Community 21 - "draco_decoder.js"
-Cohesion: 0.07
+Cohesion: 0.08
 Nodes (24): AttributeOctahedronTransform(), AttributeQuantizationTransform(), AttributeTransformData(), castObject(), Decoder(), DecoderBuffer(), destroy(), DracoFloat32Array() (+16 more)
 
 ### Community 22 - "Vc"
-Cohesion: 0.18
-Nodes (30): Ba(), Ca(), Eb(), Eg(), Gc(), Hc(), ic(), If() (+22 more)
+Cohesion: 0.13
+Nodes (38): Be(), Db(), Dc(), Eb(), Fc(), fg(), Gc(), Hc() (+30 more)
 
-### Community 23 - "AssetManager3D"
-Cohesion: 0.08
-Nodes (15): 1. Ruolo & Obiettivo, 2. Problemi attuali da risolvere, 3. Vincoli & Regole Critiche (tassativi), 4. Workflow Operativo (tutto in un colpo), 5. Formato di Output, 6. Criteri di accettazione, A. Cupola celeste notturna procedurale (stelle, Luna, Via Lattea), B. Alone luminoso all'orizzonte (light pollution) (+7 more)
-
-### Community 25 - "TrackFloodlights"
-Cohesion: 0.22
-Nodes (3): computeFloodlightTowers(), createLightPoolTexture(), TrackFloodlights
+### Community 25 - "BotController.js"
+Cohesion: 0.10
+Nodes (27): BRAKE_CHECK_DISTANCES, _candLanes, clamp(), computeBotInput(), deterministicHash01(), findPitSampleAtS(), _nearbyDelta, _nearbyLat (+19 more)
 
 ### Community 26 - "fetch-cc0-assets.mjs"
 Cohesion: 0.22
@@ -233,25 +249,25 @@ Nodes (11): nature, draco, format, path, sizeBytes, namaqualand_boulder_02, rock
 Cohesion: 0.27
 Nodes (7): CALENDAR_2026_SPECS, convertGeoJsonToControlPoints(), __dirname, formatIndexModule(), formatTrackModule(), main(), OUT_DIR
 
-### Community 35 - "CareerStorage.js"
-Cohesion: 0.13
-Nodes (31): calculateRacePrize(), CAREER_STORAGE_KEY, clampByte(), clampUnit(), clampUpgrade(), createDefaultCareerState(), deriveDriverCode(), DIFFICULTY_PRIZE_MULTIPLIER (+23 more)
+### Community 35 - "PitLaneManager.js"
+Cohesion: 0.10
+Nodes (34): beginGarageAutoParking(), beginGarageExit(), beginRacePitStop(), clamp(), computePitStopVisualState(), createInitialPitLaneState(), evalCubicBezier(), evalCubicBezierDeriv() (+26 more)
 
-### Community 36 - "c"
+### Community 36 - "Na"
 Cohesion: 0.12
-Nodes (22): c(), $b(), Bf(), Cg(), Df(), Dg(), Hd(), Ib() (+14 more)
+Nodes (45): c(), Ad(), ag(), Bf(), Cg(), Df(), Dg(), Fa() (+37 more)
 
-### Community 37 - "SceneManager.js"
-Cohesion: 0.13
-Nodes (14): DAY_TRACK_RANDOM_POOL, DEFAULT_SKY_PRESET_OPTION, getNextWeatherCyclePreset(), isNightCircuit(), loadSavedSkyPresetOption(), NIGHT_CIRCUIT_IDS, NIGHT_TRACK_RANDOM_POOL, PURE_SKY_HDR_SUN_HEADING_RAD (+6 more)
+### Community 37 - ".startSession"
+Cohesion: 0.15
+Nodes (16): BOT_AI_MAX_LEVEL, BOT_AI_MIN_LEVEL, clamp(), computeCareerPrizeMultiplier(), loadPhysicsSettings(), normalizePhysicsSettings(), PHYSICS_SETTINGS_STORAGE_KEY, physicsSettingsFromLegacyDifficulty() (+8 more)
 
 ### Community 38 - "callRuntimeCallbacks"
 Cohesion: 0.32
 Nodes (8): addOnPostRun(), addOnPreRun(), callRuntimeCallbacks(), initRuntime(), postRun(), preRun(), run(), doRun()
 
-### Community 39 - "Crediti e Licenze Asset 3D"
-Cohesion: 0.33
-Nodes (5): 1. Texture PBR 2K — Poly Haven & AmbientCG (CC0 Public Domain), 2. HDRI Sky & Environment Reflections — Poly Haven (CC0 Public Domain), 3. Modelli 3D Natura, Pista & Officina — Poly Haven (CC0 Public Domain), 4. Monoposto, Piloti e Garage F1 — Sketchfab (CC-BY / CC-BY-NC-SA), Crediti e Licenze Asset 3D
+### Community 39 - "NightLightingConfig.js"
+Cohesion: 0.16
+Nodes (16): three, AUTO_QUALITY_FALLBACK, DEFAULT_NIGHT_QUALITY, FLOODLIGHT_PARAMS, getLowerNightQuality(), getNightCircuitProfile(), loadSavedNightQuality(), NIGHT_CIRCUIT_PROFILES (+8 more)
 
 ### Community 40 - "scripts"
 Cohesion: 0.33
@@ -261,37 +277,29 @@ Nodes (6): scripts, assets:fetch-cc0, assets:import, build, dev, preview
 Cohesion: 0.33
 Nodes (5): dracoDecoderPath, drivers, garage, generatedAt, version
 
-### Community 42 - "ferrari"
-Cohesion: 0.33
-Nodes (6): cars, ferrari, draco, path, sizeBytes, source
-
-### Community 43 - "SceneManager"
-Cohesion: 0.14
-Nodes (6): getNightQualityConfig(), SceneManager, BIOME_PRESETS, getTrackBiomeConfig(), NIGHT_URBAN_OVERRIDES, TRACK_BIOME_MAP
+### Community 42 - "RoomManager"
+Cohesion: 0.16
+Nodes (5): generateRoomCode(), getBrokerPeerId(), loadPeerClass(), normalizeRoomCode(), RoomManager
 
 ### Community 44 - "NightSky"
-Cohesion: 0.30
+Cohesion: 0.24
 Nodes (5): computeGalacticBasis(), computeMoonDirection(), degToRad(), mulberry32(), NightSky
 
-### Community 45 - "fern_02"
-Cohesion: 0.40
-Nodes (5): draco, format, path, sizeBytes, fern_02
+### Community 45 - "keybindings.js"
+Cohesion: 0.14
+Nodes (15): ACTION_IDS, DEFAULT_KEYBINDINGS, FORBIDDEN_CODES, formatKeyCodeLabel(), isBindableKeyCode(), KEYBIND_ACTIONS, KEYBINDINGS_STORAGE_KEY, loadKeybindings() (+7 more)
 
-### Community 46 - "grass_medium_01"
+### Community 46 - "PitLaneConfig.js"
 Cohesion: 0.40
-Nodes (5): draco, format, path, sizeBytes, grass_medium_01
+Nodes (4): COMPACT_STREET_SPEC, DEFAULT_PIT_LANE_SPEC, PIT_LANE_CONFIG_BY_TRACK, WIDE_PERMANENT_SPEC
 
 ### Community 47 - "garage"
 Cohesion: 0.25
 Nodes (8): draco, format, path, sizeBytes, Drill_01, models, garage, optional
 
-### Community 48 - "CameraController"
-Cohesion: 0.22
-Nodes (5): CAMERA_MODES, CAMERA_FEEL_CONFIG, CameraController, clamp(), MAX_ONBOARD_HORIZON_PITCH_RAD
-
-### Community 49 - "TrackFloodlights"
-Cohesion: 0.15
-Nodes (17): three, assetManager3D, AUTO_QUALITY_FALLBACK, DEFAULT_NIGHT_QUALITY, FLOODLIGHT_PARAMS, getLowerNightQuality(), getNightCircuitProfile(), loadSavedNightQuality() (+9 more)
+### Community 49 - "HudOverlay.js"
+Cohesion: 0.14
+Nodes (19): CAMERA_MODES, FIXED_DT, LOCAL_PLAYER_ID, MAX_ACCUMULATED_TIME, SIMULATION_TICK_RATE, SURFACE_PHYSICS, TIMING_CONFIG, TIRE_COMPOUND_IDS (+11 more)
 
 ### Community 50 - "hdri"
 Cohesion: 0.15
@@ -301,21 +309,21 @@ Nodes (13): hdri, clear_day, cloudy_sunset, dry, heavy_rain, night, night_clear,
 Cohesion: 0.40
 Nodes (5): metal_tool_chest, draco, format, path, sizeBytes
 
-### Community 52 - "power_box_01"
-Cohesion: 0.40
-Nodes (5): power_box_01, draco, format, path, sizeBytes
+### Community 52 - "TrackSurface.js"
+Cohesion: 0.15
+Nodes (20): COLLISION_CONFIG, applyWallBounce(), GARAGE_COLLISION_BYPASS_STATES, resolveCarToCarCollisions(), resolveTrackBarrierCollision(), updateCarLocalVelocityFromWorld(), getPitLaneConfig(), buildPitLaneData() (+12 more)
 
-### Community 53 - "security_camera_01"
-Cohesion: 0.40
-Nodes (5): security_camera_01, draco, format, path, sizeBytes
+### Community 53 - "initGame"
+Cohesion: 0.16
+Nodes (3): GameLoop, InputManager, initGame()
 
 ### Community 54 - "steel_frame_shelves_01"
 Cohesion: 0.40
 Nodes (5): steel_frame_shelves_01, draco, format, path, sizeBytes
 
-### Community 55 - "modular_chainlink_fence"
-Cohesion: 0.40
-Nodes (5): draco, format, path, sizeBytes, modular_chainlink_fence
+### Community 55 - "ModalManager"
+Cohesion: 0.20
+Nodes (4): isElement(), isHtmlBtn(), isHtmlEl(), ModalManager
 
 ### Community 56 - "Importazione Modelli Sketchfab (Drop-in Automatico)"
 Cohesion: 0.50
@@ -329,13 +337,13 @@ Nodes (9): diff, nor_gl, rough, diff, nor_gl, rough, textures, asphalt_track (+1
 Cohesion: 0.50
 Nodes (4): diff, nor_gl, rough, asphalt_pit_lane
 
-### Community 59 - "coast_sand_01"
-Cohesion: 0.50
-Nodes (4): diff, nor_gl, rough, coast_sand_01
+### Community 59 - "WeatherAndTireFx"
+Cohesion: 0.07
+Nodes (25): 1. Texture PBR 2K — Poly Haven & AmbientCG (CC0 Public Domain), 2. HDRI Sky & Environment Reflections — Poly Haven (CC0 Public Domain), 3. Modelli 3D Natura, Pista & Officina — Poly Haven (CC0 Public Domain), 4. Monoposto, Piloti e Garage F1 — Sketchfab (CC-BY / CC-BY-NC-SA), Crediti e Licenze Asset 3D, 1. Stack Tecnico & Comandi Rapidi, 2. Architettura a Layer, 3. Struttura Completa del Progetto (+17 more)
 
-### Community 60 - "concrete_wall_007"
-Cohesion: 0.50
-Nodes (4): diff, nor_gl, rough, concrete_wall_007
+### Community 60 - "WorldState.js"
+Cohesion: 0.19
+Nodes (16): DEFAULT_DIFFICULTY_ID, DIFFICULTY_LEVELS, F1_2026_DRIVERS, F1_2026_TEAMS, TRACK_RECOVERY_BYPASS_PIT_STATES, buildQualifyingStandings(), computeSimulatedQualifyingLap(), createInitialQualifyingState() (+8 more)
 
 ### Community 61 - "grass_004"
 Cohesion: 0.50
@@ -345,9 +353,9 @@ Nodes (4): diff, nor_gl, rough, grass_004
 Cohesion: 0.50
 Nodes (4): diff, nor_gl, rough, gravelly_sand
 
-### Community 63 - "metal_plate"
-Cohesion: 0.50
-Nodes (4): diff, nor_gl, rough, metal_plate
+### Community 63 - "createF1CarMesh"
+Cohesion: 0.17
+Nodes (16): buildGlbDriverGroup(), clamp(), createCockpitSteeringOverlay(), createF1CarMesh(), createHelmetShellGeometry(), createWheelAssembly(), getCachedGlbSidewallMaterial(), getCachedGlbTreadMaterial() (+8 more)
 
 ### Community 64 - "emscripten_realloc_buffer"
 Cohesion: 0.50
@@ -357,36 +365,112 @@ Nodes (4): emscripten_realloc_buffer(), _emscripten_resize_heap(), getHeapMax(),
 Cohesion: 0.50
 Nodes (4): ensureString(), intArrayFromString(), lengthBytesUTF8(), stringToUTF8Array()
 
-### Community 67 - "PhysicsDiagnostics.js"
-Cohesion: 0.18
-Nodes (26): getCarSpecsForLevel(), ADVANCED_PHYSICS_CONFIG, VIRTUAL_INPUT_CONFIG, getDifficultyConfig(), clamp(), moveTowards(), stepVirtualInput(), clamp() (+18 more)
+### Community 66 - ".constructor"
+Cohesion: 0.22
+Nodes (5): loadSavedSkyPresetOption(), BIOME_PRESETS, getTrackBiomeConfig(), NIGHT_URBAN_OVERRIDES, TRACK_BIOME_MAP
 
-### Community 72 - "Db"
-Cohesion: 0.21
-Nodes (12): Db(), jh(), ji(), Lf(), Mf(), mh(), mi(), of() (+4 more)
+### Community 67 - "CarPhysics.js"
+Cohesion: 0.18
+Nodes (30): getCarSpecsForLevel(), ADVANCED_PHYSICS_CONFIG, getDifficultyConfig(), clamp(), createInitialAeroTireState(), fitFreshTires(), getTireCompoundSpec(), updateAeroAndTires() (+22 more)
+
+### Community 68 - "UiTheme.js"
+Cohesion: 0.17
+Nodes (16): clampByte(), DEFAULT_KEY_HINTS, escapeAttr(), generateLowPolyBackgroundSvg(), generateTeamEmblemSvg(), hash2D(), mixRgb(), parseHexRgb() (+8 more)
+
+### Community 69 - "MenuManager.js"
+Cohesion: 0.13
+Nodes (17): buildCarSpecsFromUpgrades(), CAR_LEVEL_PRESETS, clampUpgradeLevel(), UPGRADE_CATEGORIES, UPGRADE_MAX_LEVEL, DEFAULT_PHYSICS_SETTINGS, CAMERA_FEEL_CONFIG, CAMERA_STORAGE_KEY (+9 more)
+
+### Community 71 - "SceneManager.js"
+Cohesion: 0.16
+Nodes (15): DAY_TRACK_RANDOM_POOL, DEFAULT_SKY_PRESET_OPTION, getNextWeatherCyclePreset(), getSkyPresetById(), isNightCircuit(), NIGHT_CIRCUIT_IDS, NIGHT_TRACK_RANDOM_POOL, PURE_SKY_HDR_SUN_HEADING_RAD (+7 more)
 
 ### Community 73 - "build-custom-asphalt-pbr.mjs"
 Cohesion: 0.27
 Nodes (9): clamp(), main(), mulberry32(), OUT_DIR, ROOT, sampleTransform(), SOURCE_PATH, synthesizeToroidalLayer() (+1 more)
 
+### Community 74 - "PitGuideOverlay3D"
+Cohesion: 0.33
+Nodes (4): clamp(), createChevronTexture(), PitGuideOverlay3D, smoothstep01()
+
+### Community 75 - "Richiesta Pianificazione — PIANO PRE STEP 4"
+Cohesion: 0.22
+Nodes (8): 1. Pit Lane, Box Scuderie e Aggiornamento Piano 3D, 2. Interfaccia (HUD), Minimappe e Transizioni, 3. Nuovo Flusso Qualifiche (Q1 → Q2 → Q3 → Griglia di Gara), 4. Miglioramento Bot e Valutazione IA, 5. Fisica: Degrado Gomme, Pit Stop e Sezione Impostazioni "FISICA", 6. Modalità Carriera Predefinita (Calendario Fisso + 3 Preset), Deliverable Richiesti, Richiesta Pianificazione — PIANO PRE STEP 4
+
+### Community 76 - "PitStopAnimator3D.js"
+Cohesion: 0.31
+Nodes (5): CORNER_DEFS, createMechanicMesh(), createPitStopRig(), createSpareWheelMesh(), PitStopAnimator3D
+
+### Community 77 - "Vc"
+Cohesion: 0.50
+Nodes (8): Ba(), Ca(), Eg(), ic(), nb(), Nc(), Pd(), Vc()
+
+### Community 79 - "._syncHomeScreen"
+Cohesion: 0.36
+Nodes (4): getCareerConstructorStandings(), getCareerDriverStandings(), generateTrackOutlineSvg(), getTrackCornersCount()
+
+### Community 80 - "ferrari"
+Cohesion: 0.33
+Nodes (6): cars, ferrari, draco, path, sizeBytes, source
+
+### Community 81 - "fern_02"
+Cohesion: 0.40
+Nodes (5): draco, format, path, sizeBytes, fern_02
+
+### Community 82 - "power_box_01"
+Cohesion: 0.40
+Nodes (5): power_box_01, draco, format, path, sizeBytes
+
+### Community 83 - "security_camera_01"
+Cohesion: 0.40
+Nodes (5): security_camera_01, draco, format, path, sizeBytes
+
+### Community 84 - "TrackFloodlights"
+Cohesion: 0.22
+Nodes (3): computeFloodlightTowers(), createLightPoolTexture(), TrackFloodlights
+
+### Community 85 - "grass_medium_01"
+Cohesion: 0.40
+Nodes (5): draco, format, path, sizeBytes, grass_medium_01
+
+### Community 86 - "modular_chainlink_fence"
+Cohesion: 0.40
+Nodes (5): draco, format, path, sizeBytes, modular_chainlink_fence
+
+### Community 87 - "coast_sand_01"
+Cohesion: 0.50
+Nodes (4): diff, nor_gl, rough, coast_sand_01
+
+### Community 88 - "concrete_wall_007"
+Cohesion: 0.50
+Nodes (4): diff, nor_gl, rough, concrete_wall_007
+
+### Community 89 - "metal_plate"
+Cohesion: 0.50
+Nodes (4): diff, nor_gl, rough, metal_plate
+
+### Community 90 - "Ib"
+Cohesion: 1.00
+Nodes (3): $b(), Ib(), Nf()
+
 ## Knowledge Gaps
 - **5 isolated node(s):** `graphify explain`, `graphify path`, `graphify section`, `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 329 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 409 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Cartella `src/`` connect `draco_wasm_wrapper.js` to `TrackMapHud`, `MenuManager`, `WeatherAndTireFx`, `initGame`, `main.js`, `TimingSystem.js`, `SceneManager`, `WorldState`, `TrackBuilder.js`, `AssetManager3D`?**
-  _High betweenness centrality (0.344) - this node is a cross-community bridge._
+- **Why does `Cartella `src/`` connect `draco_wasm_wrapper.js` to `MenuManager`, `.startSession`, `main.js`, `RoomManager`, `SceneManager`, `queryTrackSurface`, `WorldState`, `TrackMapHud`, `TrackSurface.js`, `initGame`, `AssetManager3D`, `WeatherAndTireFx`?**
+  _High betweenness centrality (0.332) - this node is a cross-community bridge._
 - **Are the 178 inferred relationships involving `ha()` (e.g. with `ac()` and `Ad()`) actually correct?**
   _`ha()` has 178 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `graphify explain`, `graphify path`, `graphify section` to the rest of the system?**
   _5 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Prompt per Antigravity — Gioco di F1 realistico (web app 3D)` be split into smaller, more focused modules?**
   _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
-- **Why does `Yh()` connect `draco_wasm_wrapper.js` to `Db`, `v`, `ma`, `ha`?**
-  _High betweenness centrality (0.156) - this node is a cross-community bridge._
+- **Why does `Yh()` connect `draco_wasm_wrapper.js` to `v`, `ma`, `ha`?**
+  _High betweenness centrality (0.151) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `ja()` (e.g. with `ha()` and `e()`) actually correct?**
   _`ja()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `package.json` be split into smaller, more focused modules?**

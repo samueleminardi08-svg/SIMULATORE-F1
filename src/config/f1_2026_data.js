@@ -6,6 +6,45 @@
 export const RACE_TOTAL_LAPS = 10;
 export const CAREER_RACE_LAPS = 5;
 
+export const DEFAULT_CAREER_PRESET_ID = 'standard';
+
+export const CAREER_WEEKEND_PRESETS = {
+  quick: {
+    id: 'quick',
+    label: 'Rapido',
+    shortLabel: 'Rapido',
+    meta: 'Q 5/3/2m • 3 Giri',
+    qualifyingDurations: { Q1: 300, Q2: 180, Q3: 120 },
+    raceLaps: 3,
+  },
+  standard: {
+    id: 'standard',
+    label: 'Standard',
+    shortLabel: 'Standard',
+    meta: 'Q 8/5/3m • 5 Giri',
+    qualifyingDurations: { Q1: 480, Q2: 300, Q3: 180 },
+    raceLaps: 5,
+  },
+  long: {
+    id: 'long',
+    label: 'Lungo',
+    shortLabel: 'Lungo',
+    meta: 'Q 11/7/4m • 7 Giri',
+    qualifyingDurations: { Q1: 660, Q2: 420, Q3: 240 },
+    raceLaps: 7,
+  },
+};
+
+export const CAREER_WEEKEND_PRESET_LIST = [
+  CAREER_WEEKEND_PRESETS.quick,
+  CAREER_WEEKEND_PRESETS.standard,
+  CAREER_WEEKEND_PRESETS.long,
+];
+
+export function getCareerWeekendPreset(presetId = DEFAULT_CAREER_PRESET_ID) {
+  return CAREER_WEEKEND_PRESETS[presetId] || CAREER_WEEKEND_PRESETS[DEFAULT_CAREER_PRESET_ID];
+}
+
 export const F1_2026_TEAMS = {
   mclaren: {
     id: 'mclaren',

@@ -4,7 +4,7 @@
  * e navigazione da tastiera interna (←/→, ↑/↓, Invio) senza duplicare eventi Esc con il GameLoop.
  */
 
-const CHOICE_CYCLE_SELECTOR = '.menu-choice-btn:not([disabled])';
+const CHOICE_CYCLE_SELECTOR = '.menu-choice-btn:not([disabled]), .f1-pit-tyre-card:not([disabled])';
 
 const isElement = (el) => typeof Element !== 'undefined' && el instanceof Element;
 const isHtmlEl = (el) => typeof HTMLElement !== 'undefined' && el instanceof HTMLElement;
@@ -18,6 +18,7 @@ export class ModalManager {
     /** @type {string[]} */
     this._activeOrder = [];
     this._targetWindow = targetWindow;
+    this._keyboardSuspended = false;
 
     this._onKeyDown = (event) => this._handleKeyDown(event);
     if (this._targetWindow) {
@@ -177,10 +178,15 @@ export class ModalManager {
     }
   }
 
+  setKeyboardSuspended(suspended) {
+    this._keyboardSuspended = Boolean(suspended);
+  }
+
   /**
    * Gestisce il tasto Esc delegato dal controller principale; ritorna true se ha chiuso una modale.
    */
   handleEscape() {
+    if (this._keyboardSuspended) return true;
     const activeId = this.getActiveModalId();
     if (!activeId) return false;
     this.close(activeId, 'escape');
@@ -252,6 +258,7 @@ export class ModalManager {
   }
 
   _handleKeyDown(event) {
+    if (this._keyboardSuspended) return;
     const activeId = this.getActiveModalId();
     if (!activeId) return;
     const entry = this._modals.get(activeId);
@@ -302,10 +309,11 @@ export class ModalManager {
     if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       const delta = event.code === 'ArrowRight' ? 1 : -1;
       const focusedGroup = isElement(activeEl)
-        ? activeEl.closest('.menu-btn-group, .finish-actions, .f1-modal-footer')
+        ? activeEl.closest('.menu-btn-group, .f1-pit-tyre-grid, .finish-actions, .f1-modal-footer')
         : null;
       const targetGroup =
         focusedGroup ||
+        root.querySelector('.f1-pit-tyre-grid') ||
         root.querySelector('.menu-btn-group') ||
         root.querySelector('.finish-actions, .f1-modal-footer');
       if (!targetGroup) return;
@@ -357,7 +365,7 @@ export class ModalManager {
     }
 
     if (event.code === 'Enter') {
-      if (isHtmlBtn(activeEl) && root.contains(activeEl)) {
+      if (isHtmlBtn(activeEl) && root.contains(activeEl) && !activeEl.matches('.f1-pit-tyre-card')) {
         return;
       }
       const primaryBtn = root.querySelector('[data-modal-primary]:not([disabled])');

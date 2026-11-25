@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three';
+import { CAR_PHYSICS_CONFIG, TIRE_COMPOUNDS } from '../config/constants.js';
 import { assetManager3D } from '../rendering/AssetManager3D.js';
 import { queryTrackSurface } from '../tracks/TrackSurface.js';
 
@@ -1062,6 +1063,785 @@ function ensureGlbTemplateLoaded() {
   return glbLoadPromise;
 }
 
+const TIRE_TREAD_TEXTURE_SET_CACHE = new Map();
+const GLB_TREAD_MATERIAL_CACHE = new Map();
+const GLB_SIDEWALL_MATERIAL_CACHE = new Map();
+const SIDEWALL_TEXTURE_CACHE = new Map();
+
+function seededRand01(seed) {
+  let s = seed | 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) | 0;
+    return ((s >>> 0) % 10000) / 10000;
+  };
+}
+
+/**
+ * Genera (e memorizza in cache globale) un set PBR HD per il battistrada:
+ * - `map` 1024×1024 (albedo gomma slick / scanalature Wet / graining / blistering)
+ * - `bumpMap` 512×512 (micro-grana vulcanizzata, intagli Wet, creste graining e crateri blister)
+ * - `roughnessMap` 512×512 (satinatura slick centrale vs spalle opache, gessosità graining e strappi)
+ * Aggiornato solo a gradini discreti del 5% (0..20) per zero costo FPS in gara.
+ */
+export function getTireTreadTextureSet(gBin = 0, bBin = 0, compoundId = 'M') {
+  if (typeof document === 'undefined') return null;
+  const safeG = clamp(Math.round(gBin), 0, 20);
+  const safeB = clamp(Math.round(bBin), 0, 20);
+  const comp = TIRE_COMPOUNDS[compoundId] ? compoundId : 'M';
+  const key = `${comp}|${safeG}|${safeB}`;
+  if (TIRE_TREAD_TEXTURE_SET_CACHE.has(key)) {
+    return TIRE_TREAD_TEXTURE_SET_CACHE.get(key);
+  }
+
+  const size = 1024;
+  const mapCanvas = document.createElement('canvas');
+  mapCanvas.width = size;
+  mapCanvas.height = size;
+  const ctx = mapCanvas.getContext('2d');
+  if (!ctx) return null;
+
+  const auxSize = 512;
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = auxSize;
+  bumpCanvas.height = auxSize;
+  const bCtx = bumpCanvas.getContext('2d');
+
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = auxSize;
+  roughCanvas.height = auxSize;
+  const rCtx = roughCanvas.getContext('2d');
+
+  const gRatio = safeG / 20;
+  const bRatio = safeB / 20;
+  const rand = seededRand01(safeG * 97 + safeB * 521 + comp.charCodeAt(0) * 31);
+  const sAux = auxSize / size;
+
+  // 1. Base gomma Pirelli ad alta definizione con sfumatura realistica centro-spalle
+  const baseGrad = ctx.createLinearGradient(0, 0, size, 0);
+  if (comp === 'W') {
+    baseGrad.addColorStop(0.0, '#101318');
+    baseGrad.addColorStop(0.16, '#151920');
+    baseGrad.addColorStop(0.5, '#191e26');
+    baseGrad.addColorStop(0.84, '#151920');
+    baseGrad.addColorStop(1.0, '#101318');
+  } else {
+    baseGrad.addColorStop(0.0, '#12151a');
+    baseGrad.addColorStop(0.14, '#191d24');
+    baseGrad.addColorStop(0.5, '#21252d');
+    baseGrad.addColorStop(0.86, '#191d24');
+    baseGrad.addColorStop(1.0, '#12151a');
+  }
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  if (bCtx) {
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, auxSize, auxSize);
+  }
+  if (rCtx) {
+    // Centro slick caldo leggermente più satinato (~0.62), spalle più opache (~0.82)
+    const rGrad = rCtx.createLinearGradient(0, 0, auxSize, 0);
+    const centerR = comp === 'W' ? 142 : 162;
+    const edgeR = comp === 'W' ? 184 : 212;
+    rGrad.addColorStop(0.0, `rgb(${edgeR},${edgeR},${edgeR})`);
+    rGrad.addColorStop(0.22, `rgb(${centerR + 14},${centerR + 14},${centerR + 14})`);
+    rGrad.addColorStop(0.5, `rgb(${centerR},${centerR},${centerR})`);
+    rGrad.addColorStop(0.78, `rgb(${centerR + 14},${centerR + 14},${centerR + 14})`);
+    rGrad.addColorStop(1.0, `rgb(${edgeR},${edgeR},${edgeR})`);
+    rCtx.fillStyle = rGrad;
+    rCtx.fillRect(0, 0, auxSize, auxSize);
+  }
+
+  // Micro-grana vulcanizzata fine (2200 fibre circonferenziali realistiche)
+  for (let i = 0; i < 2200; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const w = 1.0 + rand() * 3.2;
+    const h = 6 + rand() * 24;
+    const shade = 20 + Math.floor(rand() * 20);
+    ctx.fillStyle = `rgba(${shade},${shade + 2},${shade + 5},0.55)`;
+    ctx.fillRect(x, y, w, h);
+    if (bCtx && i < 1200) {
+      const bVal = 114 + Math.floor(rand() * 28);
+      bCtx.fillStyle = `rgb(${bVal},${bVal},${bVal})`;
+      bCtx.fillRect(x * sAux, y * sAux, Math.max(1, w * sAux), Math.max(2, h * sAux));
+    }
+  }
+
+  // Sottili bande di rotolamento + linea di giunzione stampo Pirelli (scompare con l'usura)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.032)';
+  ctx.lineWidth = 1.5;
+  for (let x = 22; x < size; x += 28) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, size);
+    ctx.stroke();
+  }
+  if (gRatio < 0.25 && bRatio < 0.25 && comp !== 'W') {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
+    ctx.fillRect(size * 0.497, 0, 5, size);
+    if (bCtx) {
+      bCtx.fillStyle = 'rgba(165, 165, 165, 0.5)';
+      bCtx.fillRect(auxSize * 0.496, 0, 3, auxSize);
+    }
+  }
+
+  // 2. Mescola Full Wet ('W'): canali longitudinali profondi + scolpitura drenante a V ad alta definizione
+  if (comp === 'W') {
+    const drawWetGrooves = (targetCtx, scale, grooveColor, ribHighlight, lw) => {
+      targetCtx.fillStyle = grooveColor;
+      targetCtx.fillRect(size * 0.31 * scale, 0, 22 * scale, size * scale);
+      targetCtx.fillRect(size * 0.67 * scale, 0, 22 * scale, size * scale);
+      targetCtx.strokeStyle = grooveColor;
+      targetCtx.lineWidth = lw * scale;
+      targetCtx.lineCap = 'round';
+      for (let y = -size; y < size * 2; y += 76) {
+        targetCtx.beginPath();
+        targetCtx.moveTo(0, (y + 62) * scale);
+        targetCtx.lineTo(size * 0.5 * scale, y * scale);
+        targetCtx.lineTo(size * scale, (y + 62) * scale);
+        targetCtx.stroke();
+      }
+      if (ribHighlight) {
+        targetCtx.strokeStyle = ribHighlight;
+        targetCtx.lineWidth = 2.5 * scale;
+        for (let y = -size; y < size * 2; y += 76) {
+          targetCtx.beginPath();
+          targetCtx.moveTo(0, (y + 52) * scale);
+          targetCtx.lineTo(size * 0.5 * scale, (y - 10) * scale);
+          targetCtx.lineTo(size * scale, (y + 52) * scale);
+          targetCtx.stroke();
+        }
+      }
+    };
+    drawWetGrooves(ctx, 1, '#080a0e', 'rgba(255,255,255,0.06)', 20);
+    if (bCtx) drawWetGrooves(bCtx, sAux, '#1c1c1c', '#a8a8a8', 22);
+    if (rCtx) drawWetGrooves(rCtx, sAux, '#5a5a5a', null, 20);
+  }
+
+  // 3. Graining (usura a freddo: fascia grigia gessosa multi-strato, striature e marbles di gomma)
+  if (gRatio >= 0.1) {
+    const bandAlpha = 0.18 + gRatio * 0.56;
+    const grad = ctx.createLinearGradient(0, 0, size, 0);
+    grad.addColorStop(0.0, 'rgba(138, 144, 154, 0)');
+    grad.addColorStop(0.16, `rgba(148, 154, 164, ${(bandAlpha * 0.72).toFixed(3)})`);
+    grad.addColorStop(0.5, `rgba(182, 188, 198, ${bandAlpha.toFixed(3)})`);
+    grad.addColorStop(0.84, `rgba(148, 154, 164, ${(bandAlpha * 0.72).toFixed(3)})`);
+    grad.addColorStop(1.0, 'rgba(138, 144, 154, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    if (rCtx) {
+      const rg = rCtx.createLinearGradient(0, 0, auxSize, 0);
+      const a = (0.35 + gRatio * 0.6).toFixed(3);
+      rg.addColorStop(0.0, 'rgba(242,242,242,0)');
+      rg.addColorStop(0.2, `rgba(242,242,242,${a})`);
+      rg.addColorStop(0.8, `rgba(242,242,242,${a})`);
+      rg.addColorStop(1.0, 'rgba(242,242,242,0)');
+      rCtx.fillStyle = rg;
+      rCtx.fillRect(0, 0, auxSize, auxSize);
+    }
+
+    const streakCount = Math.round(90 + gRatio * 340);
+    for (let i = 0; i < streakCount; i++) {
+      const sx = size * (0.11 + rand() * 0.78);
+      const sy = rand() * size;
+      const sw = 2.0 + rand() * 5.5;
+      const sh = 24 + rand() * 96;
+      const a = 0.10 + rand() * gRatio * 0.34;
+      ctx.fillStyle = `rgba(202, 208, 218, ${a.toFixed(3)})`;
+      ctx.fillRect(sx, sy, sw, sh);
+      if (bCtx && i % 2 === 0) {
+        bCtx.fillStyle = `rgba(195, 195, 195, ${(0.22 + gRatio * 0.4).toFixed(3)})`;
+        bCtx.fillRect(sx * sAux, sy * sAux, Math.max(1, sw * sAux), Math.max(4, sh * sAux));
+      }
+    }
+    const pillCount = Math.round(70 + gRatio * 260);
+    for (let i = 0; i < pillCount; i++) {
+      const px = size * (0.12 + rand() * 0.76);
+      const py = rand() * size;
+      const pr = 2.0 + rand() * 5.2;
+      ctx.fillStyle = `rgba(126, 132, 142, ${(0.28 + gRatio * 0.45).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fill();
+      if (bCtx) {
+        bCtx.fillStyle = `rgba(225, 225, 225, ${(0.25 + gRatio * 0.45).toFixed(3)})`;
+        bCtx.beginPath();
+        bCtx.arc(px * sAux, py * sAux, pr * sAux, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+    }
+  }
+
+  // 4. Blistering (surriscaldamento: fascia bruciata + crateri scuri con bordo termico lacerato in bumpMap)
+  if (bRatio >= 0.1) {
+    const scorchAlpha = 0.24 + bRatio * 0.54;
+    const scorchGrad = ctx.createLinearGradient(0, 0, size, 0);
+    scorchGrad.addColorStop(0.0, 'rgba(9, 8, 9, 0)');
+    scorchGrad.addColorStop(0.22, `rgba(11, 9, 10, ${(scorchAlpha * 0.85).toFixed(3)})`);
+    scorchGrad.addColorStop(0.5, `rgba(16, 12, 10, ${scorchAlpha.toFixed(3)})`);
+    scorchGrad.addColorStop(0.78, `rgba(11, 9, 10, ${(scorchAlpha * 0.85).toFixed(3)})`);
+    scorchGrad.addColorStop(1.0, 'rgba(9, 8, 9, 0)');
+    ctx.fillStyle = scorchGrad;
+    ctx.fillRect(0, 0, size, size);
+
+    const craterCount = Math.round(28 + bRatio * 180);
+    for (let i = 0; i < craterCount; i++) {
+      const cx = size * (0.18 + rand() * 0.64);
+      const cy = rand() * size;
+      const rx = 5.0 + rand() * (7.5 + bRatio * 14.0);
+      const ry = 7.0 + rand() * (10.5 + bRatio * 19.0);
+      const ang = rand() * Math.PI;
+
+      // Alone termico del cratere (gomma lacerata grigio-bruno)
+      ctx.fillStyle = `rgba(120, 96, 80, ${(0.30 + bRatio * 0.44).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx + 3.2, ry + 3.2, ang, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Interno profondo del blister
+      ctx.fillStyle = `rgba(5, 6, 8, ${(0.66 + bRatio * 0.30).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, ang, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (bCtx) {
+        bCtx.fillStyle = 'rgba(218, 218, 218, 0.72)';
+        bCtx.beginPath();
+        bCtx.ellipse(cx * sAux, cy * sAux, (rx + 2.5) * sAux, (ry + 2.5) * sAux, ang, 0, Math.PI * 2);
+        bCtx.fill();
+        bCtx.fillStyle = 'rgba(18, 18, 18, 0.92)';
+        bCtx.beginPath();
+        bCtx.ellipse(cx * sAux, cy * sAux, rx * sAux, ry * sAux, ang, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+      if (rCtx) {
+        rCtx.fillStyle = 'rgba(248, 248, 248, 0.85)';
+        rCtx.beginPath();
+        rCtx.ellipse(cx * sAux, cy * sAux, (rx + 2) * sAux, (ry + 2) * sAux, ang, 0, Math.PI * 2);
+        rCtx.fill();
+      }
+    }
+  }
+
+  const map = new THREE.CanvasTexture(mapCanvas);
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 16;
+  map.needsUpdate = true;
+
+  let bumpMap = null;
+  if (bCtx) {
+    bumpMap = new THREE.CanvasTexture(bumpCanvas);
+    bumpMap.wrapS = THREE.RepeatWrapping;
+    bumpMap.wrapT = THREE.RepeatWrapping;
+    bumpMap.anisotropy = 8;
+    bumpMap.needsUpdate = true;
+  }
+
+  let roughnessMap = null;
+  if (rCtx) {
+    roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.RepeatWrapping;
+    roughnessMap.wrapT = THREE.RepeatWrapping;
+    roughnessMap.anisotropy = 8;
+    roughnessMap.needsUpdate = true;
+  }
+
+  const texSet = { map, bumpMap, roughnessMap };
+  TIRE_TREAD_TEXTURE_SET_CACHE.set(key, texSet);
+  return texSet;
+}
+
+export function getTireTreadTexture(gBin = 0, bBin = 0, compoundId = 'M') {
+  return getTireTreadTextureSet(gBin, bBin, compoundId)?.map || null;
+}
+
+function getRecoloredSidewallTexture(baseMap, compoundId = 'M') {
+  if (typeof document === 'undefined') return null;
+  const spec = TIRE_COMPOUNDS[compoundId] || TIRE_COMPOUNDS.M;
+  const key = `${spec.id}|${baseMap?.uuid || 'proc'}`;
+  if (SIDEWALL_TEXTURE_CACHE.has(key)) {
+    return SIDEWALL_TEXTURE_CACHE.get(key);
+  }
+
+  const targetCol = new THREE.Color(spec.colorHex);
+  const tr = targetCol.r;
+  const tg = targetCol.g;
+  const tb = targetCol.b;
+
+  const img = baseMap?.image;
+  if (img && img.width > 0 && img.height > 0) {
+    try {
+      // Mantiene piena risoluzione HD 1024×1024 originale della texture spalla Pirelli SF-26
+      const w = Math.min(1024, img.width);
+      const h = Math.min(1024, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        let recoloredCount = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          // Riconoscimento anti-aliased ad alta precisione della banda rossa Pirelli (zero aloni rossi)
+          const maxGB = Math.max(g, b);
+          const redExcess = r - maxGB;
+          if (r > 78 && redExcess > 24 && r > maxGB * 1.28) {
+            const blend = clamp((redExcess - 20) / 55, 0, 1);
+            const lum = clamp(r / 215, 0.25, 1.08);
+            const nr = Math.min(255, Math.round(tr * 255 * lum));
+            const ng = Math.min(255, Math.round(tg * 255 * lum));
+            const nb = Math.min(255, Math.round(tb * 255 * lum));
+            data[i] = Math.round(r + (nr - r) * blend);
+            data[i + 1] = Math.round(g + (ng - g) * blend);
+            data[i + 2] = Math.round(b + (nb - b) * blend);
+            recoloredCount++;
+          }
+        }
+        if (recoloredCount > 16) {
+          ctx.putImageData(imgData, 0, 0);
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.flipY = baseMap.flipY;
+          tex.wrapS = baseMap.wrapS;
+          tex.wrapT = baseMap.wrapT;
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 16;
+          tex.needsUpdate = true;
+          SIDEWALL_TEXTURE_CACHE.set(key, tex);
+          return tex;
+        }
+      }
+    } catch {
+      // Fallback pulito su anello Pirelli procedurale HD
+    }
+  }
+
+  // Fallback procedurale HD 512×512 con scritte e banda Pirelli del colore mescola
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const swGrad = ctx.createRadialGradient(size / 2, size / 2, size * 0.22, size / 2, size / 2, size * 0.5);
+  swGrad.addColorStop(0, '#12151b');
+  swGrad.addColorStop(0.65, '#191d25');
+  swGrad.addColorStop(1, '#101318');
+  ctx.fillStyle = swGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.strokeStyle = spec.colorHex;
+  ctx.lineWidth = 18;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size * 0.39, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 16;
+  tex.needsUpdate = true;
+  SIDEWALL_TEXTURE_CACHE.set(key, tex);
+  return tex;
+}
+
+function getCachedGlbTreadMaterial(baseMat, compoundId, gBin, bBin) {
+  if (!baseMat) return null;
+  const safeG = clamp(Math.round(gBin), 0, 20);
+  const safeB = clamp(Math.round(bBin), 0, 20);
+  const comp = TIRE_COMPOUNDS[compoundId] ? compoundId : 'M';
+  const key = `${baseMat.uuid}|${comp}|${safeG}|${safeB}`;
+  if (GLB_TREAD_MATERIAL_CACHE.has(key)) {
+    return GLB_TREAD_MATERIAL_CACHE.get(key);
+  }
+  const cloned = baseMat.clone();
+  cloned.name = baseMat.name || 'tyre_tread';
+  const texSet = getTireTreadTextureSet(safeG, safeB, comp);
+  if (texSet?.map) {
+    cloned.map = texSet.map;
+    cloned.color?.setHex?.(0xffffff);
+  }
+  if (texSet?.bumpMap) {
+    cloned.bumpMap = texSet.bumpMap;
+    cloned.bumpScale = comp === 'W' ? 0.028 : 0.012 + (safeG / 20) * 0.012 + (safeB / 20) * 0.020;
+  }
+  if (texSet?.roughnessMap) {
+    cloned.roughnessMap = texSet.roughnessMap;
+  }
+  const gRatio = safeG / 20;
+  const bRatio = safeB / 20;
+  cloned.roughness = texSet?.roughnessMap
+    ? 1.0
+    : clamp(0.68 + gRatio * 0.18 + bRatio * 0.16, 0.62, 0.98);
+  cloned.metalness = 0.05;
+  if ('envMapIntensity' in cloned) {
+    cloned.envMapIntensity = comp === 'W' ? 0.95 : 0.72;
+  }
+  cloned.needsUpdate = true;
+  GLB_TREAD_MATERIAL_CACHE.set(key, cloned);
+  return cloned;
+}
+
+function getCachedGlbSidewallMaterial(baseMat, compoundId) {
+  if (!baseMat) return null;
+  const comp = TIRE_COMPOUNDS[compoundId] ? compoundId : 'M';
+  const key = `${baseMat.uuid}|${comp}`;
+  if (GLB_SIDEWALL_MATERIAL_CACHE.has(key)) {
+    return GLB_SIDEWALL_MATERIAL_CACHE.get(key);
+  }
+  const cloned = baseMat.clone();
+  cloned.name = baseMat.name || 'tyre_sides';
+  if (comp === 'S' && baseMat.map) {
+    baseMat.map.anisotropy = 16;
+    cloned.map = baseMat.map;
+  } else {
+    const recolored = getRecoloredSidewallTexture(baseMat.map, comp);
+    if (recolored) {
+      cloned.map = recolored;
+      cloned.color?.setHex?.(0xffffff);
+    }
+  }
+  cloned.roughness = 0.56;
+  cloned.metalness = 0.06;
+  if ('envMapIntensity' in cloned) {
+    cloned.envMapIntensity = 0.80;
+  }
+  cloned.needsUpdate = true;
+  GLB_SIDEWALL_MATERIAL_CACHE.set(key, cloned);
+  return cloned;
+}
+
+/**
+ * Crea lo schermo LCD OLED dinamico 512×256 del volante F1 (stile EA Sports F1 23/26)
+ * + barra superiore a 15 LED di cambiata + coppia di guanti pilota scolpiti in fibra di carbonio.
+ */
+function createCockpitSteeringOverlay() {
+  const group = new THREE.Group();
+  group.name = 'F1CockpitWheelOverlay';
+
+  // 1. Schermo LCD live allineato esattamente al pannello `sf25_lcd` del volante SF-26
+  let lcdCanvas = null;
+  let lcdCtx = null;
+  let lcdTex = null;
+  if (typeof document !== 'undefined') {
+    lcdCanvas = document.createElement('canvas');
+    lcdCanvas.width = 512;
+    lcdCanvas.height = 256;
+    lcdCtx = lcdCanvas.getContext('2d');
+    if (lcdCtx) {
+      lcdTex = new THREE.CanvasTexture(lcdCanvas);
+      lcdTex.colorSpace = THREE.SRGBColorSpace;
+      lcdTex.anisotropy = 8;
+    }
+  }
+
+  const lcdMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    map: lcdTex,
+    toneMapped: false,
+  });
+  const lcdMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.095, 0.055), lcdMat);
+  // Posizione relativa a STEERING_PIVOT [0, 0.654, 0.438] -> sf25_lcd center (0, 0.698, 0.417)
+  lcdMesh.position.set(0, 0.044, -0.0226);
+  lcdMesh.rotation.y = Math.PI;
+  group.add(lcdMesh);
+
+  // 2. Barra 15 LED shift-light sopra lo schermo LCD (5 verdi, 5 rossi, 5 blu/viola)
+  const ledMats = [];
+  const ledGeo = new THREE.BoxGeometry(0.0046, 0.0042, 0.003);
+  for (let i = 0; i < 15; i++) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0x1e293b, toneMapped: false });
+    const led = new THREE.Mesh(ledGeo, mat);
+    led.position.set(-0.042 + i * 0.006, 0.0755, -0.0218);
+    group.add(led);
+    ledMats.push(mat);
+  }
+
+  // 3. Guanti FIA Nomex scolpiti nero opaco che avvolgono le manopole del volante (visibili solo in Cockpit)
+  const handsGroup = new THREE.Group();
+  handsGroup.name = 'F1CockpitGloves';
+  const gloveMat = new THREE.MeshStandardMaterial({
+    color: 0x0b0d12,
+    roughness: 0.94,
+    metalness: 0.02,
+    envMapIntensity: 0.20,
+  });
+  const knuckleMat = new THREE.MeshStandardMaterial({
+    color: 0x171b24,
+    roughness: 0.58,
+    metalness: 0.25,
+    envMapIntensity: 0.35,
+  });
+  const cuffTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x5c1414,
+    roughness: 0.85,
+    metalness: 0.04,
+    envMapIntensity: 0.15,
+  });
+
+  const fingerGeo = new THREE.CapsuleGeometry(0.0085, 0.026, 6, 10);
+  const palmGeo = new THREE.CapsuleGeometry(0.021, 0.044, 8, 12);
+  const thumbGeo = new THREE.CapsuleGeometry(0.0095, 0.024, 6, 10);
+  const wristGeo = new THREE.CylinderGeometry(0.019, 0.024, 0.13, 14);
+  const cuffGeo = new THREE.TorusGeometry(0.0205, 0.0018, 8, 16);
+
+  // Estensione piantone sterzo in carbonio nero (copre lo spazio verso il cruscotto quando il volante è ravvicinato in cockpit)
+  const columnMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.022, 0.17, 12),
+    gloveMat
+  );
+  columnMesh.rotation.x = Math.PI / 2;
+  columnMesh.position.set(0, 0.0, 0.105);
+  handsGroup.add(columnMesh);
+
+  for (const side of [-1, 1]) {
+    const hand = new THREE.Group();
+    hand.position.set(side * 0.123, -0.012, -0.014);
+
+    // Dorso mano sagomato ad avvolgere la manopola laterale
+    const palm = new THREE.Mesh(palmGeo, gloveMat);
+    palm.scale.set(0.86, 1.0, 1.05);
+    palm.rotation.z = side * 0.18;
+    palm.rotation.x = 0.20;
+    hand.add(palm);
+
+    // 4 dita curve che abbracciano il retro/lato della manopola
+    for (let f = 0; f < 4; f++) {
+      const finger = new THREE.Mesh(fingerGeo, gloveMat);
+      const fy = 0.022 - f * 0.0165;
+      finger.position.set(-side * 0.008, fy, 0.014);
+      finger.rotation.z = Math.PI / 2 - side * 0.12;
+      finger.rotation.y = side * 0.38;
+      hand.add(finger);
+    }
+
+    // Protezione nocche discreta sul dorso
+    const knuckle = new THREE.Mesh(new THREE.CapsuleGeometry(0.006, 0.036, 4, 8), knuckleMat);
+    knuckle.position.set(side * 0.012, 0.004, -0.014);
+    knuckle.rotation.z = side * 0.16;
+    hand.add(knuckle);
+
+    // Pollice appoggiato nell'incavo superiore del volante
+    const thumb = new THREE.Mesh(thumbGeo, gloveMat);
+    thumb.position.set(-side * 0.018, 0.026, -0.012);
+    thumb.rotation.z = side * 0.78;
+    thumb.rotation.x = -0.25;
+    hand.add(thumb);
+
+    // Polso & avambraccio snelli inclinati in basso nell'ombra dell'abitacolo
+    const wrist = new THREE.Mesh(wristGeo, gloveMat);
+    wrist.rotation.x = Math.PI / 2 + 0.68;
+    wrist.rotation.z = -side * 0.22;
+    wrist.position.set(side * 0.014, -0.068, -0.056);
+    hand.add(wrist);
+
+    const cuff = new THREE.Mesh(cuffGeo, cuffTrimMat);
+    cuff.rotation.x = 0.68;
+    cuff.rotation.y = side * 0.20;
+    cuff.position.set(side * 0.009, -0.044, -0.036);
+    hand.add(cuff);
+
+    handsGroup.add(hand);
+  }
+  handsGroup.visible = false;
+  group.add(handsGroup);
+
+  let lastDrawClock = -1;
+
+  const formatShortLap = (sec) => {
+    if (!Number.isFinite(sec) || sec <= 0) return '0:00.000';
+    const m = Math.floor(sec / 60);
+    const s = sec - m * 60;
+    return `${m}:${s < 10 ? '0' : ''}${s.toFixed(3)}`;
+  };
+
+  const updateTelemetry = (carState, clockSec = 0) => {
+    // 1. LED di cambiata RPM sempre reattivi a 60 FPS
+    const rpm = carState?.rpm ?? CAR_PHYSICS_CONFIG.idleRpm;
+    const maxRpm = CAR_PHYSICS_CONFIG.maxRpm || 15000;
+    const rpmNorm = clamp((rpm - 6500) / Math.max(1, maxRpm - 6500), 0, 1);
+    const litCount = Math.round(rpmNorm * 15);
+    const flashShift = rpmNorm >= 0.94 && Math.floor(clockSec * 18) % 2 === 0;
+    for (let i = 0; i < 15; i++) {
+      const mat = ledMats[i];
+      if (flashShift) {
+        mat.color.setHex(0xc084fc);
+      } else if (i < litCount) {
+        if (i < 5) mat.color.setHex(0x22c55e);
+        else if (i < 10) mat.color.setHex(0xef4444);
+        else mat.color.setHex(0x38bdf8);
+      } else {
+        mat.color.setHex(0x18202c);
+      }
+    }
+
+    if (!lcdCtx || !lcdTex) return;
+    if (lastDrawClock >= 0 && clockSec - lastDrawClock < 0.05) return;
+    lastDrawClock = clockSec;
+
+    const ctx = lcdCtx;
+    const w = 512;
+    const h = 256;
+
+    // Sfondo OLED nero profondo F1
+    ctx.fillStyle = '#06090f';
+    ctx.fillRect(0, 0, w, h);
+
+    // Cornice sottile e griglia telemetrica stile F1 23/26
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(4, 4, w - 8, h - 8);
+    ctx.beginPath();
+    ctx.moveTo(4, 62); ctx.lineTo(w - 4, 62);
+    ctx.moveTo(156, 4); ctx.lineTo(156, 188);
+    ctx.moveTo(356, 4); ctx.lineTo(356, 188);
+    ctx.moveTo(4, 188); ctx.lineTo(w - 4, 188);
+    ctx.stroke();
+
+    const speedKmh = Math.round(Math.hypot(carState?.vx ?? 0, carState?.vz ?? 0) * 3.6);
+    const gear = String(carState?.gearLabel || 'N');
+    const aero = carState?.aeroTire || {};
+    const comp = aero.compound || 'M';
+    const compSpec = TIRE_COMPOUNDS[comp] || TIRE_COMPOUNDS.M;
+    const t = carState?.timing || {};
+    const wt = aero.wheelTempC || {
+      fl: aero.tireTempC ?? 90,
+      fr: aero.tireTempC ?? 90,
+      rl: aero.tireTempC ?? 90,
+      rr: aero.tireTempC ?? 90,
+    };
+
+    // TOP LEFT: Velocità / Carico Aero
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '900 28px "Consolas", monospace';
+    ctx.fillText(`${speedKmh}`, 80, 34);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 13px sans-serif';
+    ctx.fillText('KM/H', 80, 52);
+
+    // TOP CENTER: Tempo Giro & Delta live
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 24px "Consolas", monospace';
+    ctx.fillText(formatShortLap(t.currentLapTime ?? 0), 256, 30);
+    const delta = t.liveDelta;
+    const deltaTxt =
+      Number.isFinite(delta)
+        ? `${delta >= 0 ? '+' : ''}${delta.toFixed(3)}`
+        : '±0.000';
+    ctx.fillStyle =
+      Number.isFinite(delta) && delta < -0.005
+        ? '#4ade80'
+        : Number.isFinite(delta) && delta > 0.005
+          ? '#f87171'
+          : '#cbd5e1';
+    ctx.font = '800 18px "Consolas", monospace';
+    ctx.fillText(deltaTxt, 256, 53);
+
+    // TOP RIGHT: Posizione & Mescola
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '900 24px "Consolas", monospace';
+    ctx.fillText(`P${carState?.racePosition ?? 1}`, 412, 34);
+    ctx.fillStyle = compSpec.colorHex;
+    ctx.font = '900 22px sans-serif';
+    ctx.fillText(comp, 474, 34);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 13px "Consolas", monospace';
+    ctx.fillText(`TYRE ${Math.round((aero.tireHealth ?? 1) * 100)}%`, 434, 54);
+
+    // CENTER: MARCIA GIGANTE (stile F1 23)
+    ctx.fillStyle = gear === 'R' ? '#f87171' : '#ffffff';
+    ctx.font = '900 108px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(gear, 256, 158);
+
+    // LEFT & RIGHT: 4 Temperature gomme (FL/RL a sinistra, FR/RR a destra)
+    const drawCornerTemp = (label, tempVal, x, y) => {
+      const tc = Math.round(tempVal ?? 90);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '700 13px sans-serif';
+      ctx.fillText(label, x, y - 2);
+      ctx.fillStyle =
+        tc > compSpec.optTempMax + 6
+          ? '#f87171'
+          : tc < compSpec.optTempMin - 4
+            ? '#38bdf8'
+            : '#fef08a';
+      ctx.font = '800 22px "Consolas", monospace';
+      ctx.fillText(`${tc}°C`, x, y + 20);
+    };
+    drawCornerTemp('FL', wt.fl, 80, 96);
+    drawCornerTemp('RL', wt.rl, 80, 154);
+    drawCornerTemp('FR', wt.fr, 434, 96);
+    drawCornerTemp('RR', wt.rr, 434, 154);
+
+    // BOTTOM STATUS BAR (stile barra arancio/verde "SORPASSO" F1 23 + alert FIA Track Limits)
+    let barBg = '#16a34a';
+    let barTxt = 'GRIP OK • ERS ATTIVO';
+    if (carState?.pitLimiterActive) {
+      barBg = '#2563eb';
+      barTxt = `PIT LIMITER ${carState.pitLimitKmh || 80} KM/H`;
+    } else if ((t.trackLimitAlertTimer ?? 0) > 0) {
+      if (t.trackLimitAlertSeverity === 'bw_flag') {
+        barBg = '#e2e8f0';
+        barTxt = 'BANDIERA BIANCO-NERA • 3/3 TL';
+      } else if (t.trackLimitAlertSeverity === 'penalty') {
+        barBg = '#dc2626';
+        barTxt =
+          t.penaltySeconds > 0
+            ? `PENALITÀ +${t.penaltySeconds}s • TRACK LIMITS`
+            : 'FIA ART. 33.3 • GIRO ANNULLATO';
+      } else {
+        barBg = '#d97706';
+        barTxt = `TRACK LIMITS ${t.trackLimitsCount}/3 • ATTENZIONE`;
+      }
+    } else if (aero.wheelLockup) {
+      barBg = '#dc2626';
+      barTxt = 'BLOCCAGGIO RUOTE!';
+    } else if (carState?.pitStopRequested) {
+      barBg = '#059669';
+      barTxt = `BOX PRENOTATO • NEXT [${carState.nextPitCompound || 'M'}]`;
+    } else if (speedKmh >= 265 && (carState?.throttleInput ?? 0) > 0.8) {
+      barBg = '#ea580c';
+      barTxt = 'SORPASSO • DEPLOY';
+    } else if (aero.highSpeedBraking) {
+      barBg = '#d97706';
+      barTxt = 'STACCATA AL LIMITE';
+    }
+
+    ctx.fillStyle = barBg;
+    ctx.fillRect(14, 198, w - 28, 30);
+    ctx.fillStyle = barBg === '#e2e8f0' ? '#090d16' : '#ffffff';
+    ctx.font = '900 18px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(barTxt, 256, 219);
+
+    // Sottile barra progresso RPM / batteria in fondo
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(14, 234, w - 28, 12);
+    ctx.fillStyle = rpmNorm > 0.85 ? '#ef4444' : '#22c55e';
+    ctx.fillRect(14, 234, (w - 28) * clamp(rpmNorm, 0.08, 1), 12);
+
+    lcdTex.needsUpdate = true;
+  };
+
+  return {
+    group,
+    handsGroup,
+    updateTelemetry,
+    setVisibleInCockpit(visible) {
+      handsGroup.visible = Boolean(visible);
+    },
+  };
+}
+
 /**
  * Crea un gruppo ruota composto da:
  * - `steerPivot` (sterzata attorno a Y)
@@ -1073,31 +1853,43 @@ function createWheelAssembly(radius = 0.36, width = 0.34, isFront = true) {
   const camberGroup = new THREE.Group();
   const spinGroup = new THREE.Group();
 
-  // Pneumatico Pirelli slick di fallback
-  const tireGeo = new THREE.CylinderGeometry(radius, radius, width, 24);
+  // Pneumatico Pirelli slick HD di fallback (48 segmenti lisci + PBR)
+  const tireGeo = new THREE.CylinderGeometry(radius, radius, width, 48);
   tireGeo.rotateZ(Math.PI / 2);
   const tireMat = new THREE.MeshStandardMaterial({
     color: 0x18181b,
-    roughness: 0.78,
-    metalness: 0.1,
+    roughness: 0.72,
+    metalness: 0.06,
   });
+  tireMat.name = 'tyre_tread';
   const tireMesh = new THREE.Mesh(tireGeo, tireMat);
   tireMesh.castShadow = true;
   spinGroup.add(tireMesh);
 
-  // Cerchione / copricerchio aerodinamico
-  const rimGeo = new THREE.CylinderGeometry(radius * 0.62, radius * 0.62, width + 0.01, 16);
+  // Cerchione / copricerchio aerodinamico HD
+  const rimGeo = new THREE.CylinderGeometry(radius * 0.62, radius * 0.62, width + 0.01, 32);
   rimGeo.rotateZ(Math.PI / 2);
   const rimMat = new THREE.MeshStandardMaterial({
     color: 0x27272a,
-    roughness: 0.35,
-    metalness: 0.6,
+    roughness: 0.30,
+    metalness: 0.68,
   });
   const rimMesh = new THREE.Mesh(rimGeo, rimMat);
   spinGroup.add(rimMesh);
 
-  // Razza di riferimento visivo della rotazione
-  const spokeGeo = new THREE.BoxGeometry(width + 0.02, radius * 1.15, 0.055);
+  // Banda Pirelli colorata sul fianco (si aggiorna dinamicamente su mescola S/M/H/W)
+  const stripeGeo = new THREE.TorusGeometry(radius * 0.78, 0.018, 12, 40);
+  stripeGeo.rotateY(Math.PI / 2);
+  const sideStripeMat = new THREE.MeshBasicMaterial({ color: TIRE_COMPOUNDS.M.colorHex });
+  sideStripeMat.name = 'tyre_sides';
+  const stripeOuter = new THREE.Mesh(stripeGeo, sideStripeMat);
+  stripeOuter.position.x = width * 0.5 + 0.004;
+  const stripeInner = new THREE.Mesh(stripeGeo, sideStripeMat);
+  stripeInner.position.x = -(width * 0.5 + 0.004);
+  spinGroup.add(stripeOuter, stripeInner);
+
+  // Dado centrale ruota + razza di riferimento visivo della rotazione
+  const spokeGeo = new THREE.BoxGeometry(width + 0.02, radius * 1.15, 0.045);
   const spokeMat = new THREE.MeshBasicMaterial({ color: 0xe10600 });
   const spokeMesh = new THREE.Mesh(spokeGeo, spokeMat);
   spinGroup.add(spokeMesh);
@@ -1108,6 +1900,9 @@ function createWheelAssembly(radius = 0.36, width = 0.34, isFront = true) {
     steerPivot,
     camberGroup,
     spinGroup,
+    tireMesh,
+    tireMat,
+    sideStripeMat,
     isFront,
     baseX: 0,
     baseY: radius,
@@ -1255,12 +2050,83 @@ export function createF1CarMesh(options = {}) {
   // Stato visivo smorzato (solo Presentation Layer: sospensioni attive F1, sollevamento cordolo per ruota, blocco ant. interna)
   const visualSusp = { pitch: 0, roll: 0, heave: 0 };
   const visualWheelLift = { fl: 0, fr: 0, rl: 0, rr: 0 };
+  const pitVisualState = { jackLiftM: 0, wheelOutOffsetM: 0 };
   let lastRearWheelRot = null;
   const visualFrontRot = { fl: 0, fr: 0 };
 
   let steeringWheelGroup = new THREE.Group();
+  let cockpitWheelOverlay = null;
+  let cockpitClockSec = 0;
   let helmetMesh = null;
   let glbMaterials = null;
+  const glbTireTreadMeshes = [];
+  const glbTireSideMeshes = [];
+  let glbBaseTreadMat = null;
+  let glbBaseSideMat = null;
+  let lastTireVisualKey = '';
+  let lastSidewallCompound = '';
+
+  const syncTireVisuals = (aeroTire) => {
+    const compound = TIRE_COMPOUNDS[aeroTire?.compound] ? aeroTire.compound : 'M';
+    const gBin = Math.round(clamp(aeroTire?.grainingLevel ?? 0, 0, 1) * 20);
+    const bBin = Math.round(clamp(aeroTire?.blisteringLevel ?? 0, 0, 1) * 20);
+    const nextKey = `${compound}|${gBin}|${bBin}`;
+    if (nextKey === lastTireVisualKey) return;
+    lastTireVisualKey = nextKey;
+
+    const compSpec = TIRE_COMPOUNDS[compound] || TIRE_COMPOUNDS.M;
+    if (glbTireTreadMeshes.length > 0 && glbBaseTreadMat) {
+      const treadMat = getCachedGlbTreadMaterial(glbBaseTreadMat, compound, gBin, bBin);
+      if (treadMat) {
+        for (let i = 0; i < glbTireTreadMeshes.length; i++) {
+          glbTireTreadMeshes[i].material = treadMat;
+        }
+      }
+    } else {
+      const procSet = getTireTreadTextureSet(gBin, bBin, compound);
+      const gRatio = gBin / 20;
+      const bRatio = bBin / 20;
+      const nextRough = procSet?.roughnessMap
+        ? 1.0
+        : clamp(0.68 + gRatio * 0.18 + bRatio * 0.16, 0.62, 0.98);
+      for (let i = 0; i < WHEEL_KEYS.length; i++) {
+        const w = wheels[WHEEL_KEYS[i]];
+        if (w?.tireMat) {
+          if (procSet?.map) {
+            w.tireMat.map = procSet.map;
+            w.tireMat.color.setHex(0xffffff);
+          }
+          if (procSet?.bumpMap) {
+            w.tireMat.bumpMap = procSet.bumpMap;
+            w.tireMat.bumpScale = compound === 'W' ? 0.028 : 0.014;
+          }
+          if (procSet?.roughnessMap) {
+            w.tireMat.roughnessMap = procSet.roughnessMap;
+          }
+          w.tireMat.roughness = nextRough;
+          w.tireMat.needsUpdate = true;
+        }
+      }
+    }
+
+    if (compound !== lastSidewallCompound) {
+      lastSidewallCompound = compound;
+      if (glbTireSideMeshes.length > 0 && glbBaseSideMat) {
+        const sideMat = getCachedGlbSidewallMaterial(glbBaseSideMat, compound);
+        if (sideMat) {
+          for (let i = 0; i < glbTireSideMeshes.length; i++) {
+            glbTireSideMeshes[i].material = sideMat;
+          }
+        }
+      }
+      for (let i = 0; i < WHEEL_KEYS.length; i++) {
+        const w = wheels[WHEEL_KEYS[i]];
+        if (w?.sideStripeMat) {
+          w.sideStripeMat.color.set(compSpec.colorHex);
+        }
+      }
+    }
+  };
 
   const buildProceduralBody = () => {
     bodyGroup.clear();
@@ -1579,6 +2445,12 @@ export function createF1CarMesh(options = {}) {
     bodyGroup.clear();
     shadowCastingMeshes.length = 0;
     distantDetailMeshes.length = 0;
+    glbTireTreadMeshes.length = 0;
+    glbTireSideMeshes.length = 0;
+    glbBaseTreadMat = null;
+    glbBaseSideMat = null;
+    lastTireVisualKey = '';
+    lastSidewallCompound = '';
     helmetMesh = null;
 
     let paintMat = null;
@@ -1627,16 +2499,24 @@ export function createF1CarMesh(options = {}) {
     }
 
     steeringWheelGroup = new THREE.Group();
-    steeringWheelGroup.position.set(
-      STEERING_PIVOT[0],
-      STEERING_PIVOT[1],
-      STEERING_PIVOT[2]
-    );
+    if (isCockpitView && detailedCar) {
+      steeringWheelGroup.position.set(0, 0.670, 0.326);
+    } else {
+      steeringWheelGroup.position.set(
+        STEERING_PIVOT[0],
+        STEERING_PIVOT[1],
+        STEERING_PIVOT[2]
+      );
+    }
+    cockpitWheelOverlay = null;
     if (detailedCar) {
       for (const part of template.steeringParts) {
         const mesh = new THREE.Mesh(part.geometry, part.material);
         steeringWheelGroup.add(mesh);
       }
+      cockpitWheelOverlay = createCockpitSteeringOverlay();
+      cockpitWheelOverlay.setVisibleInCockpit(isCockpitView);
+      steeringWheelGroup.add(cockpitWheelOverlay.group);
       bodyGroup.add(steeringWheelGroup);
     }
 
@@ -1662,6 +2542,13 @@ export function createF1CarMesh(options = {}) {
         const mesh = new THREE.Mesh(part.geometry, part.material);
         mesh.castShadow = part.castShadow && lodAllowShadows;
         mesh.receiveShadow = detailedCar;
+        if (part.matName === 'tyre_tread') {
+          if (!glbBaseTreadMat) glbBaseTreadMat = part.material;
+          glbTireTreadMeshes.push(mesh);
+        } else if (part.matName === 'tyre_sides') {
+          if (!glbBaseSideMat) glbBaseSideMat = part.material;
+          glbTireSideMeshes.push(mesh);
+        }
         if (part.castShadow) {
           shadowCastingMeshes.push(mesh);
         }
@@ -1760,12 +2647,26 @@ export function createF1CarMesh(options = {}) {
       applyAppearanceState();
     },
     /**
-     * Nasconde il casco di fallback in visuale prima persona per non ostruire la camera.
+     * Nasconde il casco in visuale prima persona e mostra i guanti pilota sul volante.
      */
     setCockpitView(isCockpit) {
       isCockpitView = Boolean(isCockpit);
       if (helmetMesh) {
         helmetMesh.visible = !isCockpitView;
+      }
+      if (cockpitWheelOverlay) {
+        cockpitWheelOverlay.setVisibleInCockpit(isCockpitView);
+      }
+      if (cockpitWheelOverlay && detailedCar && steeringWheelGroup) {
+        if (isCockpitView) {
+          steeringWheelGroup.position.set(0, 0.670, 0.326);
+        } else {
+          steeringWheelGroup.position.set(
+            STEERING_PIVOT[0],
+            STEERING_PIVOT[1],
+            STEERING_PIVOT[2]
+          );
+        }
       }
     },
     /**
@@ -1797,6 +2698,30 @@ export function createF1CarMesh(options = {}) {
       isNightVisualMode = nextNight;
       isRainVisualMode = nextRain;
       syncNightLightsVisibility(0);
+    },
+    /**
+     * Imposta sollevamento martinetti e traslazione laterale delle 4 ruote durante il Pit Stop animato.
+     */
+    setPitStopVisualState({ jackLiftM = 0, wheelOutOffsetM = 0 } = {}) {
+      const nextLift = clamp(Number(jackLiftM) || 0, 0, 0.14);
+      const nextOut = clamp(Number(wheelOutOffsetM) || 0, 0, 0.75);
+      pitVisualState.jackLiftM = nextLift;
+      pitVisualState.wheelOutOffsetM = nextOut;
+      bodyGroup.position.y = visualSusp.heave + nextLift;
+      const pitWheelLift = nextOut > 0.01 ? 0.035 * Math.min(1, nextOut / 0.14) : 0;
+      for (let i = 0; i < WHEEL_KEYS.length; i++) {
+        const qKey = WHEEL_KEYS[i];
+        const wheel = wheels[qKey];
+        const outSign = wheel.baseX >= 0 ? 1 : -1;
+        wheel.steerPivot.position.x = wheel.baseX + outSign * nextOut;
+        wheel.steerPivot.position.y = wheel.baseY + visualWheelLift[qKey] + pitWheelLift;
+      }
+    },
+    /**
+     * Restituisce l'ultima chiave di stato visivo gomme applicata (diagnostica / test).
+     */
+    getTireVisualKey() {
+      return lastTireVisualKey;
     },
     /**
      * Sincronizza posizione, orientamento, sospensioni attive visive smorzate,
@@ -1853,7 +2778,7 @@ export function createF1CarMesh(options = {}) {
       visualSusp.roll += (targetRoll - visualSusp.roll) * suspAlpha;
       visualSusp.heave += (targetHeave - visualSusp.heave) * suspAlpha;
 
-      bodyGroup.position.y = visualSusp.heave;
+      bodyGroup.position.y = visualSusp.heave + pitVisualState.jackLiftM;
       bodyGroup.rotation.x = visualSusp.pitch;
       bodyGroup.rotation.z = visualSusp.roll;
 
@@ -1911,13 +2836,26 @@ export function createF1CarMesh(options = {}) {
         if (targetLift === 0 && Math.abs(visualWheelLift[qKey]) < 1e-5) {
           visualWheelLift[qKey] = 0;
         }
-        wheel.steerPivot.position.y = wheel.baseY + visualWheelLift[qKey];
+        const outSign = wheel.baseX >= 0 ? 1 : -1;
+        const pitWheelLift =
+          pitVisualState.wheelOutOffsetM > 0.01
+            ? 0.035 * Math.min(1, pitVisualState.wheelOutOffsetM / 0.14)
+            : 0;
+        wheel.steerPivot.position.x = wheel.baseX + outSign * pitVisualState.wheelOutOffsetM;
+        wheel.steerPivot.position.y = wheel.baseY + visualWheelLift[qKey] + pitWheelLift;
       }
 
-      // 3. Volante e sterzata ruote anteriori
+      // 2b. Aggiornamento visivo battistrada (Graining/Blistering 5%) + banda Pirelli mescola (S/M/H/W)
+      syncTireVisuals(carState.aeroTire);
+
+      // 3. Volante, schermo LCD telemetria live (in prima persona) e sterzata ruote anteriori
       const steerAngle = carState.steerAngle ?? 0;
       if (detailedCar) {
         steeringWheelGroup.rotation.z = -steerAngle * 2.2;
+        if (cockpitWheelOverlay && isCockpitView) {
+          cockpitClockSec += safeDt;
+          cockpitWheelOverlay.updateTelemetry(carState, cockpitClockSec);
+        }
       }
 
       wheelFL.steerPivot.rotation.y = steerAngle;

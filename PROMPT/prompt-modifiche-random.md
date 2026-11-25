@@ -1,0 +1,12 @@
+[/plan](slashCommand;plan) Fai queste cose e [/grill-me](slashCommand;grill-me) se ti servono informazioni per avere maggiore contesto fammi delle domande.
+- elimina sia graficamente che nel codice tutto ciò che riguarda i ptenziamenti della macchina (garage e update) e riguardo ai soldi.
+- elimina, solo graficamente, la scritta blu "meteo carriera..."
+- aggiungi una sezione per i trofei per ogni gran premio in ordine cronologico, se in uno non si ha vinto nulla ci sarà solo scritto dov'è arrivato, mentre, se si vince sia premio che classifica.
+- i premi si otterrano nella modalità carriera, nello stesso modo in cui vengono essegnati nella realtà, sia per le gare che per le qualifiche.
+- aggiungi un tasto di reset carriera.
+- non si può cambiare scuderia durante una carriera già iniziata.
+- aggiungi un tasto per iniziare una carriera.
+- aggiungi uno storico delle varie carriere fatte, con mostrati i vari premi. (simula una carriera finita e mostrami la grafica di questo storico).
+- nella schermata di scelta del team, lo sfondo fatto con i poligoni usalo come parete di una sorta di showroom per la macchina in questione.
+- nella sezione scelta del team elimina quei due tasti sotto la scelta di uno dei due piloti della scuderia.
+- nella sezione per la scelta della pista, modifica la finestra con la mappa del circuito, tempi ecc... e falla orizzontale mettendo in primo piano e ben visibile la mappa della pista, con sopra tutte le informazioni, ma mi raccomando non deve oscurare la pista 3D dello sfondo.

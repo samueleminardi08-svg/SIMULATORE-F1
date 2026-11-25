@@ -70,6 +70,14 @@ export const SURFACE_PHYSICS = {
     yawInstability: 0.0,
     label: 'Asfalto',
   },
+  pitlane: {
+    gripMultiplier: 1.0,
+    tractionMultiplier: 1.0,
+    brakeMultiplier: 1.0,
+    extraRollingDrag: 0.0,
+    yawInstability: 0.0,
+    label: 'Pit Lane',
+  },
   kerb: {
     gripMultiplier: 0.88,
     tractionMultiplier: 0.92,
@@ -118,6 +126,76 @@ export const ADVANCED_PHYSICS_CONFIG = {
   },
 };
 
+// Mescole pneumatici Pirelli F1 2026 con finestre termiche, graining e blistering (Step 5)
+export const TIRE_COMPOUNDS = {
+  S: {
+    id: 'S',
+    name: 'Soft',
+    shortName: 'SOFT',
+    colorHex: '#ef4444',
+    colorInt: 0xef4444,
+    gripMult: 1.04,
+    wearMult: 1.45,
+    optTempMin: 82,
+    optTempMax: 108,
+    heatRate: 1.28,
+    grainingSens: 0.45,
+    blisteringSens: 1.45,
+    wetGripMult: 0.64,
+    dryWearMultOnWetTire: 1.0,
+  },
+  M: {
+    id: 'M',
+    name: 'Medium',
+    shortName: 'MED',
+    colorHex: '#facc15',
+    colorInt: 0xfacc15,
+    gripMult: 1.00,
+    wearMult: 1.00,
+    optTempMin: 86,
+    optTempMax: 112,
+    heatRate: 1.00,
+    grainingSens: 0.85,
+    blisteringSens: 1.00,
+    wetGripMult: 0.62,
+    dryWearMultOnWetTire: 1.0,
+  },
+  H: {
+    id: 'H',
+    name: 'Hard',
+    shortName: 'HARD',
+    colorHex: '#f8fafc',
+    colorInt: 0xf8fafc,
+    gripMult: 0.96,
+    wearMult: 0.68,
+    optTempMin: 92,
+    optTempMax: 118,
+    heatRate: 0.78,
+    grainingSens: 1.55,
+    blisteringSens: 0.65,
+    wetGripMult: 0.58,
+    dryWearMultOnWetTire: 1.0,
+  },
+  W: {
+    id: 'W',
+    name: 'Wet',
+    shortName: 'WET',
+    colorHex: '#38bdf8',
+    colorInt: 0x38bdf8,
+    gripMult: 0.88,
+    wearMult: 1.10,
+    optTempMin: 55,
+    optTempMax: 85,
+    heatRate: 1.45,
+    grainingSens: 0.40,
+    blisteringSens: 1.80,
+    wetGripMult: 1.18,
+    dryWearMultOnWetTire: 2.35,
+  },
+};
+
+export const TIRE_COMPOUND_IDS = ['S', 'M', 'H', 'W'];
+
 // Configurazione meteo asciutto / pioggia (Step 5)
 export const WEATHER_CONFIG = {
   dry: {
@@ -138,18 +216,30 @@ export const WEATHER_CONFIG = {
   },
 };
 
-// Configurazione cronometraggio, 3 settori F1 e delta (Step 4)
+// Configurazione cronometraggio, 3 settori F1, Track Limits FIA Art. 33.3 e delta (Step 4)
 export const TIMING_CONFIG = {
   sectorCount: 3,                      // 3 settori ufficiali (S1, S2, S3)
   defaultSectorSplits: [0.33, 0.66, 1.0],
   referenceCruisingSpeedMs: 66.0,      // velocità media di riferimento per benchmark iniziali
+  fiaTrackLimits: {
+    whiteLineOuterInsetM: 0.08,        // Bordo esterno linea bianca FIA (TrackBuilder: halfWidth - 0.18 + 0.10)
+    frontTrackHalfM: 0.78,             // Semicarreggiata asse anteriore F1 2026 (m)
+    rearTrackHalfM: 0.75,              // Semicarreggiata asse posteriore F1 2026 (m)
+    frontAxleZ: 1.70,                  // Posizione longitudinale ruote anteriori (+Z)
+    rearAxleZ: -1.70,                  // Posizione longitudinale ruote posteriori (-Z)
+    frontTireHalfWidthM: 0.155,        // Semilarghezza battistrada anteriore (~310 mm)
+    rearTireHalfWidthM: 0.195,         // Semilarghezza battistrada posteriore (~390 mm)
+    minViolationDurationS: 0.05,       // 3 tick a 60 Hz con tutte e 4 le ruote oltre la linea bianca
+    violationCooldownS: 2.0,           // Anti doppio conteggio nella stessa curva
+    finalCornerProgressMin: 0.88,      // Ultima curva (~12% finale): in Qualifica/Libere annulla anche il giro successivo
+    justifiedContactGraceS: 1.8,       // Art. 33.3 "justifiable reason": contatto vettura-vettura recente
+  },
 };
 
-// Le 3 viste della camera commutabili con il tasto C
+// Le 2 viste della camera commutabili con il tasto C (Onboard T-Cam e Prima Persona Abitacolo)
 export const CAMERA_MODES = [
-  { id: 'chase', label: 'Da dietro (Chase Cam)' },
+  { id: 'tcam', label: 'Onboard (T-Cam)' },
   { id: 'cockpit', label: 'Prima persona (Abitacolo)' },
-  { id: 'tcam', label: 'Onboard T-Cam (TV Pod)' },
 ];
 
 export const LOCAL_PLAYER_ID = 'player_1';

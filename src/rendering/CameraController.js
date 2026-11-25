@@ -1,19 +1,22 @@
 /**
- * Gestore delle 3 viste della telecamera (Step 2):
- * 1. Da dietro la macchina (Chase Cam)
- * 2. Prima persona (Abitacolo)
- * 3. Onboard T-Cam (TV Pod sopra l'airbox / Halo, stile regia F1)
+ * Gestore delle 2 viste della telecamera (Onboard T-Cam & Prima Persona Abitacolo stile F1 23/26):
+ * 1. Onboard (T-Cam) — TV Pod sopra l'airbox / Halo con Broadcast Halo Telemetry HUD
+ * 2. Prima persona (Abitacolo) — POV realistico da casco pilota con Halo centrale, specchietti,
+ *    gomme anteriori visibili e volante F1 con schermo LCD live e guanti pilota.
+ *
+ * Persistenza visuale predefinita in localStorage (`f1_game_default_camera_v1`).
  */
 
 import * as THREE from 'three';
 import { CAMERA_MODES } from '../config/constants.js';
 
+export const DEFAULT_CAMERA_MODE_ID = 'tcam';
+export const CAMERA_STORAGE_KEY = 'f1_game_default_camera_v1';
+
 // Stabilizzazione orizzonte onboard (stile giroscopio T-Cam / Cockpit F1: max ±0.2°)
 export const MAX_ONBOARD_HORIZON_PITCH_RAD = (0.2 * Math.PI) / 180;
 const MAX_ONBOARD_AERO_HEAVE_M = 0.014;
 const ONBOARD_DAMPING_RATE = 10.0;
-const CHASE_POS_SMOOTH_RATE = 13.5;
-const CHASE_LOOK_SMOOTH_RATE = 20.0;
 
 /**
  * Configurazione "Camera viva": FOV dinamico legato alla velocità + micro-vibrazioni procedurali
@@ -21,26 +24,24 @@ const CHASE_LOOK_SMOOTH_RATE = 20.0;
  */
 export const CAMERA_FEEL_CONFIG = {
   fov: {
-    chase: { min: 58, max: 72 },
     tcam: { min: 62, max: 68 },
-    cockpit: { min: 60, max: 74 },
+    cockpit: { min: 72, max: 78 },
     maxSpeedKmh: 315,
     lerpRate: 6.0,
     updateThresholdDeg: 0.05,
   },
   vibration: {
-    kerbAmpPos: 0.011,
-    kerbAmpPitch: 0.0022,
-    kerbAmpRoll: 0.0032,
-    grassAmpPos: 0.017,
-    grassAmpPitch: 0.0030,
-    grassAmpRoll: 0.0045,
-    brakeAmpPos: 0.007,
-    brakeAmpPitch: 0.0018,
-    brakeAmpRoll: 0.0015,
-    cockpitScale: 0.55,
+    kerbAmpPos: 0.010,
+    kerbAmpPitch: 0.0020,
+    kerbAmpRoll: 0.0028,
+    grassAmpPos: 0.016,
+    grassAmpPitch: 0.0028,
+    grassAmpRoll: 0.0040,
+    brakeAmpPos: 0.0065,
+    brakeAmpPitch: 0.0016,
+    brakeAmpRoll: 0.0014,
+    cockpitScale: 0.50,
     tcamScale: 0.80,
-    chaseScale: 1.0,
     envelopeRate: 18.0,
   },
 };
@@ -49,35 +50,75 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+export function normalizeCameraModeId(modeId) {
+  return CAMERA_MODES.some((m) => m.id === modeId) ? modeId : DEFAULT_CAMERA_MODE_ID;
+}
+
+export function loadDefaultCameraMode() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return DEFAULT_CAMERA_MODE_ID;
+  }
+  try {
+    const raw = window.localStorage.getItem(CAMERA_STORAGE_KEY);
+    return normalizeCameraModeId(raw);
+  } catch {
+    return DEFAULT_CAMERA_MODE_ID;
+  }
+}
+
+export function saveDefaultCameraMode(modeId) {
+  const normalized = normalizeCameraModeId(modeId);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(CAMERA_STORAGE_KEY, normalized);
+    } catch {
+      // ignore storage quota errors
+    }
+  }
+  return normalized;
+}
+
 export class CameraController {
   /**
    * @param {THREE.PerspectiveCamera} camera
+   * @param {string} [initialModeId]
    */
-  constructor(camera) {
+  constructor(camera, initialModeId = null) {
     this.camera = camera;
-    this.modeIndex = 0; // Inizia in Chase Cam
-    this._chasePos = new THREE.Vector3();
-    this._chaseLookAt = new THREE.Vector3();
-    this._desiredPos = new THREE.Vector3();
-    this._desiredLookAt = new THREE.Vector3();
-    this._initializedChase = false;
+    const resolvedId = normalizeCameraModeId(initialModeId || loadDefaultCameraMode());
+    const idx = CAMERA_MODES.findIndex((m) => m.id === resolvedId);
+    this.modeIndex = idx >= 0 ? idx : 0;
     this._onboardPitch = 0;
     this._onboardHeave = 0;
-    this._currentFov = CAMERA_FEEL_CONFIG.fov.chase.min;
+    const initRange = CAMERA_FEEL_CONFIG.fov[resolvedId] || CAMERA_FEEL_CONFIG.fov.tcam;
+    this._currentFov = initRange.min;
     this._fovInitialized = false;
     this._vibTime = 0;
     this._vibEnvPos = 0;
     this._vibEnvPitch = 0;
     this._vibEnvRoll = 0;
+    this._lastVib = { dx: 0, dy: 0, pitch: 0, roll: 0 };
   }
 
   getCurrentMode() {
-    return CAMERA_MODES[this.modeIndex];
+    return CAMERA_MODES[this.modeIndex] || CAMERA_MODES[0];
+  }
+
+  setModeById(modeId) {
+    const normalized = normalizeCameraModeId(modeId);
+    const idx = CAMERA_MODES.findIndex((m) => m.id === normalized);
+    this.modeIndex = idx >= 0 ? idx : 0;
+    this._onboardPitch = 0;
+    this._onboardHeave = 0;
+    this._fovInitialized = false;
+    this._vibEnvPos = 0;
+    this._vibEnvPitch = 0;
+    this._vibEnvRoll = 0;
+    return this.getCurrentMode();
   }
 
   cycleMode() {
     this.modeIndex = (this.modeIndex + 1) % CAMERA_MODES.length;
-    this._initializedChase = false;
     this._onboardPitch = 0;
     this._onboardHeave = 0;
     this._fovInitialized = false;
@@ -89,7 +130,7 @@ export class CameraController {
 
   _updateDynamicFov(modeId, speedMs, safeDt) {
     const fovCfg = CAMERA_FEEL_CONFIG.fov;
-    const range = fovCfg[modeId] || fovCfg.chase;
+    const range = fovCfg[modeId] || fovCfg.tcam;
     const speedKmh = Math.abs(speedMs) * 3.6;
     const ratio = clamp(speedKmh / fovCfg.maxSpeedKmh, 0, 1);
     const curve = ratio * (0.65 + 0.35 * ratio);
@@ -154,12 +195,7 @@ export class CameraController {
       return { dx: 0, dy: 0, pitch: 0, roll: 0 };
     }
 
-    const modeScale =
-      modeId === 'cockpit'
-        ? vCfg.cockpitScale
-        : modeId === 'tcam'
-          ? vCfg.tcamScale
-          : vCfg.chaseScale;
+    const modeScale = modeId === 'cockpit' ? vCfg.cockpitScale : vCfg.tcamScale;
 
     this._vibTime += safeDt * (18.0 + clamp(absSpeed / 6.0, 0, 16.0));
     const t = this._vibTime;
@@ -206,8 +242,9 @@ export class CameraController {
    * @param {object} carState
    * @param {ReturnType<import('../cars/CarModel3D.js').createF1CarMesh> | undefined} carModel
    * @param {number} [dt=1/60]
+   * @param {object | null} [_trackSurface=null]
    */
-  update(carState, carModel, dt = 1 / 60) {
+  update(carState, carModel, dt = 1 / 60, _trackSurface = null) {
     if (!carState) return;
 
     const safeDt = clamp(
@@ -225,90 +262,105 @@ export class CameraController {
       carState.speed ??
       Math.hypot(carState.vx ?? 0, carState.vz ?? 0);
 
-    this._updateDynamicFov(mode.id, speedMs, safeDt);
-    const vib = this._computeMicroVibration(carState, mode.id, speedMs, safeDt);
+    const recAnim = carState.trackRecoveryAnim || null;
+    const recU = recAnim ? clamp(recAnim.progress ?? 0, 0, 1) : 0;
+    const recBlend = recAnim ? Math.pow(Math.sin(Math.PI * recU), 0.72) : 0;
 
-    if (Math.abs(vib.roll) > 1e-6) {
-      const sinR = Math.sin(vib.roll);
-      this.camera.up.set(leftX * sinR, Math.cos(vib.roll), leftZ * sinR);
-    } else {
+    if (recBlend > 0.02) {
+      const baseRange = CAMERA_FEEL_CONFIG.fov[mode.id] || CAMERA_FEEL_CONFIG.fov.tcam;
+      const targetFov = baseRange.min + 5.5 * recBlend;
+      this._currentFov = targetFov;
+      this._fovInitialized = true;
+      if (Math.abs(targetFov - this.camera.fov) > 0.04) {
+        this.camera.fov = targetFov;
+        this.camera.updateProjectionMatrix();
+      }
       this.camera.up.set(0, 1, 0);
+      this._vibEnvPos = 0;
+      this._vibEnvPitch = 0;
+      this._vibEnvRoll = 0;
+    } else {
+      this._updateDynamicFov(mode.id, speedMs, safeDt);
+      const vib = this._computeMicroVibration(carState, mode.id, speedMs, safeDt);
+
+      if (Math.abs(vib.roll) > 1e-6) {
+        const sinR = Math.sin(vib.roll);
+        this.camera.up.set(leftX * sinR, Math.cos(vib.roll), leftZ * sinR);
+      } else {
+        this.camera.up.set(0, 1, 0);
+      }
+      this._lastVib = vib;
     }
+
+    const vib = recBlend > 0.02 ? { dx: 0, dy: 0, pitch: 0, roll: 0 } : this._lastVib;
+    this._updateOnboardStabilization(carState, safeDt);
+
+    let onX;
+    let onY;
+    let onZ;
+    let lookOnX;
+    let lookOnY;
+    let lookOnZ;
 
     if (mode.id === 'cockpit') {
-      if (carModel) carModel.setCockpitView(true);
-      this._updateOnboardStabilization(carState, safeDt);
+      if (carModel) carModel.setCockpitView(recBlend <= 0.14);
 
-      // Posizione stabile ad altezza occhi pilota con micro-reazione orizzonte max ±0.2°
-      const eyeX = carState.x + sinH * 0.10 + leftX * vib.dx;
-      const eyeY = carState.y + 0.83 + this._onboardHeave + vib.dy;
-      const eyeZ = carState.z + cosH * 0.10 + leftZ * vib.dx;
-      this.camera.position.set(eyeX, eyeY, eyeZ);
+      const eyeForwardOffset = 0.005;
+      onX = carState.x + sinH * eyeForwardOffset + leftX * vib.dx;
+      onY = carState.y + 0.790 + this._onboardHeave + vib.dy;
+      onZ = carState.z + cosH * eyeForwardOffset + leftZ * vib.dx;
 
-      // Orizzonte stabilizzato oltre il musetto e l'Halo (distanza focale orizzontale 17.9 m)
-      const lookX = carState.x + sinH * 18.0 + leftX * vib.dx * 0.5;
-      const lookY =
+      const lookDist = 18.0;
+      lookOnX = carState.x + sinH * lookDist + leftX * vib.dx * 0.4;
+      lookOnY =
         carState.y +
-        0.68 +
+        0.62 +
         this._onboardHeave +
-        vib.dy * 0.5 -
-        Math.tan(this._onboardPitch + vib.pitch) * 17.9;
-      const lookZ = carState.z + cosH * 18.0 + leftZ * vib.dx * 0.5;
-      this.camera.lookAt(lookX, lookY, lookZ);
-      return;
-    }
+        vib.dy * 0.4 -
+        Math.tan(this._onboardPitch + vib.pitch) * lookDist;
+      lookOnZ = carState.z + cosH * lookDist + leftZ * vib.dx * 0.4;
+    } else {
+      // Default: 'tcam' (Onboard T-Cam / TV Pod sopra l'airbox con Halo Telemetry HUD)
+      if (carModel) carModel.setCockpitView(false);
 
-    if (carModel) carModel.setCockpitView(false);
+      onX = carState.x - sinH * 0.30 + leftX * vib.dx;
+      onY = carState.y + 1.18 + this._onboardHeave + vib.dy;
+      onZ = carState.z - cosH * 0.30 + leftZ * vib.dx;
 
-    if (mode.id === 'tcam') {
-      this._updateOnboardStabilization(carState, safeDt);
-
-      // Posizione T-Cam sempre rigorosamente centrata sull'asse longitudinale X=0 (sopra airbox / Halo)
-      const podX = carState.x - sinH * 0.30 + leftX * vib.dx;
-      const podY = carState.y + 1.18 + this._onboardHeave + vib.dy;
-      const podZ = carState.z - cosH * 0.30 + leftZ * vib.dx;
-      this.camera.position.set(podX, podY, podZ);
-
-      // Inquadratura broadcast F1 sempre centrata (tilt -18.2°, distanza focale orizzontale 18.30 m)
-      const lookX = carState.x + sinH * 18.0 + leftX * vib.dx * 0.4;
-      const lookY =
+      lookOnX = carState.x + sinH * 18.0 + leftX * vib.dx * 0.4;
+      lookOnY =
         carState.y -
         4.836 +
         this._onboardHeave +
         vib.dy * 0.4 -
         Math.tan(this._onboardPitch + vib.pitch) * 18.30;
-      const lookZ = carState.z + cosH * 18.0 + leftZ * vib.dx * 0.4;
-      this.camera.lookAt(lookX, lookY, lookZ);
+      lookOnZ = carState.z + cosH * 18.0 + leftZ * vib.dx * 0.4;
+    }
+
+    if (recBlend > 0.001) {
+      // Camera cinematica 3/4 rialzata che accompagna la monoposto fino al ritorno in pista
+      const sweepLat = 1.15 * Math.sin(Math.PI * recU);
+      const cinX = carState.x - sinH * 5.4 + leftX * sweepLat;
+      const cinY = carState.y + 2.45;
+      const cinZ = carState.z - cosH * 5.4 + leftZ * sweepLat;
+      const lookCinX = carState.x + sinH * 4.5;
+      const lookCinY = carState.y + 0.42;
+      const lookCinZ = carState.z + cosH * 4.5;
+
+      this.camera.position.set(
+        onX + (cinX - onX) * recBlend,
+        onY + (cinY - onY) * recBlend,
+        onZ + (cinZ - onZ) * recBlend
+      );
+      this.camera.lookAt(
+        lookOnX + (lookCinX - lookOnX) * recBlend,
+        lookOnY + (lookCinY - lookOnY) * recBlend,
+        lookOnZ + (lookCinZ - lookOnZ) * recBlend
+      );
       return;
     }
 
-    // Default: 'chase' (Da dietro la macchina, smoothing dt-indipendente + micro-vibrazione)
-    this._desiredPos.set(
-      carState.x - sinH * 6.6 + leftX * vib.dx,
-      carState.y + 2.58 + vib.dy,
-      carState.z - cosH * 6.6 + leftZ * vib.dx
-    );
-    this._desiredLookAt.set(
-      carState.x + sinH * 8.0,
-      carState.y + 0.05 - Math.tan(vib.pitch) * 14.6,
-      carState.z + cosH * 8.0
-    );
-
-    if (
-      !this._initializedChase ||
-      this._chasePos.distanceToSquared(this._desiredPos) > 400
-    ) {
-      this._chasePos.copy(this._desiredPos);
-      this._chaseLookAt.copy(this._desiredLookAt);
-      this._initializedChase = true;
-    } else {
-      const posAlpha = 1 - Math.exp(-CHASE_POS_SMOOTH_RATE * safeDt);
-      const lookAlpha = 1 - Math.exp(-CHASE_LOOK_SMOOTH_RATE * safeDt);
-      this._chasePos.lerp(this._desiredPos, posAlpha);
-      this._chaseLookAt.lerp(this._desiredLookAt, lookAlpha);
-    }
-
-    this.camera.position.copy(this._chasePos);
-    this.camera.lookAt(this._chaseLookAt);
+    this.camera.position.set(onX, onY, onZ);
+    this.camera.lookAt(lookOnX, lookOnY, lookOnZ);
   }
 }

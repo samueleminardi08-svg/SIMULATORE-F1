@@ -39,6 +39,27 @@ export const QUALIFYING_STAGES = {
 };
 
 export const QUALIFYING_STAGE_IDS = ['Q1', 'Q2', 'Q3'];
+export const STAGE_AUTO_ADVANCE_SECONDS = 10.0;
+
+export function resolveQualifyingStageDurations(stageDurations = null) {
+  const custom = stageDurations && typeof stageDurations === 'object' ? stageDurations : {};
+  const resolveStage = (id) => {
+    const fallback = QUALIFYING_STAGES[id].duration;
+    const raw = Number(custom[id]);
+    return Number.isFinite(raw) && raw >= 10 ? Math.round(raw) : fallback;
+  };
+  return {
+    Q1: resolveStage('Q1'),
+    Q2: resolveStage('Q2'),
+    Q3: resolveStage('Q3'),
+  };
+}
+
+export function getQualifyingStageDuration(qualifyingState, stageId = 'Q1') {
+  const fallback = QUALIFYING_STAGES[stageId]?.duration ?? QUALIFYING_STAGES.Q1.duration;
+  const raw = Number(qualifyingState?.stageDurations?.[stageId]);
+  return Number.isFinite(raw) && raw >= 10 ? Math.round(raw) : fallback;
+}
 
 function hashDriverStage(driverId, stageIndex) {
   const str = `${driverId}_${stageIndex}`;
@@ -54,17 +75,22 @@ export function createInitialQualifyingState(
   allDriverIds,
   playerDriverId,
   requiredPlayerIds = ['player_1'],
-  humanDriverIds = null
+  humanDriverIds = null,
+  stageDurations = null
 ) {
   const stage = QUALIFYING_STAGES.Q1;
+  const resolvedDurations = stageDurations ? resolveQualifyingStageDurations(stageDurations) : null;
+  const q1Duration = resolvedDurations ? resolvedDurations.Q1 : stage.duration;
   return {
     stageIndex: 0,
     stageId: stage.id,
     stageLabel: stage.label,
-    status: 'running', // 'running' | 'stage_complete' | 'qualifying_complete'
-    timeRemaining: stage.duration,
-    stageDuration: stage.duration,
+    status: 'running', // 'running' | 'chequered_flag' | 'in_lap' | 'stage_complete' | 'qualifying_complete'
+    timeRemaining: q1Duration,
+    stageDuration: q1Duration,
+    stageDurations: resolvedDurations,
     elapsedInStage: 0,
+    autoAdvanceTimer: 0,
     activeDriverIds: [...allDriverIds],
     nextActiveDriverIds: [],
     eliminatedAfterQ1: [],
@@ -110,9 +136,9 @@ export function computeSimulatedQualifyingLap(driverId, car, worldState, stageIn
   const team = driver ? F1_2026_TEAMS[driver.teamId] : null;
   const rawPerf = car?.skillFactor ?? ((driver?.skill ?? 0.94) * (team?.pace ?? 0.96));
 
-  const diff = getDifficultyConfig(worldState.difficultyId);
+  const diff = getDifficultyConfig(worldState.physicsSettings || worldState.difficultyId);
   const botPace = diff.botPaceMultiplier;
-  const isRain = worldState.weather === 'rain';
+  const isRain = worldState.weather === 'rain' && diff.rainPhysicsEnabled !== false;
 
   const sectorSum = worldState.sessionTiming?.overallBestSectors?.reduce((s, v) => s + v, 0);
   const baseRefLap = Number.isFinite(sectorSum) && sectorSum > 65 ? Math.min(108, Math.max(68, sectorSum)) : 81.2;
@@ -194,12 +220,19 @@ function buildQualifyingStandings(worldState, qualifyingState) {
 
   return entries.map((entry, idx) => {
     const pos = idx + 1;
+    const ps = entry.car?.pitState || null;
     let gapToLeader = 'IN PISTA';
     if (entry.bestLapTime !== null) {
       gapToLeader =
         idx === 0 || leaderBest === null
           ? formatLapTime(entry.bestLapTime)
           : `+${(entry.bestLapTime - leaderBest).toFixed(3)}s`;
+    } else if (ps === 'IN_GARAGE' || ps === 'PARKED_STAGE_END') {
+      gapToLeader = 'AI BOX';
+    } else if (ps === 'EXITING_GARAGE' || ps === 'PIT_EXIT_LANE') {
+      gapToLeader = 'OUT LAP';
+    } else if (ps === 'IN_LAP' || ps === 'PIT_ENTRY_LANE' || ps === 'AUTO_PARKING') {
+      gapToLeader = 'IN LAP';
     } else if (entry.currentLapInvalidated) {
       gapToLeader = 'GIRO ANN.';
     }
@@ -232,37 +265,58 @@ function buildQualifyingStandings(worldState, qualifyingState) {
   });
 }
 
+function isCarParkedInBox(car) {
+  return (
+    !car ||
+    car.pitState === 'IN_GARAGE' ||
+    car.pitState === 'PARKED_STAGE_END'
+  );
+}
+
 /**
- * Aggiorna il cronometro Q1/Q2/Q3, i tempi progressivi dei bot e la classifica live.
+ * Aggiorna il cronometro Q1/Q2/Q3, regola F1 reale a 0:00 (completamento giro lanciato ->
+ * giro di rientro guidato -> parcheggio automatico nel box) e countdown 10s classifica.
  */
 export function updateQualifyingState(worldState, dt, localPlayerId = 'player_1') {
   const q = worldState.qualifyingState;
-  if (!q || q.status !== 'running') return;
+  if (!q) return { autoAdvanceTriggered: false };
+
+  // 1. Classifica fine Q1 / Q2 / Q3: countdown automatico 10s -> fase successiva / griglia gara
+  if (q.status === 'stage_complete' || q.status === 'qualifying_complete') {
+    q.autoAdvanceTimer = Math.max(0, (q.autoAdvanceTimer ?? STAGE_AUTO_ADVANCE_SECONDS) - dt);
+    return { autoAdvanceTriggered: q.autoAdvanceTimer <= 0 };
+  }
 
   q.elapsedInStage += dt;
-  q.timeRemaining = Math.max(0, q.timeRemaining - dt);
 
   // Popolamento progressivo dei tempi bot mentre girano in pista
-  for (const car of Object.values(worldState.cars)) {
-    if (!car.isBot || !car.timing) continue;
-    const appearDelay = 35 + (car.gridPosition ?? 1) * 1.2;
-    if (q.elapsedInStage >= appearDelay && car.timing.bestLapTime === null) {
-      const simLap = computeSimulatedQualifyingLap(
-        car.driverId ?? car.id,
-        car,
-        worldState,
-        q.stageIndex
-      );
-      car.timing.bestLapTime = simLap;
-      if (
-        worldState.sessionTiming &&
-        (worldState.sessionTiming.overallBestLapTime === null ||
-          simLap < worldState.sessionTiming.overallBestLapTime)
-      ) {
-        worldState.sessionTiming.overallBestLapTime = simLap;
-        worldState.sessionTiming.overallBestCarId = car.id;
+  if (q.status === 'running' || q.status === 'chequered_flag') {
+    for (const car of Object.values(worldState.cars)) {
+      if (!car.isBot || !car.timing) continue;
+      const releaseT = car.plannedReleaseTime ?? 0;
+      const appearDelay = Math.max(35, releaseT + 42) + (car.gridPosition ?? 1) * 0.9;
+      if (q.elapsedInStage >= appearDelay && car.timing.bestLapTime === null) {
+        const simLap = computeSimulatedQualifyingLap(
+          car.driverId ?? car.id,
+          car,
+          worldState,
+          q.stageIndex
+        );
+        car.timing.bestLapTime = simLap;
+        if (
+          worldState.sessionTiming &&
+          (worldState.sessionTiming.overallBestLapTime === null ||
+            simLap < worldState.sessionTiming.overallBestLapTime)
+        ) {
+          worldState.sessionTiming.overallBestLapTime = simLap;
+          worldState.sessionTiming.overallBestCarId = car.id;
+        }
       }
     }
+  }
+
+  if (q.status === 'running') {
+    q.timeRemaining = Math.max(0, q.timeRemaining - dt);
   }
 
   q.standings = buildQualifyingStandings(worldState, q);
@@ -270,13 +324,95 @@ export function updateQualifyingState(worldState, dt, localPlayerId = 'player_1'
     worldState.raceState.standings = q.standings;
   }
 
-  if (q.timeRemaining <= 0) {
-    finalizeQualifyingStage(worldState, localPlayerId, { simulatePlayerIfMissing: false });
+  const humanCars = Object.values(worldState.cars).filter((c) => !c.isBot);
+
+  // 2. Scadenza cronometro 0:00 -> regola F1 reale
+  if (q.status === 'running' && q.timeRemaining <= 0) {
+    if (humanCars.length === 0 || humanCars.every((c) => isCarParkedInBox(c))) {
+      finalizeQualifyingStage(worldState, localPlayerId, { simulatePlayerIfMissing: false });
+      return { autoAdvanceTriggered: false };
+    }
+
+    let anyOnFlyingLap = false;
+    for (const hCar of humanCars) {
+      if (isCarParkedInBox(hCar) || hCar.pitState === 'AUTO_PARKING') {
+        hCar.chequeredLapDone = true;
+      } else if (
+        hCar.pitState === 'PIT_ENTRY_LANE' ||
+        hCar.pitState === 'IN_LAP' ||
+        hCar.pitState === 'AUTO_BOX_STOP' ||
+        hCar.pitState === 'IN_PIT_BOX' ||
+        (hCar.surface === 'pitlane' && hCar.pitState !== 'ON_TRACK')
+      ) {
+        hCar.chequeredLapDone = true;
+        if (hCar.pitState !== 'AUTO_PARKING') {
+          hCar.pitState = 'PIT_ENTRY_LANE';
+        }
+      } else {
+        // Vettura umana in pista: può completare il giro lanciato in corso
+        anyOnFlyingLap = true;
+        hCar.chequeredStartLapSeq = hCar.timing?.lapCompletionSeq ?? 0;
+        hCar.chequeredLapDone = false;
+      }
+    }
+
+    if (anyOnFlyingLap) {
+      q.status = 'chequered_flag';
+      worldState.pitGuideActive = false;
+    } else {
+      q.status = 'in_lap';
+      worldState.pitGuideActive = true;
+    }
+    return { autoAdvanceTriggered: false };
   }
+
+  // 3. Bandiera a scacchi: attesa completamento giro lanciato dei piloti umani in pista
+  if (q.status === 'chequered_flag') {
+    for (const hCar of humanCars) {
+      if (hCar.chequeredLapDone) continue;
+      const curSeq = hCar.timing?.lapCompletionSeq ?? 0;
+      if (curSeq > (hCar.chequeredStartLapSeq ?? 0)) {
+        hCar.chequeredLapDone = true;
+        hCar.pitState = 'IN_LAP';
+      } else if (
+        isCarParkedInBox(hCar) ||
+        hCar.pitState === 'AUTO_PARKING' ||
+        hCar.surface === 'pitlane'
+      ) {
+        hCar.chequeredLapDone = true;
+        if (!isCarParkedInBox(hCar) && hCar.pitState !== 'AUTO_PARKING') {
+          hCar.pitState = 'PIT_ENTRY_LANE';
+        }
+      }
+    }
+
+    if (humanCars.every((c) => c.chequeredLapDone || isCarParkedInBox(c))) {
+      if (humanCars.every((c) => isCarParkedInBox(c))) {
+        worldState.pitGuideActive = false;
+        finalizeQualifyingStage(worldState, localPlayerId, { simulatePlayerIfMissing: false });
+      } else {
+        q.status = 'in_lap';
+        worldState.pitGuideActive = true;
+      }
+    }
+    return { autoAdvanceTriggered: false };
+  }
+
+  // 4. Giro di rientro guidato fino al parcheggio automatico nel box (PARKED_STAGE_END)
+  if (q.status === 'in_lap') {
+    worldState.pitGuideActive = true;
+    if (humanCars.length === 0 || humanCars.every((c) => isCarParkedInBox(c))) {
+      worldState.pitGuideActive = false;
+      finalizeQualifyingStage(worldState, localPlayerId, { simulatePlayerIfMissing: false });
+    }
+    return { autoAdvanceTriggered: false };
+  }
+
+  return { autoAdvanceTriggered: false };
 }
 
 /**
- * Chiude la fase corrente (Q1, Q2 o Q3), calcola gli eliminati e prepara la fase successiva o la griglia finale.
+ * Chiude la fase corrente (Q1, Q2 o Q3), calcola gli eliminati e avvia il countdown 10s della classifica.
  */
 export function finalizeQualifyingStage(
   worldState,
@@ -284,9 +420,10 @@ export function finalizeQualifyingStage(
   options = { simulatePlayerIfMissing: false }
 ) {
   const q = worldState.qualifyingState;
-  if (!q || q.status !== 'running') return;
+  if (!q || q.status === 'stage_complete' || q.status === 'qualifying_complete') return;
 
   const simulatePlayerIfMissing = Boolean(options.simulatePlayerIfMissing);
+  worldState.pitGuideActive = false;
 
   for (const car of Object.values(worldState.cars)) {
     if (!car.timing) continue;
@@ -313,6 +450,8 @@ export function finalizeQualifyingStage(
   if (worldState.raceState) {
     worldState.raceState.standings = q.standings;
   }
+
+  q.autoAdvanceTimer = STAGE_AUTO_ADVANCE_SECONDS;
 
   if (q.stageId === 'Q1') {
     q.eliminatedAfterQ1 = q.standings.slice(16, 22).map((row, idx) => ({

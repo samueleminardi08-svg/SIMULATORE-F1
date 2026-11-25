@@ -27,13 +27,15 @@ const RAD_TO_DEG = 180 / Math.PI;
 export function computeCarTelemetrySnapshot(
   car,
   weatherId = 'dry',
-  difficultyId = 'intermediate'
+  difficultyOrSettings = 'intermediate'
 ) {
   if (!car) return null;
   const cfg = CAR_PHYSICS_CONFIG;
   const adv = ADVANCED_PHYSICS_CONFIG;
-  const weatherProps = WEATHER_CONFIG[weatherId] || WEATHER_CONFIG.dry;
-  const difficultyProps = getDifficultyConfig(difficultyId);
+  const rawWeatherProps = WEATHER_CONFIG[weatherId] || WEATHER_CONFIG.dry;
+  const difficultyProps = getDifficultyConfig(difficultyOrSettings);
+  const rainPhysicsEnabled = difficultyProps.rainPhysicsEnabled !== false;
+  const weatherProps = rainPhysicsEnabled ? rawWeatherProps : WEATHER_CONFIG.dry;
   const surfaceProps = SURFACE_PHYSICS[car.surface] || SURFACE_PHYSICS.asphalt;
   const carSpecs = car.carSpecs || getCarSpecsForLevel(car.carLevel || 'base');
   const aero = car.aeroTire || {};
@@ -101,10 +103,14 @@ export function computeCarTelemetrySnapshot(
     lockupIntensity: aero.lockupIntensity ?? 0,
     highSpeedBraking: Boolean(aero.highSpeedBraking),
     tireHealthPct: Math.round((aero.tireHealth ?? 1) * 1000) / 10,
+    compound: aero.compound || 'M',
+    tireTempC: Math.round(aero.tireTempC ?? 95),
+    grainingPct: Math.round((aero.grainingLevel ?? 0) * 100),
+    blisteringPct: Math.round((aero.blisteringLevel ?? 0) * 100),
     downforceKg: aero.downforceKg ?? 0,
     surface: car.surface || 'asphalt',
     weatherId,
-    difficultyId,
+    difficultyId: typeof difficultyOrSettings === 'string' ? difficultyOrSettings : difficultyProps.id,
   };
 }
 

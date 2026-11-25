@@ -6,37 +6,56 @@
  * Qualifiche Q1/Q2/Q3, Track Limits, Prove Libere e Gara da 10 Giri.
  */
 
-import { LOCAL_PLAYER_ID } from './config/constants.js';
-import { getDifficultyConfig } from './config/difficulty.js';
-import { CAREER_RACE_LAPS, RACE_TOTAL_LAPS } from './config/f1_2026_data.js';
+import { LOCAL_PLAYER_ID, TIRE_COMPOUNDS } from './config/constants.js';
+import { loadKeybindings } from './config/keybindings.js';
+import {
+  PHYSICS_TOGGLE_DEFS,
+  loadPhysicsSettings,
+  normalizePhysicsSettings,
+} from './config/physicsSettings.js';
+import {
+  CAREER_RACE_LAPS,
+  RACE_TOTAL_LAPS,
+  getCareerWeekendPreset,
+} from './config/f1_2026_data.js';
 import { WorldState } from './core/WorldState.js';
 import { GameLoop } from './core/GameLoop.js';
 import { InputManager } from './input/InputManager.js';
-import { getTrackById, getNextCalendarTrackId } from './tracks/calendar2026/index.js';
+import { getTrackById } from './tracks/calendar2026/index.js';
 import { SceneManager } from './rendering/SceneManager.js';
+import { loadDefaultCameraMode } from './rendering/CameraController.js';
 import {
   getNightQualityConfig,
   loadSavedNightQuality,
 } from './rendering/NightLightingConfig.js';
 import { getSkyPresetById, loadSavedSkyPresetOption } from './rendering/SkyPresets.js';
 import { TrackMapHud } from './ui/TrackMapHud.js';
+import { PitLaneMapHud } from './ui/PitLaneMapHud.js';
+import { LoadingScreenManager } from './ui/LoadingScreenManager.js';
 import { HudOverlay } from './ui/HudOverlay.js';
 import { MenuManager } from './ui/MenuManager.js';
 import { ModalManager } from './ui/ModalManager.js';
 import {
+  getCareerCurrentTrack,
   loadCareerState,
   recordCareerRaceResult,
-  updateCareerProfile,
 } from './career/CareerStorage.js';
 import { RoomManager } from './network/RoomManager.js';
 
 function initGame() {
   const canvas = document.getElementById('game-canvas');
   const trackMapCanvas = document.getElementById('track-map-canvas');
+  const pitMapCanvas = document.getElementById('pit-map-canvas');
+  const pitMapContainer = document.getElementById('pit-map-container');
   const restartBtn = document.getElementById('restart-race-btn');
   const finishOpenMenuBtn = document.getElementById('finish-open-menu-btn');
   const hudSkipStageBtn = document.getElementById('hud-skip-stage-btn');
   const hudSkipQualiBtn = document.getElementById('hud-skip-quali-btn');
+  const hudExitPitBtn = document.getElementById('hud-exit-pit-btn');
+  const hudQuickPitReturnBtn = document.getElementById('hud-quick-pit-return-btn');
+  const hudResetTrackBtn = document.getElementById('hud-reset-track-btn');
+  const hudBoxRequestBtn = document.getElementById('hud-box-request-btn');
+  const hudNextCompoundBtns = [...document.querySelectorAll('[data-next-compound]')];
   const qualiNextBtn = document.getElementById('quali-next-btn');
   const qualiSkipToRaceBtn = document.getElementById('quali-skip-to-race-btn');
   const pauseModalEl = document.getElementById('pause-modal');
@@ -48,25 +67,40 @@ function initGame() {
   const pauseRestartBtn = document.getElementById('pause-restart-btn');
   const pauseSettingsBtn = document.getElementById('pause-settings-btn');
   const pauseMenuBtn = document.getElementById('pause-menu-btn');
+  const pitCompModalEl = document.getElementById('pit-compound-select-modal');
+  const pitCompTitleEl = document.getElementById('pit-comp-modal-title');
+  const pitCompSessionPillEl = document.getElementById('pit-comp-session-pill');
+  const pitCompWeatherBannerEl = document.getElementById('pit-comp-weather-banner');
+  const pitCompWeatherLabelEl = document.getElementById('pit-comp-weather-label');
+  const pitCompRecPillEl = document.getElementById('pit-comp-rec-pill');
+  const pitCompCardBtns = [...document.querySelectorAll('[data-box-compound]')];
+  const pitCompConfirmBtn = document.getElementById('pit-comp-confirm-btn');
+  let selectedBoxCompound = 'M';
+  let lastGridCompoundPromptedKey = '';
 
   // 0. Caricamento Carriera persistente da localStorage e circuito attivo
   let careerState = loadCareerState();
-  let activeTrack = getTrackById(careerState.selectedTrackId);
+  let activeTrack = getCareerCurrentTrack(careerState);
   let menuManager = null;
   let hudOverlay = null;
   let trackMapHud = null;
+  let pitLaneMapHud = null;
+  const loadingScreen = new LoadingScreenManager();
 
-  // 1. Stato puro della simulazione & gestore input (WASD + Frecce + C + R + ESC)
+  // 1. Stato puro della simulazione & gestore input con comandi personalizzabili
+  const initialKeybindings = loadKeybindings();
   const worldState = new WorldState(activeTrack);
-  const inputManager = new InputManager(window);
+  const inputManager = new InputManager(window, initialKeybindings);
   const modalManager = new ModalManager(window);
 
-  // 2. Scena 3D (con profilo qualità grafica notturna persistente + preset cielo 2K Pure Skies)
+  // 2. Scena 3D (con profilo qualità grafica notturna, cielo 2K Pure Skies e visuale predefinita salvata)
   const initialNightQuality = loadSavedNightQuality();
   const initialSkyPreset = loadSavedSkyPresetOption();
+  const initialCameraMode = loadDefaultCameraMode();
   const sceneManager = new SceneManager(canvas, activeTrack, {
     nightQuality: initialNightQuality,
     skyPreset: initialSkyPreset,
+    defaultCameraMode: initialCameraMode,
     onNightQualityAutoFallback: (nextQuality, info = {}) => {
       // Il fallback automatico vale per la sessione corrente senza sovrascrivere la preferenza salvata dall'utente
       const label = getNightQualityConfig(nextQuality).label;
@@ -101,7 +135,27 @@ function initGame() {
     if (trackMapHud) {
       trackMapHud.setTrackSurface(worldState.trackSurface);
     }
+    if (pitLaneMapHud) {
+      pitLaneMapHud.setTrackSurface(worldState.trackSurface);
+    }
     return activeTrack;
+  };
+
+  const formatLoadingModeLabel = (cfg, isMultiplayer = false) => {
+    if (cfg?.isCareer && !isMultiplayer) {
+      const roundNum = Number.isFinite(Number(cfg.careerRoundIndex))
+        ? Number(cfg.careerRoundIndex) + 1
+        : (careerState.currentRoundIndex ?? 0) + 1;
+      const preset = getCareerWeekendPreset(cfg.careerPresetId || careerState.weekendPresetId);
+      const roundTag = `CARRIERA R${String(roundNum).padStart(2, '0')} • ${preset.shortLabel.toUpperCase()} • `;
+      if (cfg?.mode === 'qualifying') return `${roundTag}QUALIFICHE Q1–Q3`;
+      return `${roundTag}GARA ${preset.raceLaps} GIRI`;
+    }
+    const prefix = isMultiplayer ? 'MULTIPLAYER • ' : cfg?.isCareer ? 'CARRIERA • ' : '';
+    if (cfg?.mode === 'qualifying') return `${prefix}QUALIFICHE Q1–Q3`;
+    if (cfg?.mode === 'practice') return `${prefix}PROVE LIBERE`;
+    const laps = cfg?.raceLaps ?? cfg?.lapLimit ?? (cfg?.isCareer ? CAREER_RACE_LAPS : RACE_TOTAL_LAPS);
+    return `${prefix}GARA ${laps} GIRI`;
   };
 
   // 3. Gestore Multigiocatore P2P (PeerJS + BroadcastChannel)
@@ -115,24 +169,38 @@ function initGame() {
     },
     onSessionStart: (sessionConfig, snapshot) => {
       if (!menuManager) return;
-      const incomingTrackId = snapshot?.trackId || sessionConfig?.trackId;
-      if (incomingTrackId && incomingTrackId !== activeTrack.id) {
-        applyActiveTrack(incomingTrackId);
-      }
-      menuManager.hasActiveSession = true;
-      menuManager.activeTab = 'home';
-      menuManager.close();
-      modalManager.syncVisibility('pause-modal', false);
-      hudOverlay.hideRaceFinish();
-      hudOverlay.hideQualifyingModal();
-      hudOverlay.resetTrackRecordTracking(incomingTrackId || activeTrack.id);
-      hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
-      inputManager.reset();
-      if (snapshot) {
-        worldState.applySnapshot(snapshot);
-      } else if (sessionConfig) {
-        worldState.startSession(sessionConfig, roomManager.getLocalCarId());
-      }
+      const incomingTrackId = snapshot?.trackId || sessionConfig?.trackId || activeTrack.id;
+      const targetTrack = getTrackById(incomingTrackId);
+      const skyId = snapshot?.skyPresetId || sessionConfig?.skyPresetId || menuManager.state.skyPreset;
+      loadingScreen.runTransition({
+        trackData: targetTrack,
+        modeLabel: formatLoadingModeLabel(sessionConfig, true),
+        skyPresetId: skyId,
+        renderer: sceneManager.renderer,
+        prepareFn: () => {
+          if (incomingTrackId && incomingTrackId !== activeTrack.id) {
+            applyActiveTrack(incomingTrackId);
+          }
+          menuManager.hasActiveSession = true;
+          menuManager.activeTab = 'home';
+          menuManager.close({ instant: true });
+          modalManager.syncVisibility('pause-modal', false);
+          hudOverlay.hideRaceFinish();
+          hudOverlay.hideQualifyingModal();
+          hudOverlay.resetTrackRecordTracking(incomingTrackId || activeTrack.id);
+          hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
+          const mpCamMode = sceneManager.setCameraMode(
+            menuManager?.state?.defaultCameraMode || loadDefaultCameraMode()
+          );
+          hudOverlay.setCameraMode(mpCamMode);
+          inputManager.reset();
+          if (snapshot) {
+            worldState.applySnapshot(snapshot);
+          } else if (sessionConfig) {
+            worldState.startSession(sessionConfig, roomManager.getLocalCarId());
+          }
+        },
+      });
     },
     onSnapshot: (snapshot) => {
       if (roomManager.isClient() && snapshot) {
@@ -156,6 +224,7 @@ function initGame() {
 
   hudOverlay = new HudOverlay({
     modalManager,
+    keybindings: initialKeybindings,
     onTrackRecordUpdated: () => {
       if (menuManager) menuManager.refreshTrackRecords();
     },
@@ -174,12 +243,15 @@ function initGame() {
       const result = recordCareerRaceResult(careerState, {
         position: playerCar.racePosition,
         difficultyId: ws.difficultyId,
+        physicsSettings: ws.physicsSettings,
         fastestLap,
         polePosition,
+        standings: ws.raceState?.standings || [],
+        playerDriverId: playerCar.driverId,
+        presetId: ws.sessionConfig?.careerPresetId || careerState.weekendPresetId,
+        raceLaps: ws.raceState?.totalLaps ?? ws.sessionConfig?.raceLaps,
       });
-      const nextTrackId = getNextCalendarTrackId(activeTrack.id);
-      careerState = updateCareerProfile(result.state, { selectedTrackId: nextTrackId });
-      result.state = careerState;
+      careerState = result.state;
       hudOverlay.setCareerBalance(careerState.money);
       if (menuManager) {
         menuManager.setCareerState(careerState);
@@ -191,15 +263,15 @@ function initGame() {
   hudOverlay.setCameraMode(sceneManager.getCameraMode());
   hudOverlay.setCareerBalance(careerState.money);
 
-  window.addEventListener('keydown', (event) => {
-    if (event.code === 'F3' && !event.repeat && !menuManager?.isOpen) {
-      event.preventDefault();
-      hudOverlay.togglePhysicsDebugPanel();
-    }
-  });
-
   trackMapHud = trackMapCanvas
     ? new TrackMapHud(trackMapCanvas, worldState.trackSurface, { size: 220, padding: 20 })
+    : null;
+
+  pitLaneMapHud = pitMapCanvas
+    ? new PitLaneMapHud(pitMapCanvas, pitMapContainer, worldState.trackSurface, {
+        width: 148,
+        height: 220,
+      })
     : null;
 
   const startConfiguredSession = (config) => {
@@ -207,13 +279,164 @@ function initGame() {
       applyActiveTrack(config.trackId);
     }
     modalManager.syncVisibility('pause-modal', false);
+    modalManager.syncVisibility('pit-compound-select-modal', false);
+    lastGridCompoundPromptedKey = '';
     hudOverlay.resetDismissedModals();
     hudOverlay.hideRaceFinish();
     hudOverlay.hideQualifyingModal();
     hudOverlay.resetTrackRecordTracking(config?.trackId || activeTrack.id);
     hudOverlay.setRoomInfo(roomManager.roomCode, roomManager.role);
+    const defaultCam = sceneManager.setCameraMode(
+      menuManager?.state?.defaultCameraMode || loadDefaultCameraMode()
+    );
+    hudOverlay.setCameraMode(defaultCam);
     inputManager.reset();
     worldState.startSession(config, LOCAL_PLAYER_ID);
+  };
+
+  const applySelectedBoxCompound = (compoundId) => {
+    const safeComp = TIRE_COMPOUNDS[compoundId] ? compoundId : 'M';
+    selectedBoxCompound = safeComp;
+    pitCompCardBtns.forEach((btn) => {
+      btn.classList.toggle('is-selected', btn.dataset.boxCompound === safeComp);
+    });
+    if (roomManager.isClient()) return;
+    const carId = roomManager.getLocalCarId();
+    const playerCar = worldState.getCar(carId);
+    if (!playerCar) return;
+    worldState.fitCarFreshTires(carId, safeComp);
+    const totalLaps = worldState.raceState?.totalLaps ?? 10;
+    const nextDefault =
+      worldState.weather === 'rain'
+        ? 'W'
+        : safeComp === 'S'
+          ? 'M'
+          : safeComp === 'H'
+            ? 'M'
+            : totalLaps >= 8
+              ? 'H'
+              : 'S';
+    playerCar.nextPitCompound = nextDefault;
+    if (roomManager.isHost()) {
+      roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+    }
+  };
+
+  const openPreSessionCompoundModal = () => {
+    if (!pitCompModalEl || menuManager?.isOpen || roomManager.isClient()) return;
+    const carId = roomManager.getLocalCarId();
+    const playerCar = worldState.getCar(carId);
+    if (!playerCar) return;
+
+    const isRain = worldState.weather === 'rain';
+    const skyPreset = worldState.skyPresetId
+      ? getSkyPresetById(worldState.skyPresetId)
+      : sceneManager.getResolvedSkyPreset?.(worldState);
+    const mode = worldState.raceState?.mode || worldState.sessionConfig?.mode || 'practice';
+    const inGarage = playerCar.pitState === 'IN_GARAGE' || mode === 'qualifying';
+    const recommended = isRain ? 'W' : mode === 'qualifying' ? 'S' : 'M';
+    const recSpec = TIRE_COMPOUNDS[recommended] || TIRE_COMPOUNDS.M;
+
+    if (pitCompTitleEl) {
+      pitCompTitleEl.textContent = inGarage
+        ? 'Box Scuderia • Scelta Mescola Gomme'
+        : mode === 'race'
+          ? 'Griglia di Partenza • Scelta Mescola Gomme'
+          : 'Pre-Sessione • Scelta Mescola Gomme';
+    }
+    if (pitCompSessionPillEl) {
+      const trackShort = (activeTrack?.name || 'F1 2026').toUpperCase();
+      const modeShort =
+        mode === 'qualifying'
+          ? `QUALIFICHE ${worldState.qualifyingState?.stageId || 'Q1'}`
+          : mode === 'race'
+            ? `GARA ${worldState.raceState?.totalLaps ?? RACE_TOTAL_LAPS} GIRI`
+            : 'PROVE LIBERE';
+      pitCompSessionPillEl.textContent = `${trackShort} • ${modeShort}`;
+    }
+    if (pitCompWeatherBannerEl) {
+      pitCompWeatherBannerEl.classList.toggle('is-rain', isRain);
+    }
+    if (pitCompWeatherLabelEl) {
+      const skyName = (skyPreset?.label || (isRain ? 'Pioggia' : 'Asciutto')).toUpperCase();
+      const icon = isRain
+        ? skyPreset?.id === 'heavy_rain'
+          ? '⛈️'
+          : '🌧️'
+        : skyPreset?.isNight
+          ? '🌙'
+          : '☀️';
+      const trackCond = isRain ? 'ASFALTO BAGNATO' : 'ASFALTO ASCIUTTO';
+      pitCompWeatherLabelEl.textContent = `${icon} ${skyName} — ${trackCond}`;
+    }
+    if (pitCompRecPillEl) {
+      pitCompRecPillEl.textContent = `INGEGNERE: CONSIGLIATA ${recSpec.name.toUpperCase()} (${recSpec.id})`;
+    }
+    if (pitCompConfirmBtn) {
+      pitCompConfirmBtn.textContent = inGarage
+        ? 'MONTA GOMME NEL BOX ▶'
+        : 'MONTA GOMME & INIZIA ▶';
+    }
+
+    pitCompCardBtns.forEach((btn) => {
+      btn.classList.toggle('is-recommended', btn.dataset.boxCompound === recommended);
+    });
+
+    applySelectedBoxCompound(recommended);
+    inputManager.reset();
+    modalManager.open('pit-compound-select-modal');
+  };
+
+  modalManager.register('pit-compound-select-modal', {
+    element: pitCompModalEl,
+    closeOnBackdrop: false,
+    onClose: () => {
+      inputManager.reset();
+      if (roomManager.isHost()) {
+        roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+      }
+    },
+  });
+
+  pitCompCardBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const comp = btn.dataset.boxCompound;
+      if (comp) {
+        applySelectedBoxCompound(comp);
+      }
+    });
+  });
+
+  if (pitCompConfirmBtn) {
+    pitCompConfirmBtn.addEventListener('click', () => {
+      modalManager.close('pit-compound-select-modal', 'confirm');
+    });
+  }
+
+  const launchSessionWithLoading = (
+    config,
+    { closeMenuFn = null, isMultiplayer = false, onPrepared = null } = {}
+  ) => {
+    const targetTrack = getTrackById(config?.trackId || activeTrack.id);
+    const skyId = config?.skyPresetId || menuManager?.state?.skyPreset || 'auto';
+    loadingScreen.runTransition({
+      trackData: targetTrack,
+      modeLabel: formatLoadingModeLabel(config, isMultiplayer),
+      skyPresetId: skyId,
+      renderer: sceneManager.renderer,
+      prepareFn: () => {
+        if (closeMenuFn) {
+          closeMenuFn();
+        } else if (menuManager?.isOpen) {
+          menuManager.close({ instant: true });
+        }
+        startConfiguredSession(config);
+        onPrepared?.();
+      },
+      onAfterReveal: () => {
+        openPreSessionCompoundModal();
+      },
+    });
   };
 
   const syncPauseModalMeta = () => {
@@ -222,15 +445,32 @@ function initGame() {
     }
     if (pauseMetaModeEl) {
       if (worldState.qualifyingState) {
-        pauseMetaModeEl.textContent = `Qualifiche ${worldState.qualifyingState.stage || 'Q1'}`;
+        const qStage = worldState.qualifyingState.stageId || 'Q1';
+        if (worldState.sessionConfig?.isCareer) {
+          const roundNum = Number.isFinite(Number(worldState.sessionConfig.careerRoundIndex))
+            ? Number(worldState.sessionConfig.careerRoundIndex) + 1
+            : (careerState.currentRoundIndex ?? 0) + 1;
+          const preset = getCareerWeekendPreset(
+            worldState.sessionConfig.careerPresetId || careerState.weekendPresetId
+          );
+          pauseMetaModeEl.textContent = `Carriera R${String(roundNum).padStart(2, '0')} • ${qStage} (${preset.shortLabel})`;
+        } else {
+          pauseMetaModeEl.textContent = `Qualifiche ${qStage}`;
+        }
       } else if (worldState.sessionConfig?.mode === 'practice') {
         pauseMetaModeEl.textContent = 'Prove Libere';
       } else if (worldState.sessionConfig?.isCareer) {
+        const preset = getCareerWeekendPreset(
+          worldState.sessionConfig.careerPresetId || careerState.weekendPresetId
+        );
         const laps =
           worldState.raceState?.totalLaps ??
           worldState.sessionConfig?.raceLaps ??
-          CAREER_RACE_LAPS;
-        pauseMetaModeEl.textContent = `Carriera • ${laps} Giri`;
+          preset.raceLaps;
+        const roundNum = Number.isFinite(Number(worldState.sessionConfig.careerRoundIndex))
+          ? Number(worldState.sessionConfig.careerRoundIndex) + 1
+          : (careerState.currentRoundIndex ?? 0) + 1;
+        pauseMetaModeEl.textContent = `Carriera R${String(roundNum).padStart(2, '0')} • Gara ${laps} Giri (${preset.shortLabel})`;
       } else {
         const laps =
           worldState.raceState?.totalLaps ??
@@ -248,8 +488,11 @@ function initGame() {
         activePreset?.label || (worldState.weather === 'rain' ? 'Pioggia' : 'Asciutto');
     }
     if (pauseMetaDifficultyEl) {
-      const diffId = worldState.difficultyId || menuManager?.state?.difficultyId;
-      pauseMetaDifficultyEl.textContent = getDifficultyConfig(diffId)?.label || 'Intermedio';
+      const ps = normalizePhysicsSettings(
+        worldState.physicsSettings || menuManager?.state?.physicsSettings
+      );
+      const activeCount = PHYSICS_TOGGLE_DEFS.filter((d) => Boolean(ps[d.key])).length;
+      pauseMetaDifficultyEl.textContent = `Fisica ${activeCount}/7 • IA ${ps.botAiLevel}%`;
     }
     if (pauseRestartBtn) {
       pauseRestartBtn.disabled = roomManager.isClient();
@@ -286,6 +529,7 @@ function initGame() {
           ? {
               ...worldState.sessionConfig,
               difficultyId: menuManager.state.difficultyId,
+              physicsSettings: { ...menuManager.state.physicsSettings },
               weather: menuManager.state.weather,
               skyPresetId:
                 worldState.sessionConfig.requestedSkyPresetId || menuManager.state.skyPreset,
@@ -295,6 +539,7 @@ function initGame() {
       if (roomManager.isHost()) {
         roomManager.broadcastSessionStart(worldState.sessionConfig, worldState.getSnapshot());
       }
+      openPreSessionCompoundModal();
     });
   }
 
@@ -302,6 +547,7 @@ function initGame() {
     pauseSettingsBtn.addEventListener('click', () => {
       if (menuManager) {
         menuManager.state.weather = worldState.weather;
+        menuManager.setPhysicsSettings(worldState.physicsSettings);
         if (!worldState.sessionConfig?.isCareer && worldState.skyPresetId) {
           menuManager.state.skyPreset = worldState.skyPresetId;
         }
@@ -318,6 +564,9 @@ function initGame() {
     });
   }
 
+  const initialPhysicsSettings = loadPhysicsSettings();
+  worldState.setPhysicsSettings(initialPhysicsSettings);
+
   // 4. Menu configurazione sessione, Showroom Garage 3D & Lobby Multiplayer
   menuManager = new MenuManager({
     careerState,
@@ -325,6 +574,30 @@ function initGame() {
     modalManager,
     nightQuality: initialNightQuality,
     skyPreset: initialSkyPreset,
+    physicsSettings: initialPhysicsSettings,
+    defaultCameraMode: initialCameraMode,
+    keybindings: initialKeybindings,
+    onKeybindingsChange: (nextBindings) => {
+      inputManager.setKeybindings(nextBindings);
+      hudOverlay?.setKeybindings(nextBindings);
+    },
+    onKeybindCaptureChange: (isCapturing) => {
+      inputManager.setCapturing(isCapturing);
+      modalManager.setKeyboardSuspended(isCapturing);
+    },
+    onDefaultCameraChange: (nextCamId) => {
+      const mode = sceneManager.setCameraMode(nextCamId);
+      hudOverlay?.setCameraMode(mode);
+    },
+    onPhysicsSettingsChange: (nextPhysics) => {
+      if (!roomManager.isClient()) {
+        worldState.setPhysicsSettings(nextPhysics);
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
+      }
+      syncPauseModalMeta();
+    },
     onNightQualityChange: (nextQuality) => {
       sceneManager.setNightQuality(nextQuality);
     },
@@ -375,7 +648,10 @@ function initGame() {
       }
       syncPauseModalMeta();
     },
-    onStartMultiplayerSession: ({ mode, difficultyId, weather, skyPresetId, trackId, raceLaps }) => {
+    onStartMultiplayerSession: (
+      { mode, difficultyId, physicsSettings, weather, skyPresetId, trackId, raceLaps, startingCompound },
+      closeMenuFn
+    ) => {
       if (!roomManager.isHost()) return;
       const humanPlayers = roomManager.getPlayers();
       const safeRaceLaps = Math.max(
@@ -386,23 +662,30 @@ function initGame() {
         trackId: trackId || activeTrack.id,
         mode,
         difficultyId,
+        physicsSettings: physicsSettings || menuManager.state.physicsSettings,
         weather,
         skyPresetId: skyPresetId || menuManager.state.skyPreset,
+        startingCompound: startingCompound && startingCompound !== 'auto' ? startingCompound : null,
         withBots: true,
         raceLaps: safeRaceLaps,
         lapLimit: mode === 'race' ? safeRaceLaps : null,
         humanPlayers,
         isCareer: false,
       };
-      startConfiguredSession(config);
-      roomManager.broadcastSessionStart(worldState.sessionConfig, worldState.getSnapshot());
+      launchSessionWithLoading(config, {
+        closeMenuFn,
+        isMultiplayer: true,
+        onPrepared: () => {
+          roomManager.broadcastSessionStart(worldState.sessionConfig, worldState.getSnapshot());
+        },
+      });
     },
-    onStartSession: (config) => {
+    onStartSession: (config, closeMenuFn) => {
       if (roomManager.isActive()) {
         roomManager.leaveRoom();
       }
       hudOverlay.setRoomInfo('', 'offline');
-      startConfiguredSession(config);
+      launchSessionWithLoading(config, { closeMenuFn });
     },
     onResume: () => {
       hudOverlay.resetDismissedModals();
@@ -467,6 +750,75 @@ function initGame() {
     hudSkipQualiBtn.addEventListener('click', () => submitSkipVote('all'));
   }
 
+  if (hudExitPitBtn) {
+    hudExitPitBtn.addEventListener('click', () => {
+      if (roomManager.isClient()) return;
+      worldState.requestPlayerPitExit(roomManager.getLocalCarId());
+    });
+  }
+
+  let clientResetTrackQueued = false;
+
+  if (hudQuickPitReturnBtn) {
+    hudQuickPitReturnBtn.addEventListener('click', () => {
+      if (roomManager.isClient()) return;
+      inputManager.reset();
+      worldState.quickReturnToPitEntry(roomManager.getLocalCarId());
+      if (roomManager.isHost()) {
+        roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+      }
+    });
+  }
+
+  if (hudResetTrackBtn) {
+    hudResetTrackBtn.addEventListener('click', () => {
+      hudResetTrackBtn.blur?.();
+      if (roomManager.isClient()) {
+        clientResetTrackQueued = true;
+        hudOverlay?.notifyTrackReset();
+        return;
+      }
+      inputManager.reset();
+      const res = worldState.resetCarToTrack(roomManager.getLocalCarId());
+      if (res?.ok) {
+        hudOverlay?.notifyTrackReset();
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
+      }
+    });
+  }
+
+  if (hudBoxRequestBtn) {
+    hudBoxRequestBtn.addEventListener('click', () => {
+      hudBoxRequestBtn.blur?.();
+      if (roomManager.isClient()) return;
+      worldState.togglePlayerPitStopRequest(roomManager.getLocalCarId());
+      if (roomManager.isHost()) {
+        roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+      }
+    });
+  }
+
+  hudNextCompoundBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      btn.blur?.();
+      if (roomManager.isClient()) return;
+      const comp = btn.dataset.nextCompound;
+      if (!comp) return;
+      const carId = roomManager.getLocalCarId();
+      const car = worldState.getCar(carId);
+      const fittedNow = car?.pitState === 'IN_GARAGE' || car?.pitState === 'IN_PIT_BOX';
+      const chosen = worldState.setPlayerNextPitCompound(carId, comp);
+      if (chosen) {
+        hudOverlay?.notifyPitCompoundChanged(chosen, fittedNow);
+      }
+      if (roomManager.isHost()) {
+        roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+      }
+    });
+  });
+
   if (qualiNextBtn) {
     qualiNextBtn.addEventListener('click', () => {
       if (roomManager.isClient()) return;
@@ -507,8 +859,10 @@ function initGame() {
 
       const isPauseActive =
         modalManager.isOpen('pause-modal') ||
+        modalManager.isOpen('pit-compound-select-modal') ||
         (!menuManager.isOpen && modalManager.isOpen('gp-settings-popup'));
-      const blockTrackInput = menuManager.isOpen || modalManager.hasOpenModal();
+      const blockTrackInput =
+        menuManager.isOpen || modalManager.hasOpenModal() || loadingScreen.isLoading;
 
       if (blockTrackInput && !wasMenuOpen) {
         inputManager.reset();
@@ -524,13 +878,42 @@ function initGame() {
 
       if (roomManager.isClient()) {
         inputManager.consumeWeatherToggle();
-        roomManager.sendInput(localInput);
+        inputManager.consumePitToggle();
+        inputManager.consumeCyclePitCompound();
+        const resetRequested =
+          (!blockTrackInput && inputManager.consumeResetToTrack()) || clientResetTrackQueued;
+        clientResetTrackQueued = false;
+        if (blockTrackInput) {
+          inputManager.consumeResetToTrack();
+        }
+        if (resetRequested) {
+          hudOverlay?.notifyTrackReset();
+        }
+        roomManager.sendInput(
+          resetRequested ? { ...localInput, resetToTrack: true } : localInput
+        );
         return;
       }
 
-      if ((menuManager.isOpen || isPauseActive) && !roomManager.isHost()) {
+      if ((menuManager.isOpen || isPauseActive || loadingScreen.isLoading) && !roomManager.isHost()) {
         inputManager.consumeWeatherToggle();
+        inputManager.consumePitToggle();
+        inputManager.consumeCyclePitCompound();
+        inputManager.consumeResetToTrack();
         return;
+      }
+
+      if (!blockTrackInput && inputManager.consumeResetToTrack()) {
+        const res = worldState.resetCarToTrack(activePlayerId);
+        if (res?.ok) {
+          inputManager.reset();
+          hudOverlay?.notifyTrackReset();
+          if (roomManager.isHost()) {
+            roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+          }
+        }
+      } else if (blockTrackInput) {
+        inputManager.consumeResetToTrack();
       }
 
       if (!blockTrackInput && inputManager.consumeWeatherToggle()) {
@@ -544,11 +927,51 @@ function initGame() {
         inputManager.consumeWeatherToggle();
       }
 
+      if (!blockTrackInput && inputManager.consumePitToggle()) {
+        worldState.togglePlayerPitStopRequest(activePlayerId);
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
+      } else if (blockTrackInput) {
+        inputManager.consumePitToggle();
+      }
+
+      if (!blockTrackInput && inputManager.consumeCyclePitCompound()) {
+        const activeCar = worldState.getCar(activePlayerId);
+        const fittedNow =
+          activeCar?.pitState === 'IN_GARAGE' || activeCar?.pitState === 'IN_PIT_BOX';
+        const nextComp = worldState.cyclePlayerNextPitCompound(activePlayerId);
+        if (nextComp) {
+          hudOverlay?.notifyPitCompoundChanged(nextComp, fittedNow);
+        }
+        if (roomManager.isHost()) {
+          roomManager.broadcastSnapshot(worldState.getSnapshot(), true);
+        }
+      } else if (blockTrackInput) {
+        inputManager.consumeCyclePitCompound();
+      }
+
       const allInputs = roomManager.isHost()
         ? { [LOCAL_PLAYER_ID]: localInput, ...roomManager.getRemoteInputs() }
         : { [LOCAL_PLAYER_ID]: localInput };
 
       worldState.step(allInputs, dt, activePlayerId);
+
+      // Dopo il passaggio Qualifiche Q3 -> Griglia Gara, offre la scelta mescola per la gara in base al meteo
+      if (
+        !menuManager.isOpen &&
+        !loadingScreen.isLoading &&
+        !roomManager.isClient() &&
+        worldState.raceState?.mode === 'race' &&
+        worldState.raceState?.status === 'grid_wait' &&
+        !modalManager.hasOpenModal()
+      ) {
+        const gridPromptKey = `${worldState.trackData?.id}:${worldState.sessionConfig?.raceLaps}:grid`;
+        if (lastGridCompoundPromptedKey !== gridPromptKey) {
+          lastGridCompoundPromptedKey = gridPromptKey;
+          openPreSessionCompoundModal();
+        }
+      }
 
       if (roomManager.isHost()) {
         roomManager.broadcastSnapshot(worldState.getSnapshot());
@@ -561,8 +984,12 @@ function initGame() {
           const mode = sceneManager.cycleCameraMode();
           hudOverlay.setCameraMode(mode);
         }
+        if (inputManager.consumePhysicsDebugToggle()) {
+          hudOverlay.togglePhysicsDebugPanel();
+        }
       } else {
         inputManager.consumeCameraToggle();
+        inputManager.consumePhysicsDebugToggle();
       }
 
       sceneManager.render(worldState, activePlayerId);
@@ -573,6 +1000,9 @@ function initGame() {
         }
         if (trackMapHud) {
           trackMapHud.render(worldState, activePlayerId);
+        }
+        if (pitLaneMapHud) {
+          pitLaneMapHud.render(worldState, activePlayerId);
         }
         hudOverlay.render(worldState, activePlayerId);
       }

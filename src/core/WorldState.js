@@ -4,13 +4,20 @@
  * così da poter essere sincronizzato via rete nello Step 10.
  */
 
-import { CAR_PHYSICS_CONFIG, LOCAL_PLAYER_ID } from '../config/constants.js';
+import { CAR_PHYSICS_CONFIG, LOCAL_PLAYER_ID, TIRE_COMPOUNDS } from '../config/constants.js';
 import { DEFAULT_DIFFICULTY_ID } from '../config/difficulty.js';
+import {
+  loadPhysicsSettings,
+  normalizePhysicsSettings,
+  physicsSettingsFromLegacyDifficulty,
+} from '../config/physicsSettings.js';
+import { fitFreshTires } from '../physics/AeroAndTires.js';
 import {
   CAREER_RACE_LAPS,
   F1_2026_DRIVERS,
   F1_2026_TEAMS,
   RACE_TOTAL_LAPS,
+  getCareerWeekendPreset,
 } from '../config/f1_2026_data.js';
 import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { createInitialCarState, stepCarPhysics } from '../physics/CarPhysics.js';
@@ -18,25 +25,34 @@ import {
   resolveCarToCarCollisions,
   resolveTrackBarrierCollision,
 } from '../physics/Collisions.js';
-import { createTrackSurface } from '../tracks/TrackSurface.js';
+import { createTrackSurface, queryTrackSurface } from '../tracks/TrackSurface.js';
 import { DEFAULT_TRACK_ID, getTrackById } from '../tracks/calendar2026/index.js';
 import { computeBotInput } from '../ai/BotController.js';
+import { getDriverProfile } from '../ai/DriverProfiles.js';
 import {
   createSessionTimingState,
   createCarTimingState,
   updateCarTiming,
 } from '../race/TimingSystem.js';
 import {
+  GRID_WAIT_AFTER_QUALI_SECONDS,
   computeStartingGridTransforms,
   createInitialRaceState,
   updateRaceState,
 } from '../race/RaceManager.js';
+import {
+  createInitialPitLaneState,
+  getCarPitStall,
+  quickReturnCarToPitEntry,
+  updatePitLaneManager,
+} from '../race/PitLaneManager.js';
 import {
   QUALIFYING_STAGE_IDS,
   QUALIFYING_STAGES,
   canSkipQualifying,
   createInitialQualifyingState,
   finalizeQualifyingStage,
+  getQualifyingStageDuration,
   updateQualifyingState,
   voteSkipQualifying,
 } from '../race/QualifyingManager.js';
@@ -76,10 +92,70 @@ function cloneSessionTiming(sessionTiming) {
   };
 }
 
+const TRACK_RECOVERY_BYPASS_PIT_STATES = new Set([
+  'IN_GARAGE',
+  'EXITING_GARAGE',
+  'PIT_EXIT_LANE',
+  'PIT_ENTRY_LANE',
+  'PIT_STOPPING',
+  'AUTO_BOX_STOP',
+  'IN_PIT_BOX',
+  'AUTO_PARKING',
+  'PARKED_STAGE_END',
+]);
+
+/**
+ * Valuta se la vettura del giocatore può (e deve) essere rimessa in pista:
+ * - fuori pista su erba/ghiaia a bassa/media velocità, oppure
+ * - bloccata contro una barriera, oppure
+ * - ferma contromano / di traverso.
+ */
+export function getCarTrackRecoveryState(worldState, car) {
+  if (!worldState?.trackSurface || !car || car.isBot || car.raceFinished || car.trackRecoveryAnim) {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+  const raceStatus = worldState.raceState?.status;
+  if (raceStatus === 'grid_wait' || raceStatus === 'countdown' || raceStatus === 'finished') {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+  const qStatus = worldState.qualifyingState?.status;
+  if (qStatus === 'stage_complete' || qStatus === 'qualifying_complete') {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+  if ((car.resetToTrackCooldown ?? 0) > 0) {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+  if (car.pitState && TRACK_RECOVERY_BYPASS_PIT_STATES.has(car.pitState)) {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+
+  const speed = Math.hypot(car.vx || 0, car.vz || 0);
+  const query = queryTrackSurface(worldState.trackSurface, car.x, car.z, car.trackSampleIndex);
+  const headingDot = Math.sin(car.heading || 0) * query.tx + Math.cos(car.heading || 0) * query.tz;
+
+  const offTrack = car.surface === 'grass' && speed < 30;
+  const barrierStuck = Boolean(car.collidingWithBarrier) && speed < 14;
+  const wrongWayStopped = speed < 8 && headingDot < 0.35;
+
+  const eligible = offTrack || barrierStuck || wrongWayStopped;
+  if (!eligible) {
+    return { eligible: false, showPrompt: false, reason: null };
+  }
+
+  const reason = offTrack ? 'off_track' : barrierStuck ? 'barrier' : 'wrong_way';
+  const showPrompt =
+    (car.surface === 'grass' && speed < 16) ||
+    (Boolean(car.collidingWithBarrier) && speed < 10) ||
+    (speed < 5 && headingDot < 0.35);
+
+  return { eligible: true, showPrompt, reason };
+}
+
 function cloneQualifyingState(qualifyingState) {
   if (!qualifyingState) return null;
   return {
     ...qualifyingState,
+    stageDurations: qualifyingState.stageDurations ? { ...qualifyingState.stageDurations } : null,
     activeDriverIds: [...(qualifyingState.activeDriverIds || [])],
     nextActiveDriverIds: [...(qualifyingState.nextActiveDriverIds || [])],
     humanDriverIds: [...(qualifyingState.humanDriverIds || [])],
@@ -105,6 +181,7 @@ export class WorldState {
     this.weather = 'dry'; // 'dry' | 'rain'
     this.skyPresetId = resolveSkyPreset('dry', trackData).id;
     this.difficultyId = 'realistic';
+    this.physicsSettings = loadPhysicsSettings();
     this.sessionConfig = null;
     this.trackData = trackData;
     this.trackSurface = trackData ? createTrackSurface(trackData) : null;
@@ -113,6 +190,9 @@ export class WorldState {
       : null;
     this.raceState = null;
     this.qualifyingState = null;
+    this.pitLaneState = createInitialPitLaneState();
+    this.pitGuideActive = false;
+    this.pitReleaseStatus = null;
     this.careerRewardGranted = false;
     this.lastCareerReward = null;
     /** @type {Record<string, ReturnType<typeof createInitialCarState>>} */
@@ -155,6 +235,104 @@ export class WorldState {
     this.skyPresetId = nextPreset.id;
     this.weather = nextPreset.physicsWeather === 'rain' ? 'rain' : 'dry';
     return nextPreset;
+  }
+
+  /**
+   * Aggiorna i 7 toggle modulari di fisica e il livello Bot IA (75%–105%) a runtime.
+   */
+  setPhysicsSettings(settings) {
+    this.physicsSettings = normalizePhysicsSettings(settings);
+    if (this.sessionConfig) {
+      this.sessionConfig.physicsSettings = { ...this.physicsSettings };
+    }
+    return this.physicsSettings;
+  }
+
+  /**
+   * Determina la mescola iniziale realistica per modalità e meteo (S / M / H / W),
+   * rispettando sempre l'eventuale mescola scelta dal giocatore prima di scendere in pista.
+   */
+  _resolveInitialCompound(
+    mode,
+    isRain,
+    driverNumber = 1,
+    isPlayerSlot = false,
+    requestedCompound = null
+  ) {
+    if (isPlayerSlot && requestedCompound && TIRE_COMPOUNDS[requestedCompound]) {
+      return requestedCompound;
+    }
+    if (isRain) return 'W';
+    if (mode === 'qualifying') return 'S';
+    if (mode === 'practice') return 'M';
+    if (isPlayerSlot) return 'M';
+    const racePool = ['M', 'M', 'S', 'H'];
+    return racePool[Math.abs(Number(driverNumber) || 0) % racePool.length];
+  }
+
+  _resolveDefaultNextPitCompound(startCompound, isRain, totalLaps = 10) {
+    if (isRain) return 'W';
+    if (startCompound === 'S') return 'M';
+    if (startCompound === 'H') return 'M';
+    return (totalLaps ?? 10) >= 8 ? 'H' : 'S';
+  }
+
+  /**
+   * Attiva/disattiva la prenotazione Pit Stop in Gara/Prove per il giocatore (tasto BOX o HUD)
+   * accendendo le frecce 3D verdi della guida pit lane.
+   */
+  togglePlayerPitStopRequest(carId = LOCAL_PLAYER_ID) {
+    const car = this.getCar(carId);
+    const mode = this.raceState?.mode ?? 'practice';
+    if (!car || car.isBot || mode === 'qualifying') return false;
+    car.pitStopRequested = !car.pitStopRequested;
+    this.pitGuideActive = Boolean(car.pitStopRequested);
+    return car.pitStopRequested;
+  }
+
+  /**
+   * Imposta la mescola da montare al prossimo Pit Stop ('S' | 'M' | 'H' | 'W').
+   * Se il giocatore è ancora fermo nel proprio garage/box (es. prima di uscire in Qualifica),
+   * monta subito il nuovo treno così da uscire in pista con la mescola appena scelta.
+   */
+  setPlayerNextPitCompound(carId = LOCAL_PLAYER_ID, compoundId = 'M') {
+    const car = this.getCar(carId);
+    if (!car || car.isBot) return null;
+    if (!TIRE_COMPOUNDS[compoundId]) return car.nextPitCompound;
+    car.nextPitCompound = compoundId;
+    if (car.pitState === 'IN_GARAGE' || car.pitState === 'IN_PIT_BOX') {
+      fitFreshTires(car, compoundId, this.weather === 'rain');
+    }
+    return compoundId;
+  }
+
+  /**
+   * Scorre ciclicamente la mescola per il prossimo Pit Stop (S → M → H → W).
+   */
+  cyclePlayerNextPitCompound(carId = LOCAL_PLAYER_ID) {
+    const car = this.getCar(carId);
+    if (!car || car.isBot) return null;
+    const order = ['S', 'M', 'H', 'W'];
+    const refComp =
+      car.pitState === 'IN_GARAGE' || car.pitState === 'IN_PIT_BOX'
+        ? car.aeroTire?.compound || car.nextPitCompound || 'M'
+        : car.nextPitCompound || car.aeroTire?.compound || 'M';
+    const curIdx = order.indexOf(refComp);
+    const nextComp = order[(curIdx + 1 + order.length) % order.length];
+    return this.setPlayerNextPitCompound(carId, nextComp);
+  }
+
+  /**
+   * Monta immediatamente un treno di gomme nuove (es. cambio rapido ai box in Prove Libere).
+   */
+  fitCarFreshTires(carId = LOCAL_PLAYER_ID, compoundId = null) {
+    const car = this.getCar(carId);
+    if (!car) return null;
+    const chosen =
+      compoundId && TIRE_COMPOUNDS[compoundId]
+        ? compoundId
+        : car.nextPitCompound || (this.weather === 'rain' ? 'W' : 'M');
+    return fitFreshTires(car, chosen, this.weather === 'rain');
   }
 
   /**
@@ -213,12 +391,19 @@ export class WorldState {
     const difficultyId = config.difficultyId || DEFAULT_DIFFICULTY_ID;
     const withBots = mode === 'race' || mode === 'qualifying' ? true : Boolean(config.withBots);
     const isCareer = Boolean(config.isCareer);
+    const careerPreset = isCareer ? getCareerWeekendPreset(config.careerPresetId) : null;
     const rawRaceLaps = Number(config.raceLaps ?? config.lapLimit);
-    const resolvedRaceLaps = isCareer
-      ? CAREER_RACE_LAPS
-      : Number.isFinite(rawRaceLaps) && rawRaceLaps >= 1
+    const resolvedRaceLaps =
+      Number.isFinite(rawRaceLaps) && rawRaceLaps >= 1
         ? Math.max(1, Math.min(99, Math.round(rawRaceLaps)))
-        : RACE_TOTAL_LAPS;
+        : isCareer
+          ? careerPreset.raceLaps
+          : RACE_TOTAL_LAPS;
+    const qualifyingStageDurations = config.qualifyingStageDurations
+      ? { ...config.qualifyingStageDurations }
+      : careerPreset
+        ? { ...careerPreset.qualifyingDurations }
+        : null;
     const lapLimit =
       mode === 'race'
         ? resolvedRaceLaps
@@ -272,15 +457,22 @@ export class WorldState {
       : config.requiredPlayerIds || [localPlayerId];
 
     this.difficultyId = difficultyId;
+    if (config.physicsSettings && typeof config.physicsSettings === 'object') {
+      this.physicsSettings = normalizePhysicsSettings(config.physicsSettings);
+    } else if (config.difficultyId) {
+      this.physicsSettings = physicsSettingsFromLegacyDifficulty(config.difficultyId);
+    }
     this.careerRewardGranted = false;
     this.lastCareerReward = null;
     this.sessionConfig = {
       trackId: this.trackData?.id || DEFAULT_TRACK_ID,
       mode,
       difficultyId,
+      physicsSettings: { ...this.physicsSettings },
       withBots,
       lapLimit,
       raceLaps: resolvedRaceLaps,
+      qualifyingStageDurations,
       carLevel,
       playerDriverId: humanPlayers?.[0]?.driverId || playerDriverId,
       playerGridIndex,
@@ -288,6 +480,13 @@ export class WorldState {
       humanPlayers,
       isCareer: Boolean(config.isCareer),
       careerTeamId: config.careerTeamId || null,
+      careerPresetId: careerPreset?.id || config.careerPresetId || null,
+      careerRoundIndex: Number.isFinite(Number(config.careerRoundIndex))
+        ? Math.max(0, Math.floor(Number(config.careerRoundIndex)))
+        : null,
+      careerSeasonNumber: Number.isFinite(Number(config.careerSeasonNumber))
+        ? Math.max(1, Math.floor(Number(config.careerSeasonNumber)))
+        : null,
       playerCustomName: config.playerCustomName || null,
       playerCustomCode: config.playerCustomCode || null,
       playerCustomSpecs: config.playerCustomSpecs ? { ...config.playerCustomSpecs } : null,
@@ -296,6 +495,10 @@ export class WorldState {
       paintMetalness: config.paintMetalness ?? null,
       skyPresetId: this.skyPresetId,
       requestedSkyPresetId: isCareer ? 'random' : (config.skyPresetId || null),
+      startingCompound:
+        config.startingCompound && TIRE_COMPOUNDS[config.startingCompound]
+          ? config.startingCompound
+          : null,
       qualifiedPole: false,
     };
 
@@ -313,6 +516,7 @@ export class WorldState {
         mode,
         carLevel,
         difficultyId,
+        physicsSettings: this.physicsSettings,
       });
       return;
     }
@@ -321,6 +525,9 @@ export class WorldState {
     this.tick = 0;
     this.elapsedTime = 0;
     this.cars = {};
+    this.pitLaneState = createInitialPitLaneState();
+    this.pitGuideActive = false;
+    this.pitReleaseStatus = null;
     this.sessionTiming = createSessionTimingState(
       this.trackSurface,
       this.trackData?.startTransform
@@ -336,6 +543,11 @@ export class WorldState {
     const startTransform = this.trackData?.startTransform ?? { x: 0, y: 0, z: 0, heading: 0 };
 
     const customSpecs = config.playerCustomSpecs ? { ...config.playerCustomSpecs } : null;
+    const isRainStart = this.weather === 'rain';
+    const startCompound =
+      config.startingCompound && TIRE_COMPOUNDS[config.startingCompound]
+        ? config.startingCompound
+        : this._resolveInitialCompound('practice', isRainStart, playerDriver.number, true);
     this.spawnCar(localPlayerId, startTransform, {
       driverId: playerDriver.id,
       driverName: config.playerCustomName || playerDriver.name,
@@ -353,6 +565,9 @@ export class WorldState {
       carLevel: customSpecs ? customSpecs.id : carLevel,
       carSpecs: customSpecs || getCarSpecsForLevel(carLevel),
       gridPosition: 1,
+      compound: startCompound,
+      nextPitCompound: this._resolveDefaultNextPitCompound(startCompound, isRainStart, 10),
+      isRain: isRainStart,
     });
 
     updateRaceState(this, 0, localPlayerId);
@@ -377,18 +592,30 @@ export class WorldState {
     const skipCountdown = Boolean(options.skipCountdown);
     const mode = options.mode ?? 'race';
     const carLevel = options.carLevel ?? 'base';
-    if (options.difficultyId) {
+    if (options.physicsSettings && typeof options.physicsSettings === 'object') {
+      this.physicsSettings = normalizePhysicsSettings(options.physicsSettings);
+    } else if (options.difficultyId) {
       this.difficultyId = options.difficultyId;
+      if (!this.sessionConfig?.physicsSettings) {
+        this.physicsSettings = physicsSettingsFromLegacyDifficulty(options.difficultyId);
+      }
     }
 
     this.tick = 0;
     this.elapsedTime = 0;
     this.cars = {};
+    this.pitLaneState = createInitialPitLaneState();
+    this.pitGuideActive = false;
+    this.pitReleaseStatus = null;
     this.sessionTiming = createSessionTimingState(
       this.trackSurface,
       this.trackData?.startTransform
     );
-    this.raceState = createInitialRaceState(totalLaps, { skipCountdown, mode });
+    this.raceState = createInitialRaceState(totalLaps, {
+      skipCountdown,
+      mode,
+      gridWaitSeconds: options.gridWaitSeconds ?? 0,
+    });
 
     const humanPlayersRaw = options.humanPlayers || this.sessionConfig?.humanPlayers || null;
     const humanPlayers =
@@ -506,6 +733,16 @@ export class WorldState {
       const effectiveSpecs = customSpecs
         ? { ...customSpecs }
         : getCarSpecsForLevel(activeLevel);
+      const isRainGrid = this.weather === 'rain';
+      const requestedPlayerCompound =
+        options.startingCompound || this.sessionConfig?.startingCompound || null;
+      const gridCompound = this._resolveInitialCompound(
+        mode,
+        isRainGrid,
+        driver.number,
+        isPlayerSlot,
+        requestedPlayerCompound
+      );
 
       this.spawnCar(carId, slot, {
         driverId: driver.id,
@@ -524,9 +761,13 @@ export class WorldState {
         carLevel: effectiveLevel,
         carSpecs: effectiveSpecs,
         skillFactor: performance,
-        maxSpeedMultiplier: isPlayerSlot ? 1.0 : 0.955 + performance * 0.048,
-        accelMultiplier: isPlayerSlot ? 1.0 : 0.94 + performance * 0.06,
+        driverProfile: getDriverProfile(driver.id),
+        maxSpeedMultiplier: isPlayerSlot ? 1.0 : 0.942 + Math.max(0, (performance - 0.90) / 0.09) * 0.064,
+        accelMultiplier: isPlayerSlot ? 1.0 : 0.925 + Math.max(0, (performance - 0.90) / 0.09) * 0.082,
         gridPosition: slot.gridPosition,
+        compound: gridCompound,
+        nextPitCompound: this._resolveDefaultNextPitCompound(gridCompound, isRainGrid, totalLaps),
+        isRain: isRainGrid,
       });
     }
 
@@ -577,7 +818,8 @@ export class WorldState {
       allDriverIds,
       playerDriverId,
       requiredPlayers,
-      humanDriverIds
+      humanDriverIds,
+      config.qualifyingStageDurations || null
     );
     this._spawnQualifyingStageCars(allDriverIds, localPlayerId);
   }
@@ -590,6 +832,7 @@ export class WorldState {
       mode: 'qualifying',
       carLevel: cfg.carLevel || 'base',
       difficultyId: cfg.difficultyId || this.difficultyId,
+      physicsSettings: cfg.physicsSettings || this.physicsSettings,
       orderedDriverIds: driverIds,
       gridSpacingMeters: 16.0,
       humanPlayers: cfg.humanPlayers || null,
@@ -597,7 +840,89 @@ export class WorldState {
       playerCustomCode: cfg.playerCustomCode || null,
       playerCustomSpecs: cfg.playerCustomSpecs || null,
     });
+
+    // Step 3: Posiziona tutte le vetture attive (22 in Q1, 16 in Q2, 10 in Q3) dentro i rispettivi box
+    const pitLane = this.trackSurface?.pitLane || null;
+    this.pitLaneState = createInitialPitLaneState();
+    this.pitGuideActive = false;
+    this.pitReleaseStatus = null;
+
+    if (pitLane) {
+      // Ordina i bot dal box più vicino all'uscita verso il fondo per evitare blocchi in fast lane
+      const botCars = Object.values(this.cars)
+        .filter((c) => c.isBot)
+        .sort((a, b) => {
+          const sa = getCarPitStall(pitLane, a)?.sMeters ?? 0;
+          const sb = getCarPitStall(pitLane, b)?.sMeters ?? 0;
+          return sb - sa;
+        });
+
+      // I bot iniziano a uscire dai box a ondate naturali (rispettando FIA unsafe release)
+      // e si accodano in fast lane fino al semaforo di uscita pit (1 ogni 10.0s)
+      botCars.forEach((bot, idx) => {
+        if (idx < 4) {
+          bot.plannedReleaseTime = 0.6 + idx * 0.95;
+        } else {
+          bot.plannedReleaseTime = 4.6 + (idx - 4) * 8.8;
+        }
+      });
+
+      for (const car of Object.values(this.cars)) {
+        const stall = getCarPitStall(pitLane, car);
+        if (stall) {
+          car.x = stall.garageInteriorPos.x;
+          car.y = stall.garageInteriorPos.y ?? 0;
+          car.z = stall.garageInteriorPos.z;
+          car.heading = stall.garageInteriorPos.heading;
+        }
+        car.vx = 0;
+        car.vz = 0;
+        car.forwardSpeed = 0;
+        car.lateralSpeed = 0;
+        car.speed = 0;
+        car.yawRate = 0;
+        car.steerAngle = 0;
+        car.gear = 0;
+        car.gearLabel = 'N';
+        car.surface = 'pitlane';
+        car.pitState = 'IN_GARAGE';
+        car.pitControlsLocked = true;
+        car.pitLimiterActive = true;
+        car.pitLimitKmh = pitLane.speedLimitKmh;
+        car.pitExitRequested = false;
+        car.pitExitCleared = false;
+        car.pitExitGateHold = false;
+        car.pitExitGateMaxSpeedMs = null;
+        car.pitQueuePosition = 0;
+        car.pitQueueAutoActive = false;
+        car.pitExitAutoLaunch = false;
+        car.pitBoxLeaveCooldown = 0;
+        car.pitAutoAlign = null;
+        car.chequeredLapDone = false;
+      }
+
+      // Valuta subito il semaforo Ingegnere di Gara per il giocatore nel box
+      updatePitLaneManager(this, {}, 0, localPlayerId);
+    }
+
     updateQualifyingState(this, 0, localPlayerId);
+  }
+
+  /**
+   * Richiede l'uscita semi-automatica dal box per un giocatore (tasto W o pulsante ESCI DAI BOX).
+   */
+  requestPlayerPitExit(carId = LOCAL_PLAYER_ID) {
+    const car = this.getCar(carId);
+    if (!car || car.isBot || car.pitState !== 'IN_GARAGE') return false;
+    car.pitExitRequested = true;
+    return true;
+  }
+
+  /**
+   * Rientro rapido opzionale all'ingresso pit lane durante il giro di rientro a fine Q1/Q2/Q3.
+   */
+  quickReturnToPitEntry(carId = LOCAL_PLAYER_ID) {
+    return quickReturnCarToPitEntry(this, carId);
   }
 
   /**
@@ -626,7 +951,11 @@ export class WorldState {
 
     if (activeAction === 'all') {
       this._executeSkipAllQualifying(voterCarId);
-    } else if (q.status === 'running') {
+    } else if (
+      q.status === 'running' ||
+      q.status === 'chequered_flag' ||
+      q.status === 'in_lap'
+    ) {
       finalizeQualifyingStage(this, voterCarId, { simulatePlayerIfMissing: true });
     }
 
@@ -647,7 +976,7 @@ export class WorldState {
     const q = this.qualifyingState;
     if (!q) return;
 
-    if (q.status === 'running') {
+    if (q.status === 'running' || q.status === 'chequered_flag' || q.status === 'in_lap') {
       finalizeQualifyingStage(this, localPlayerId, { simulatePlayerIfMissing: true });
     }
     if (q.status === 'qualifying_complete') {
@@ -659,13 +988,15 @@ export class WorldState {
       const nextIdx = q.stageIndex + 1;
       if (nextIdx >= QUALIFYING_STAGE_IDS.length) break;
       const nextStage = QUALIFYING_STAGES[QUALIFYING_STAGE_IDS[nextIdx]];
+      const nextDuration = getQualifyingStageDuration(q, nextStage.id);
       q.stageIndex = nextIdx;
       q.stageId = nextStage.id;
       q.stageLabel = nextStage.label;
       q.status = 'running';
-      q.timeRemaining = nextStage.duration;
-      q.stageDuration = nextStage.duration;
+      q.timeRemaining = nextDuration;
+      q.stageDuration = nextDuration;
       q.elapsedInStage = 0;
+      q.autoAdvanceTimer = 0;
       q.activeDriverIds = [...q.nextActiveDriverIds];
       q.nextActiveDriverIds = [];
       if (q.skipVotes) {
@@ -686,18 +1017,19 @@ export class WorldState {
     if (!q) return false;
 
     while (q.status !== 'qualifying_complete') {
-      if (q.status === 'running') {
+      if (q.status === 'running' || q.status === 'chequered_flag' || q.status === 'in_lap') {
         finalizeQualifyingStage(this, localPlayerId, { simulatePlayerIfMissing: true });
       } else if (q.status === 'stage_complete') {
         const nextIdx = q.stageIndex + 1;
         if (nextIdx >= QUALIFYING_STAGE_IDS.length) break;
         const nextStage = QUALIFYING_STAGES[QUALIFYING_STAGE_IDS[nextIdx]];
+        const nextDuration = getQualifyingStageDuration(q, nextStage.id);
         q.stageIndex = nextIdx;
         q.stageId = nextStage.id;
         q.stageLabel = nextStage.label;
         q.status = 'running';
-        q.timeRemaining = nextStage.duration;
-        q.stageDuration = nextStage.duration;
+        q.timeRemaining = nextDuration;
+        q.stageDuration = nextDuration;
         q.elapsedInStage = 0;
         q.activeDriverIds = [...q.nextActiveDriverIds];
         q.nextActiveDriverIds = [];
@@ -713,14 +1045,14 @@ export class WorldState {
   }
 
   /**
-   * Salta tutte le qualifiche rimanenti (previa approvazione unanime) e avvia subito la Gara da 10 Giri.
+   * Salta tutte le qualifiche rimanenti (previa approvazione unanime) e avvia subito la Gara.
    */
   skipAllQualifyingToRace(localPlayerId = LOCAL_PLAYER_ID) {
     return this.registerQualifyingSkipVote(localPlayerId, 'all').executed;
   }
 
   /**
-   * Avvia la Gara da 10 Giri usando esattamente la griglia finale conquistata in Q1/Q2/Q3.
+   * Avvia la Gara usando esattamente la griglia finale conquistata in Q1/Q2/Q3.
    */
   startRaceFromQualifying(localPlayerId = LOCAL_PLAYER_ID) {
     const q = this.qualifyingState;
@@ -733,11 +1065,12 @@ export class WorldState {
     const qualifiedPole = q.finalGrid[0]?.driverId === playerDriverId;
 
     const rawCfgLaps = Number(cfg.raceLaps ?? cfg.lapLimit);
-    const targetRaceLaps = cfg.isCareer
-      ? CAREER_RACE_LAPS
-      : Number.isFinite(rawCfgLaps) && rawCfgLaps >= 1
+    const targetRaceLaps =
+      Number.isFinite(rawCfgLaps) && rawCfgLaps >= 1
         ? Math.max(1, Math.min(99, Math.round(rawCfgLaps)))
-        : RACE_TOTAL_LAPS;
+        : cfg.isCareer
+          ? getCareerWeekendPreset(cfg.careerPresetId).raceLaps
+          : RACE_TOTAL_LAPS;
 
     this.qualifyingState = null;
     this.sessionConfig = {
@@ -753,9 +1086,11 @@ export class WorldState {
     this.spawnFullGrid(playerDriverId, playerGridIdx, localPlayerId, {
       totalLaps: targetRaceLaps,
       skipCountdown: false,
+      gridWaitSeconds: GRID_WAIT_AFTER_QUALI_SECONDS,
       mode: 'race',
       carLevel: cfg.carLevel || 'base',
       difficultyId: cfg.difficultyId || this.difficultyId,
+      physicsSettings: cfg.physicsSettings || this.physicsSettings,
       orderedDriverIds,
       gridSpacingMeters: 7.8,
       humanPlayers: cfg.humanPlayers || null,
@@ -773,22 +1108,210 @@ export class WorldState {
   }
 
   /**
+   * Avvia una sequenza animata C2-continua per riportare in sicurezza la vettura
+   * bloccata/fuori pista sulla centerline dell'asfalto senza sovrapporsi alle altre auto.
+   */
+  resetCarToTrack(carId = LOCAL_PLAYER_ID) {
+    const car = this.getCar(carId);
+    const recovery = getCarTrackRecoveryState(this, car);
+    if (!recovery.eligible) {
+      return { ok: false, reason: null };
+    }
+
+    const query = queryTrackSurface(this.trackSurface, car.x, car.z, car.trackSampleIndex);
+    const maxSafeLat = Math.max(0, Math.min(2.6, (query.halfTrackWidth ?? 6) - 1.8));
+    const candidateOffsets = [0, maxSafeLat * 0.55, -maxSafeLat * 0.55, maxSafeLat, -maxSafeLat];
+
+    let bestX = query.closestX;
+    let bestZ = query.closestZ;
+    let bestMinCarDist = -1;
+
+    for (const lat of candidateOffsets) {
+      const cx = query.closestX + query.nx * lat;
+      const cz = query.closestZ + query.nz * lat;
+      let minDist = Infinity;
+      for (const other of Object.values(this.cars)) {
+        if (!other || other.id === car.id || other.pitState === 'IN_GARAGE') continue;
+        const d = Math.hypot(other.x - cx, other.z - cz);
+        if (d < minDist) minDist = d;
+      }
+      if (minDist >= 6.0) {
+        bestX = cx;
+        bestZ = cz;
+        break;
+      }
+      if (minDist > bestMinCarDist) {
+        bestMinCarDist = minDist;
+        bestX = cx;
+        bestZ = cz;
+      }
+    }
+
+    const targetY = query.elevation ?? car.y ?? 0;
+    const targetHeading = Math.atan2(query.tx, query.tz);
+    const dist = Math.hypot(bestX - car.x, bestZ - car.z);
+    const duration = Math.min(1.30, Math.max(0.85, 0.80 + dist * 0.025));
+    const liftPeakM = Math.min(0.68, Math.max(0.28, dist * 0.032));
+
+    car.trackRecoveryAnim = {
+      elapsed: 0,
+      duration,
+      progress: 0,
+      startX: car.x,
+      startY: car.y ?? targetY,
+      startZ: car.z,
+      startHeading: car.heading || 0,
+      targetX: bestX,
+      targetY,
+      targetZ: bestZ,
+      targetHeading,
+      targetSampleIndex: query.sampleIndex,
+      targetArcDistance: query.arcDistance,
+      liftPeakM,
+    };
+
+    car.vx = 0;
+    car.vz = 0;
+    car.forwardSpeed = 0;
+    car.lateralSpeed = 0;
+    car.speed = 0;
+    car.yawRate = 0;
+    car.throttleInput = 0;
+    car.brakeInput = 0;
+    car.steerInput = 0;
+    car.collidingWithBarrier = false;
+    car.collisionImpact = 0;
+    car.resetToTrackCooldown = duration + 2.0;
+    car.recoveryGhostTimer = duration + 2.2;
+
+    if (car.aeroTire) {
+      car.aeroTire.wheelLockup = false;
+      car.aeroTire.highSpeedBraking = false;
+    }
+
+    if (car.timing && this.qualifyingState && this.raceState?.mode === 'qualifying') {
+      car.timing.currentLapInvalidated = true;
+    }
+
+    return { ok: true, reason: recovery.reason, duration };
+  }
+
+  _stepCarTrackRecovery(carState, dt) {
+    const anim = carState?.trackRecoveryAnim;
+    if (!anim) return false;
+
+    anim.elapsed = Math.min(anim.duration, anim.elapsed + dt);
+    const u = anim.duration > 1e-4 ? Math.min(1, anim.elapsed / anim.duration) : 1;
+    anim.progress = u;
+
+    // Traiettoria C2-continua (smootherstep) per partenza e atterraggio senza scatti
+    const ePos = u * u * u * (u * (u * 6 - 15) + 10);
+    const eYaw = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    const lift = Math.pow(Math.sin(Math.PI * u), 1.35) * anim.liftPeakM;
+
+    const deltaHeading = Math.atan2(
+      Math.sin(anim.targetHeading - anim.startHeading),
+      Math.cos(anim.targetHeading - anim.startHeading)
+    );
+
+    carState.x = anim.startX + (anim.targetX - anim.startX) * ePos;
+    carState.z = anim.startZ + (anim.targetZ - anim.startZ) * ePos;
+    carState.y = anim.startY + (anim.targetY - anim.startY) * ePos + lift;
+    carState.heading = anim.startHeading + deltaHeading * eYaw;
+
+    carState.vx = 0;
+    carState.vz = 0;
+    carState.forwardSpeed = 0;
+    carState.lateralSpeed = 0;
+    carState.speed = 0;
+    carState.yawRate = 0;
+    carState.throttleInput = 0;
+    carState.brakeInput = 0;
+    carState.steerInput = 0;
+    carState.gear = 1;
+    carState.gearLabel = '1';
+    carState.rpm += (CAR_PHYSICS_CONFIG.idleRpm - carState.rpm) * Math.min(1, 10 * dt);
+
+    const steerVis = Math.sin(Math.PI * u) * Math.max(-0.42, Math.min(0.42, deltaHeading * 0.45));
+    carState.steerAngle = steerVis;
+    carState.wheelRotation = (carState.wheelRotation || 0) + 2.8 * dt * Math.sin(Math.PI * u);
+    carState.frontWheelRotation = (carState.frontWheelRotation || 0) + 2.8 * dt * Math.sin(Math.PI * u);
+
+    if (carState.suspension) {
+      // Sospensioni scariche in elevazione e lieve compressione morbida al touchdown
+      const touchdownComp = u >= 0.85 ? Math.sin(((u - 0.85) / 0.15) * Math.PI) : 0;
+      carState.suspension.heave = lift > 0.05 ? 0.014 * Math.sin(Math.PI * u) - touchdownComp * 0.02 : -touchdownComp * 0.018;
+      carState.suspension.pitch = Math.sin(Math.PI * u) * -0.016;
+      carState.suspension.roll = Math.sin(Math.PI * u) * Math.max(-0.025, Math.min(0.025, -deltaHeading * 0.02));
+    }
+
+    if (carState.timing && this.trackSurface) {
+      const qCur = queryTrackSurface(
+        this.trackSurface,
+        carState.x,
+        carState.z,
+        anim.targetSampleIndex
+      );
+      carState.trackSampleIndex = qCur.sampleIndex;
+      carState.timing.lastArcDistance = qCur.arcDistance;
+    }
+
+    if (u >= 1) {
+      carState.x = anim.targetX;
+      carState.y = anim.targetY;
+      carState.z = anim.targetZ;
+      carState.heading = anim.targetHeading;
+      carState.steerAngle = 0;
+      carState.surface = 'asphalt';
+      carState.collidingWithBarrier = false;
+      carState.collisionImpact = 0;
+      carState.trackSampleIndex = anim.targetSampleIndex;
+      if (carState.timing) {
+        carState.timing.lastArcDistance = anim.targetArcDistance;
+      }
+      if (carState.suspension) {
+        carState.suspension.pitch = -0.015;
+        carState.suspension.heave = -0.018;
+      }
+      carState.trackRecoveryAnim = null;
+      carState.resetToTrackCooldown = 2.0;
+      carState.recoveryGhostTimer = 2.2;
+    }
+
+    return true;
+  }
+
+  /**
    * Esegue un passo deterministico della simulazione per tutte le vetture.
    * @param {Record<string, object>} inputsByCarId
    * @param {number} dt
    * @param {string} [localPlayerId=LOCAL_PLAYER_ID]
    */
   step(inputsByCarId, dt, localPlayerId = LOCAL_PLAYER_ID) {
-    if (this.qualifyingState && this.qualifyingState.status !== 'running') {
+    // Durante la classifica fine Q1/Q2/Q3 (10s automatici): vetture ferme, countdown attivo
+    if (
+      this.qualifyingState &&
+      (this.qualifyingState.status === 'stage_complete' ||
+        this.qualifyingState.status === 'qualifying_complete')
+    ) {
+      this.tick += 1;
+      this.elapsedTime += dt;
+      const qRes = updateQualifyingState(this, dt, localPlayerId);
+      if (qRes?.autoAdvanceTriggered) {
+        this.advanceQualifyingToNextStage(localPlayerId);
+      }
       return;
     }
 
     this.tick += 1;
     this.elapsedTime += dt;
 
-    if (this.raceState && this.raceState.status === 'countdown') {
+    if (
+      this.raceState &&
+      (this.raceState.status === 'grid_wait' || this.raceState.status === 'countdown')
+    ) {
       updateRaceState(this, dt, localPlayerId);
-      // Durante il semaforo rosso le vetture restano ferme in griglia (consentendo sgasate in Folle)
+      // Durante attesa griglia (10s) e semaforo rosso le vetture restano ferme (consentendo sgasate in Folle)
       for (const [carId, carState] of Object.entries(this.cars)) {
         const input = carState.isBot ? null : inputsByCarId[carId];
         const revving = Boolean(input?.forward);
@@ -799,7 +1322,18 @@ export class WorldState {
       return;
     }
 
+    // 1. Gestione stati box / uscita semi-automatica / parcheggio automatico (Step 3)
+    const pitHandledCars = updatePitLaneManager(this, inputsByCarId, dt, localPlayerId);
+
     for (const [carId, carState] of Object.entries(this.cars)) {
+      if ((carState.resetToTrackCooldown ?? 0) > 0) {
+        carState.resetToTrackCooldown = Math.max(0, carState.resetToTrackCooldown - dt);
+      }
+      if ((carState.recoveryGhostTimer ?? 0) > 0) {
+        carState.recoveryGhostTimer = Math.max(0, carState.recoveryGhostTimer - dt);
+      }
+      if (pitHandledCars.has(carId)) continue;
+
       let carInput;
       if (carState.isBot) {
         carInput = computeBotInput(carState, this);
@@ -813,6 +1347,13 @@ export class WorldState {
         }
       } else {
         carInput = inputsByCarId[carId] || null;
+        if (carInput?.resetToTrack) {
+          this.resetCarToTrack(carId);
+        }
+      }
+
+      if (this._stepCarTrackRecovery(carState, dt)) {
+        continue;
       }
 
       stepCarPhysics(
@@ -821,16 +1362,22 @@ export class WorldState {
         dt,
         this.trackSurface,
         this.weather,
-        this.difficultyId
+        this.physicsSettings
       );
     }
 
-    // Collisioni vettura-vettura tra tutte le 22 monoposto
+    // Collisioni vettura-vettura tra tutte le monoposto attive (auto nei box escluse)
     resolveCarToCarCollisions(this.cars);
 
     const sessionMode = this.raceState?.mode ?? 'race';
-    for (const carState of Object.values(this.cars)) {
-      resolveTrackBarrierCollision(carState, this.trackSurface);
+    for (const [carId, carState] of Object.entries(this.cars)) {
+      if (!pitHandledCars.has(carId) && !carState.trackRecoveryAnim) {
+        resolveTrackBarrierCollision(carState, this.trackSurface);
+      }
+      // Non far partire il cronometro giro mentre la vettura è ancora ferma dentro il box
+      if (carState.pitState === 'IN_GARAGE' || carState.pitState === 'PARKED_STAGE_END') {
+        continue;
+      }
       updateCarTiming(
         carState,
         this.sessionTiming,
@@ -857,7 +1404,16 @@ export class WorldState {
       carsCopy[id] = {
         ...car,
         carSpecs: car.carSpecs ? { ...car.carSpecs } : null,
-        aeroTire: car.aeroTire ? { ...car.aeroTire } : null,
+        driverProfile: car.driverProfile ? { ...car.driverProfile } : null,
+        pitAutoAlign: car.pitAutoAlign ? { ...car.pitAutoAlign } : null,
+        trackRecoveryAnim: car.trackRecoveryAnim ? { ...car.trackRecoveryAnim } : null,
+        aeroTire: car.aeroTire
+          ? {
+              ...car.aeroTire,
+              wheelHealth: car.aeroTire.wheelHealth ? { ...car.aeroTire.wheelHealth } : null,
+              wheelTempC: car.aeroTire.wheelTempC ? { ...car.aeroTire.wheelTempC } : null,
+            }
+          : null,
         suspension: car.suspension
           ? {
               ...car.suspension,
@@ -874,6 +1430,7 @@ export class WorldState {
       weather: this.weather,
       skyPresetId: this.skyPresetId,
       difficultyId: this.difficultyId,
+      physicsSettings: { ...this.physicsSettings },
       careerRewardGranted: this.careerRewardGranted,
       lastCareerReward: this.lastCareerReward ? { ...this.lastCareerReward } : null,
       sessionConfig: this.sessionConfig ? { ...this.sessionConfig } : null,
@@ -885,6 +1442,14 @@ export class WorldState {
           }
         : null,
       qualifyingState: cloneQualifyingState(this.qualifyingState),
+      pitLaneState: this.pitLaneState
+        ? {
+            ...this.pitLaneState,
+            pitExitQueueIds: [...(this.pitLaneState.pitExitQueueIds || [])],
+          }
+        : null,
+      pitGuideActive: Boolean(this.pitGuideActive),
+      pitReleaseStatus: this.pitReleaseStatus ? { ...this.pitReleaseStatus } : null,
       cars: carsCopy,
     };
   }
@@ -914,6 +1479,9 @@ export class WorldState {
     if (snapshot.difficultyId) {
       this.difficultyId = snapshot.difficultyId;
     }
+    if (snapshot.physicsSettings) {
+      this.physicsSettings = normalizePhysicsSettings(snapshot.physicsSettings);
+    }
     if (snapshot.careerRewardGranted !== undefined) {
       this.careerRewardGranted = Boolean(snapshot.careerRewardGranted);
     }
@@ -936,13 +1504,36 @@ export class WorldState {
       snapshot.qualifyingState !== undefined
         ? cloneQualifyingState(snapshot.qualifyingState)
         : null;
+    if (snapshot.pitLaneState !== undefined) {
+      this.pitLaneState = snapshot.pitLaneState
+        ? {
+            ...snapshot.pitLaneState,
+            pitExitQueueIds: [...(snapshot.pitLaneState.pitExitQueueIds || [])],
+          }
+        : createInitialPitLaneState();
+    }
+    if (snapshot.pitGuideActive !== undefined) {
+      this.pitGuideActive = Boolean(snapshot.pitGuideActive);
+    }
+    if (snapshot.pitReleaseStatus !== undefined) {
+      this.pitReleaseStatus = snapshot.pitReleaseStatus ? { ...snapshot.pitReleaseStatus } : null;
+    }
     if (snapshot.cars) {
       this.cars = {};
       for (const [id, carData] of Object.entries(snapshot.cars)) {
         this.cars[id] = {
           ...carData,
           carSpecs: carData.carSpecs ? { ...carData.carSpecs } : null,
-          aeroTire: carData.aeroTire ? { ...carData.aeroTire } : null,
+          driverProfile: carData.driverProfile ? { ...carData.driverProfile } : null,
+          pitAutoAlign: carData.pitAutoAlign ? { ...carData.pitAutoAlign } : null,
+          trackRecoveryAnim: carData.trackRecoveryAnim ? { ...carData.trackRecoveryAnim } : null,
+          aeroTire: carData.aeroTire
+            ? {
+                ...carData.aeroTire,
+                wheelHealth: carData.aeroTire.wheelHealth ? { ...carData.aeroTire.wheelHealth } : null,
+                wheelTempC: carData.aeroTire.wheelTempC ? { ...carData.aeroTire.wheelTempC } : null,
+              }
+            : null,
           suspension: carData.suspension
             ? {
                 ...carData.suspension,

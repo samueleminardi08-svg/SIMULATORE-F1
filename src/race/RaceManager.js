@@ -68,12 +68,21 @@ export function computeStartingGridTransforms(
   return transforms;
 }
 
+export const GRID_WAIT_AFTER_QUALI_SECONDS = 10.0;
+
 export function createInitialRaceState(totalLaps = RACE_TOTAL_LAPS, options = {}) {
   const skipCountdown = Boolean(options.skipCountdown);
+  const gridWaitSeconds = !skipCountdown ? Math.max(0, Number(options.gridWaitSeconds) || 0) : 0;
+  const initialStatus = skipCountdown
+    ? 'racing'
+    : gridWaitSeconds > 0
+      ? 'grid_wait'
+      : 'countdown';
   return {
-    mode: options.mode ?? 'race', // 'practice' | 'race'
+    mode: options.mode ?? 'race', // 'practice' | 'race' | 'qualifying'
     totalLaps,                    // null = giri indeterminati (infiniti)
-    status: skipCountdown ? 'racing' : 'countdown', // 'countdown' | 'racing' | 'finished'
+    status: initialStatus,        // 'grid_wait' | 'countdown' | 'racing' | 'finished'
+    gridWaitTimer: gridWaitSeconds,
     countdownTimer: skipCountdown ? 0 : 4.2,
     lightsOn: 0,
     lightsOutFlashTimer: 0,
@@ -105,8 +114,17 @@ export function updateRaceState(worldState, dt, localPlayerId = 'player_1') {
   const trackSurface = worldState.trackSurface;
   if (!race || !trackSurface || race.mode === 'qualifying') return;
 
-  // 1. Semaforo di partenza a 5 luci rosse
-  if (race.status === 'countdown') {
+  // 0. Attesa pre-semafori in griglia (10s dopo le Qualifiche Q3)
+  if (race.status === 'grid_wait') {
+    race.lightsOn = 0;
+    race.gridWaitTimer = Math.max(0, (race.gridWaitTimer ?? 0) - dt);
+    if (race.gridWaitTimer <= 0) {
+      race.status = 'countdown';
+      race.countdownTimer = 4.2;
+      race.lightsOn = 0;
+    }
+  } else if (race.status === 'countdown') {
+    // 1. Semaforo di partenza a 5 luci rosse
     race.countdownTimer = Math.max(0, race.countdownTimer - dt);
     if (race.countdownTimer > 3.5) race.lightsOn = 1;
     else if (race.countdownTimer > 2.8) race.lightsOn = 2;

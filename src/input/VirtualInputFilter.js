@@ -33,8 +33,18 @@ export function stepVirtualInput(car, input, dt, difficultyProps = null) {
 
   // I bot e gli input già analogici bypassano il filtro tastiera
   if (car.isBot || typeof input?.analogSteer === 'number') {
-    car.throttleInput = forward && !backward ? 1 : 0;
-    car.brakeInput = backward && !forward ? 1 : 0;
+    car.throttleInput =
+      typeof input?.analogThrottle === 'number'
+        ? clamp(input.analogThrottle, 0, 1)
+        : forward && !backward
+          ? 1
+          : 0;
+    car.brakeInput =
+      typeof input?.analogBrake === 'number'
+        ? clamp(input.analogBrake, 0, 1)
+        : backward && !forward
+          ? 1
+          : 0;
     car.steerInput =
       typeof input?.analogSteer === 'number'
         ? clamp(input.analogSteer, -1, 1)

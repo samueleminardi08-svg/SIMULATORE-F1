@@ -7,10 +7,29 @@
 
 import { getDifficultyConfig } from '../config/difficulty.js';
 import {
+  DEFAULT_PHYSICS_SETTINGS,
+  PHYSICS_TOGGLE_DEFS,
+  computeCareerPrizeMultiplier,
+  loadPhysicsSettings,
+  normalizePhysicsSettings,
+  savePhysicsSettings,
+} from '../config/physicsSettings.js';
+import {
+  KEYBIND_ACTIONS,
+  formatKeyCodeLabel,
+  isBindableKeyCode,
+  loadKeybindings,
+  normalizeKeybindings,
+  rebindActionKey,
+  resetKeybindings,
+  saveKeybindings,
+} from '../config/keybindings.js';
+import {
   CAREER_RACE_LAPS,
   F1_2026_DRIVERS,
   F1_2026_TEAMS,
   RACE_TOTAL_LAPS,
+  getCareerWeekendPreset,
 } from '../config/f1_2026_data.js';
 import { CALENDAR_2026_TRACKS, getTrackById } from '../tracks/calendar2026/index.js';
 import { getTrackBiomeConfig } from '../tracks/TrackBiomes.js';
@@ -29,6 +48,9 @@ import {
 } from '../cars/CarSpecs.js';
 import {
   exportCareerJson,
+  getCareerConstructorStandings,
+  getCareerCurrentTrack,
+  getCareerDriverStandings,
   getRepresentativeDriverForTeam,
   getUpgradeCost,
   importCareerJson,
@@ -53,6 +75,12 @@ import {
   loadSavedSkyPresetOption,
   saveSkyPresetOption,
 } from '../rendering/SkyPresets.js';
+import {
+  DEFAULT_CAMERA_MODE_ID,
+  loadDefaultCameraMode,
+  normalizeCameraModeId,
+  saveDefaultCameraMode,
+} from '../rendering/CameraController.js';
 
 const UPGRADE_WINDOW_ORDER = ['engine', 'aero', 'tires', 'brakes', 'suspension'];
 const TEAM_IDS = Object.keys(F1_2026_TEAMS);
@@ -151,6 +179,13 @@ export class MenuManager {
     onNightQualityChange = null,
     skyPreset = null,
     onSkyPresetChange = null,
+    physicsSettings = null,
+    onPhysicsSettingsChange = null,
+    defaultCameraMode = null,
+    onDefaultCameraChange = null,
+    keybindings = null,
+    onKeybindingsChange = null,
+    onKeybindCaptureChange = null,
   }) {
     this.onStartSession = onStartSession;
     this.onResume = onResume;
@@ -169,7 +204,17 @@ export class MenuManager {
     this.onSettingsClose = onSettingsClose;
     this.onNightQualityChange = onNightQualityChange;
     this.onSkyPresetChange = onSkyPresetChange;
+    this.onPhysicsSettingsChange = onPhysicsSettingsChange;
+    this.onDefaultCameraChange = onDefaultCameraChange;
+    this.onKeybindingsChange = onKeybindingsChange;
+    this.onKeybindCaptureChange = onKeybindCaptureChange;
+    this.activeSettingsTab = 'physics';
+    this.activeSeasonTab = 'calendar';
+    this._capturingActionId = null;
+    this._keybindStatusMessage = 'Clicca su un tasto per cambiarlo. Premi ESC per annullare la modifica.';
     this._nightQualityAutoNote = '';
+    this._menuCloseTimer = null;
+    this._menuOpenRaf = null;
 
     this.careerState = careerState || loadCareerState();
     this.isOpen = true;
@@ -211,6 +256,7 @@ export class MenuManager {
     this.trackScreenEl = document.getElementById('f1-screen-track');
 
     // Screen 1: HOME
+    this.homeCareerSeasonPillEl = document.getElementById('home-career-season-pill');
     this.homeTeamEmblemEl = document.getElementById('home-team-emblem');
     this.homeCareerTeamNameEl = document.getElementById('home-career-team-name');
     this.homeCareerDriverNameEl = document.getElementById('home-career-driver-name');
@@ -219,6 +265,10 @@ export class MenuManager {
     this.homeNextGpTitleEl = document.getElementById('home-next-gp-title');
     this.homeNextTrackMetaEl = document.getElementById('home-next-track-meta');
     this.homeNextTrackRecordsEl = document.getElementById('home-next-track-records');
+    this.homeCareerWdcValEl = document.getElementById('home-career-wdc-val');
+    this.homeCareerWccValEl = document.getElementById('home-career-wcc-val');
+    this.homeCareerProgressValEl = document.getElementById('home-career-progress-val');
+    this.homeOpenSeasonModalBtn = document.getElementById('home-open-season-modal-btn');
     this.careerWeatherInfoEl = document.getElementById('career-weather-info');
     this.homeStartCareerBtn = document.getElementById('home-start-career-btn');
     this.homeGoTrackBtn = document.getElementById('home-go-track-btn');
@@ -336,16 +386,36 @@ export class MenuManager {
     this.raceLapsSectionEl = document.getElementById('menu-race-laps-section');
     this.raceLapsButtons = [...document.querySelectorAll('[data-menu-racelaps]')];
     this.raceLapsInput = document.getElementById('menu-race-laps-input');
-    this.careerFormatWrapEl = document.getElementById('gp-career-format-wrap');
-    this.careerFormatButtons = [...document.querySelectorAll('[data-career-format]')];
+    this.careerPresetWrapEl = document.getElementById('gp-career-preset-wrap');
+    this.careerPresetButtons = [...document.querySelectorAll('[data-career-preset]')];
+    this.careerSeasonModalEl = document.getElementById('career-season-modal');
+    this.careerSeasonTitleEl = document.getElementById('career-season-modal-title');
+    this.seasonTabBtns = [...document.querySelectorAll('[data-season-tab]')];
+    this.seasonPanelEls = [...document.querySelectorAll('[data-season-panel]')];
+    this.careerCalendarListEl = document.getElementById('career-calendar-list');
+    this.careerStandingsDriversEl = document.getElementById('career-standings-drivers');
+    this.careerStandingsTeamsEl = document.getElementById('career-standings-teams');
     this.practiceOptionsSection = document.getElementById('menu-practice-options');
     this.botsButtons = [...document.querySelectorAll('[data-menu-bots]')];
     this.lapTypeButtons = [...document.querySelectorAll('[data-menu-laptype]')];
     this.finiteLapsWrap = document.getElementById('menu-finite-laps-wrap');
     this.finiteLapsInput = document.getElementById('menu-finite-laps-input');
     this.carLevelButtons = [...document.querySelectorAll('[data-menu-carlevel]')];
-    this.difficultyButtons = [...document.querySelectorAll('[data-menu-difficulty]')];
-    this.difficultyDescEl = document.getElementById('menu-difficulty-desc');
+    this.physicsToggleEls = [...document.querySelectorAll('[data-physics-toggle]')];
+    this.botAiSliderEl = document.getElementById('menu-bot-ai-slider');
+    this.botAiValEl = document.getElementById('menu-bot-ai-val');
+    this.careerBonusValEl = document.getElementById('menu-career-bonus-val');
+    this.physicsSummaryEl = document.getElementById('menu-physics-summary');
+    this.defaultCameraButtons = [...document.querySelectorAll('[data-menu-default-camera]')];
+    this.defaultCameraDescEl = document.getElementById('menu-default-camera-desc');
+    this.settingsTabBtns = [...document.querySelectorAll('[data-settings-tab]')];
+    this.settingsPanelEls = [...document.querySelectorAll('[data-settings-panel]')];
+    this.resetPhysicsBtn = document.getElementById('settings-reset-physics-btn');
+    this.keybindsDrivingEl = document.getElementById('settings-keybinds-driving');
+    this.keybindsActionsEl = document.getElementById('settings-keybinds-actions');
+    this.allowArrowsToggleEl = document.getElementById('settings-allow-arrows-toggle');
+    this.keybindsStatusEl = document.getElementById('settings-keybinds-status');
+    this.resetKeybindsBtn = document.getElementById('settings-reset-keybinds-btn');
     this.weatherButtons = [...document.querySelectorAll('[data-menu-weather]')];
     this.skySelectEls = [
       document.getElementById('menu-sky-select'),
@@ -365,9 +435,20 @@ export class MenuManager {
     const resolvedInitialWeather =
       SKY_PRESETS[resolvedInitialSkyPreset]?.physicsWeather || 'dry';
 
+    const resolvedPhysicsSettings = physicsSettings
+      ? normalizePhysicsSettings(physicsSettings)
+      : loadPhysicsSettings();
+    const resolvedDefaultCamera = normalizeCameraModeId(
+      defaultCameraMode || loadDefaultCameraMode() || DEFAULT_CAMERA_MODE_ID
+    );
+    const resolvedKeybindings = normalizeKeybindings(keybindings || loadKeybindings());
+
     this.state = {
       mode: 'career',
-      difficultyId: 'intermediate',
+      difficultyId: 'custom',
+      physicsSettings: resolvedPhysicsSettings,
+      defaultCameraMode: resolvedDefaultCamera,
+      keybindings: resolvedKeybindings,
       withBots: false,
       lapType: 'infinite',
       finiteLaps: 5,
@@ -377,7 +458,7 @@ export class MenuManager {
       skyPreset: resolvedInitialSkyPreset,
       nightQuality: nightQuality || loadSavedNightQuality() || DEFAULT_NIGHT_QUALITY,
       playerDriverId: 'leclerc',
-      trackId: getTrackById(this.careerState.selectedTrackId).id,
+      trackId: getCareerCurrentTrack(this.careerState).id,
     };
 
     this._populateDrivers();
@@ -404,6 +485,7 @@ export class MenuManager {
     this.modalManager.register('gp-settings-popup', {
       element: this.settingsPopupEl,
       onClose: () => {
+        this._cancelKeybindCapture();
         if (this.activeTab === 'settings') {
           this.setActiveTab('home');
         }
@@ -420,6 +502,10 @@ export class MenuManager {
           this.setActiveTab('home');
         }
       },
+    });
+
+    this.modalManager.register('career-season-modal', {
+      element: this.careerSeasonModalEl,
     });
   }
 
@@ -440,11 +526,10 @@ export class MenuManager {
   _handleTrackSelection(rawTrackId) {
     const resolved = getTrackById(rawTrackId);
     this.state.trackId = resolved.id;
-    const next = updateCareerProfile(this.careerState, { selectedTrackId: resolved.id });
-    this._commitCareerState(next);
     if (this.onTrackChange) {
       this.onTrackChange(resolved.id);
     }
+    this._syncUI();
   }
 
   _populateDrivers() {
@@ -600,17 +685,11 @@ export class MenuManager {
 
   setCareerState(nextState) {
     this.careerState = nextState;
-    if (nextState?.selectedTrackId) {
-      this.state.trackId = getTrackById(nextState.selectedTrackId).id;
-    }
     this._syncUI();
   }
 
   _commitCareerState(nextState) {
     this.careerState = nextState;
-    if (nextState?.selectedTrackId) {
-      this.state.trackId = getTrackById(nextState.selectedTrackId).id;
-    }
     if (this.onCareerChange) {
       this.onCareerChange(nextState);
     }
@@ -683,8 +762,12 @@ export class MenuManager {
     this.hasActiveSession = true;
     this.profileModalOpen = false;
     this.activeTab = 'home';
-    this.close();
-    this.onStartSession(this.buildSessionConfig());
+    const config = this.buildSessionConfig();
+    if (this.onStartSession) {
+      this.onStartSession(config, () => this.close({ instant: true }));
+    } else {
+      this.close();
+    }
   }
 
   _bindEvents() {
@@ -885,7 +968,7 @@ export class MenuManager {
           this.setActiveTab('home');
         } else if (this.activeTab === 'track') {
           event.preventDefault();
-          this._launchSession(this.state.mode);
+          this._launchSession(this.quickMode || 'qualifying');
         } else if (this.activeTab === 'home') {
           event.preventDefault();
           if (this._homeQuickFocusIdx >= 0) {
@@ -1027,8 +1110,7 @@ export class MenuManager {
 
     if (this.trackLapsDecBtn) {
       this.trackLapsDecBtn.addEventListener('click', () => {
-        if (this.state.mode === 'career') return;
-        if (this.state.mode === 'practice' && this.state.lapType === 'finite') {
+        if (this.quickMode === 'practice' && this.state.lapType === 'finite') {
           this.state.finiteLaps = Math.max(1, (this.state.finiteLaps || 5) - 1);
           if (this.finiteLapsInput) this.finiteLapsInput.value = String(this.state.finiteLaps);
           this._syncUI();
@@ -1040,8 +1122,7 @@ export class MenuManager {
 
     if (this.trackLapsIncBtn) {
       this.trackLapsIncBtn.addEventListener('click', () => {
-        if (this.state.mode === 'career') return;
-        if (this.state.mode === 'practice' && this.state.lapType === 'finite') {
+        if (this.quickMode === 'practice' && this.state.lapType === 'finite') {
           this.state.finiteLaps = Math.min(99, (this.state.finiteLaps || 5) + 1);
           if (this.finiteLapsInput) this.finiteLapsInput.value = String(this.state.finiteLaps);
           this._syncUI();
@@ -1051,21 +1132,150 @@ export class MenuManager {
       });
     }
 
-    this.careerFormatButtons.forEach((btn) => {
+    this.careerPresetButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         const next = updateCareerProfile(this.careerState, {
-          careerFormat: btn.dataset.careerFormat,
+          weekendPresetId: btn.dataset.careerPreset,
         });
         this._commitCareerState(next);
       });
     });
 
-    this.difficultyButtons.forEach((btn) => {
+    if (this.homeOpenSeasonModalBtn) {
+      this.homeOpenSeasonModalBtn.addEventListener('click', () => {
+        this._syncCareerSeasonModal(this.careerState);
+        this.modalManager.open('career-season-modal');
+      });
+    }
+
+    this.seasonTabBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.state.difficultyId = btn.dataset.menuDifficulty;
+        this.activeSeasonTab = btn.dataset.seasonTab || 'calendar';
+        this._syncSeasonTabsUI();
+      });
+    });
+
+    const commitPhysicsSettings = (patch) => {
+      this.state.physicsSettings = savePhysicsSettings({
+        ...this.state.physicsSettings,
+        ...patch,
+      });
+      if (this.onPhysicsSettingsChange) {
+        this.onPhysicsSettingsChange(this.state.physicsSettings);
+      }
+      this._syncPhysicsUI();
+    };
+
+    this.physicsToggleEls.forEach((inputEl) => {
+      inputEl.addEventListener('change', () => {
+        const key = inputEl.dataset.physicsToggle;
+        if (!key) return;
+        commitPhysicsSettings({ [key]: Boolean(inputEl.checked) });
+      });
+    });
+
+    if (this.botAiSliderEl) {
+      this.botAiSliderEl.addEventListener('input', () => {
+        const val = parseInt(this.botAiSliderEl.value, 10);
+        if (Number.isFinite(val)) {
+          commitPhysicsSettings({ botAiLevel: val });
+        }
+      });
+    }
+
+    this.defaultCameraButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nextCam = saveDefaultCameraMode(btn.dataset.menuDefaultCamera);
+        this.state.defaultCameraMode = nextCam;
+        if (this.onDefaultCameraChange) {
+          this.onDefaultCameraChange(nextCam);
+        }
         this._syncUI();
       });
     });
+
+    this.settingsTabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._cancelKeybindCapture();
+        this.activeSettingsTab = btn.dataset.settingsTab || 'physics';
+        this._syncSettingsTabsUI();
+      });
+    });
+
+    if (this.resetPhysicsBtn) {
+      this.resetPhysicsBtn.addEventListener('click', () => {
+        commitPhysicsSettings({ ...DEFAULT_PHYSICS_SETTINGS });
+      });
+    }
+
+    if (this.allowArrowsToggleEl) {
+      this.allowArrowsToggleEl.addEventListener('change', () => {
+        this.state.keybindings = saveKeybindings({
+          ...this.state.keybindings,
+          allowArrowFallback: Boolean(this.allowArrowsToggleEl.checked),
+        });
+        if (this.onKeybindingsChange) {
+          this.onKeybindingsChange(this.state.keybindings);
+        }
+        this._syncKeybindingsUI();
+      });
+    }
+
+    if (this.resetKeybindsBtn) {
+      this.resetKeybindsBtn.addEventListener('click', () => {
+        this._cancelKeybindCapture();
+        this.state.keybindings = resetKeybindings();
+        this._keybindStatusMessage = 'Comandi ripristinati ai valori predefiniti (WASD + C / P / T / BACK / R / F3 / ESC).';
+        if (this.onKeybindingsChange) {
+          this.onKeybindingsChange(this.state.keybindings);
+        }
+        this._syncKeybindingsUI();
+        this._syncUI();
+      });
+    }
+
+    this._onCaptureKeyDown = (event) => {
+      if (!this._capturingActionId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      if (event.repeat) return;
+
+      const actionId = this._capturingActionId;
+      const actionDef = KEYBIND_ACTIONS.find((a) => a.id === actionId);
+      if (event.code === 'Escape' && actionId !== 'pause') {
+        this._cancelKeybindCapture('Modifica tasto annullata.');
+        return;
+      }
+      if (!isBindableKeyCode(event.code)) {
+        this._keybindStatusMessage = 'Tasto non assegnabile. Scegli un altro tasto o premi ESC per annullare.';
+        this._syncKeybindingsUI();
+        return;
+      }
+
+      const { bindings: nextBindings, swappedWith } = rebindActionKey(
+        this.state.keybindings,
+        actionId,
+        event.code
+      );
+      this.state.keybindings = saveKeybindings(nextBindings);
+      const keyLabel = formatKeyCodeLabel(event.code);
+      if (swappedWith) {
+        const swappedDef = KEYBIND_ACTIONS.find((a) => a.id === swappedWith);
+        this._keybindStatusMessage = `${actionDef?.label || actionId} assegnato a [${keyLabel}] (scambiato con ${swappedDef?.label || swappedWith}).`;
+      } else {
+        this._keybindStatusMessage = `${actionDef?.label || actionId} assegnato a [${keyLabel}].`;
+      }
+      this._cancelKeybindCapture(null);
+      if (this.onKeybindingsChange) {
+        this.onKeybindingsChange(this.state.keybindings);
+      }
+      this._syncKeybindingsUI();
+      this._syncUI();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._onCaptureKeyDown, true);
+    }
 
     this.botsButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1193,7 +1403,7 @@ export class MenuManager {
 
     if (this.trackScreenStartBtn) {
       this.trackScreenStartBtn.addEventListener('click', () => {
-        this._launchSession(this.state.mode);
+        this._launchSession(this.quickMode || 'qualifying');
       });
     }
 
@@ -1293,15 +1503,19 @@ export class MenuManager {
         this.hasActiveSession = true;
         this.profileModalOpen = false;
         this.activeTab = 'home';
-        this.close();
-        this.onStartMultiplayerSession({
-          mode: this.mpFormat,
-          difficultyId: this.state.difficultyId,
-          weather: this.state.weather,
-          skyPresetId: this.state.skyPreset,
-          trackId: this.state.trackId,
-          raceLaps: this.mpRaceLaps,
-        });
+        this.onStartMultiplayerSession(
+          {
+            mode: this.mpFormat,
+            difficultyId: this.state.difficultyId,
+            physicsSettings: { ...this.state.physicsSettings },
+            weather: this.state.weather,
+            skyPresetId: this.state.skyPreset,
+            startingCompound: this.state.startingCompound,
+            trackId: this.state.trackId,
+            raceLaps: this.mpRaceLaps,
+          },
+          () => this.close({ instant: true })
+        );
       });
     }
   }
@@ -1526,7 +1740,18 @@ export class MenuManager {
     ];
   }
 
-  _syncHomeScreen(career, activeTeam, activeTrack) {
+  _syncHomeScreen(career, activeTeam, careerTrack, quickTrack = careerTrack) {
+    const roundIdx = Math.max(
+      0,
+      Math.min(CALENDAR_2026_TRACKS.length - 1, Number(career.currentRoundIndex) || 0)
+    );
+    const totalRounds = CALENDAR_2026_TRACKS.length;
+    const seasonNum = Math.max(1, Number(career.seasonNumber) || 1);
+    const preset = getCareerWeekendPreset(career.weekendPresetId);
+
+    if (this.homeCareerSeasonPillEl) {
+      this.homeCareerSeasonPillEl.textContent = `STAGIONE ${seasonNum} • ROUND ${roundIdx + 1}/${totalRounds}`;
+    }
     if (this.homeTeamEmblemEl && this._lastHomeTeamId !== activeTeam.id) {
       this.homeTeamEmblemEl.innerHTML = generateTeamEmblemSvg(activeTeam);
       this._lastHomeTeamId = activeTeam.id;
@@ -1542,29 +1767,51 @@ export class MenuManager {
       const maxTotal = UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL;
       this.homeCareerDriverNameEl.textContent = `Pilota: ${career.playerName} • Upgrade ${totalLvl}/${maxTotal}`;
     }
-    if (this.homeNextTrackSvgEl && this._lastHomeTrackId !== activeTrack.id) {
-      this.homeNextTrackSvgEl.innerHTML = generateTrackOutlineSvg(activeTrack.controlPoints, {
+    if (this.homeNextTrackSvgEl && this._lastHomeTrackId !== careerTrack.id) {
+      this.homeNextTrackSvgEl.innerHTML = generateTrackOutlineSvg(careerTrack.controlPoints, {
         width: 145,
         height: 82,
         padding: 8,
-        sectorSplits: activeTrack.sectorSplits,
+        sectorSplits: careerTrack.sectorSplits,
         strokeWidth: 3.4,
       });
-      this._lastHomeTrackId = activeTrack.id;
+      this._lastHomeTrackId = careerTrack.id;
     }
     if (this.homeNextGpTitleEl) {
-      this.homeNextGpTitleEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} • ${activeTrack.gpName}`;
+      this.homeNextGpTitleEl.textContent = `R${String(careerTrack.round).padStart(2, '0')} • ${careerTrack.gpName}`;
     }
     if (this.homeNextTrackMetaEl) {
-      const km = (activeTrack.officialLength / 1000).toFixed(3);
-      const corners = getTrackCornersCount(activeTrack.id);
-      this.homeNextTrackMetaEl.textContent = `${km} KM • ${corners} CURVE • ${activeTrack.name.toUpperCase()}`;
+      const km = (careerTrack.officialLength / 1000).toFixed(3);
+      const corners = getTrackCornersCount(careerTrack.id);
+      this.homeNextTrackMetaEl.textContent = `${km} KM • ${corners} CURVE • ${careerTrack.name.toUpperCase()}`;
     }
     if (this.homeNextTrackRecordsEl) {
-      const rec = getTrackRecord(activeTrack.id);
+      const rec = getTrackRecord(careerTrack.id);
       const qStr = rec.qualifyingBestLap ? formatLapTime(rec.qualifyingBestLap.time) : '--:--.---';
       const rStr = rec.raceBestLap ? formatLapTime(rec.raceBestLap.time) : '--:--.---';
       this.homeNextTrackRecordsEl.textContent = `Record Q: ${qStr} • G: ${rStr}`;
+    }
+
+    const driverStandings = getCareerDriverStandings(career);
+    const teamStandings = getCareerConstructorStandings(career);
+    const completedCount = (career.roundResults || []).filter(Boolean).length;
+    const playerWdc = driverStandings.find((d) => d.isPlayer);
+    const playerWcc = teamStandings.find((t) => t.isPlayerTeam);
+    if (this.homeCareerWdcValEl) {
+      this.homeCareerWdcValEl.textContent = playerWdc
+        ? `Piloti: P${playerWdc.position} • ${playerWdc.points} pt`
+        : 'Piloti: P— • 0 pt';
+    }
+    if (this.homeCareerWccValEl) {
+      this.homeCareerWccValEl.textContent = playerWcc
+        ? `Team: P${playerWcc.position} • ${playerWcc.points} pt`
+        : 'Team: P— • 0 pt';
+    }
+    if (this.homeCareerProgressValEl) {
+      this.homeCareerProgressValEl.textContent = `${completedCount}/${totalRounds} GP`;
+    }
+    if (this.homeStartCareerBtn) {
+      this.homeStartCareerBtn.textContent = `AVVIA WEEKEND R${String(careerTrack.round).padStart(2, '0')} (${preset.shortLabel.toUpperCase()} • ${preset.raceLaps} GIRI) ▶`;
     }
 
     if (this.quickTeamValEl) {
@@ -1574,7 +1821,7 @@ export class MenuManager {
       this.quickTeamValEl.textContent = `${activeTeam.name}${drivers ? ` (${drivers})` : ''}`;
     }
     if (this.careerWeatherInfoEl) {
-      const biome = getTrackBiomeConfig(activeTrack);
+      const biome = getTrackBiomeConfig(careerTrack);
       this.careerWeatherInfoEl.textContent = biome?.isNight
         ? 'Meteo Carriera (Opzione A): sorteggio casuale GP notturno — Notte Serena, Tramonto, Tramonto Nuv., Pioggia o Pioggia Forte.'
         : 'Meteo Carriera (Opzione A): sorteggio casuale ad ogni weekend — Sereno, Poco Nuv., Alba, Tramonto, Nuvoloso, Pioggia o Pioggia Forte.';
@@ -1589,7 +1836,7 @@ export class MenuManager {
             : SKY_PRESETS[skyId]?.shortLabel ||
               SKY_PRESETS[skyId]?.label ||
               (this.state.weather === 'rain' ? 'Pioggia' : 'Asciutto');
-      this.quickTrackValEl.textContent = `R${String(activeTrack.round).padStart(2, '0')} ${activeTrack.name} • ${skyLabel}`;
+      this.quickTrackValEl.textContent = `R${String(quickTrack.round).padStart(2, '0')} ${quickTrack.name} • ${skyLabel}`;
     }
     if (this.quickGarageValEl) {
       const totalLvl = UPGRADE_WINDOW_ORDER.reduce(
@@ -1597,6 +1844,100 @@ export class MenuManager {
         0
       );
       this.quickGarageValEl.textContent = `Sviluppo Auto ${totalLvl}/${UPGRADE_WINDOW_ORDER.length * UPGRADE_MAX_LEVEL}`;
+    }
+
+    this._syncCareerSeasonModal(career, driverStandings, teamStandings);
+  }
+
+  _syncSeasonTabsUI() {
+    const active = this.activeSeasonTab || 'calendar';
+    this.seasonTabBtns.forEach((btn) => {
+      const isAct = btn.dataset.seasonTab === active;
+      btn.classList.toggle('is-active', isAct);
+      btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+    });
+    this.seasonPanelEls.forEach((panel) => {
+      panel.classList.toggle('is-active', panel.dataset.seasonPanel === active);
+    });
+  }
+
+  _syncCareerSeasonModal(
+    career,
+    precomputedDrivers = null,
+    precomputedTeams = null
+  ) {
+    if (!this.careerSeasonModalEl) return;
+    const seasonNum = Math.max(1, Number(career?.seasonNumber) || 1);
+    const roundIdx = Math.max(
+      0,
+      Math.min(CALENDAR_2026_TRACKS.length - 1, Number(career?.currentRoundIndex) || 0)
+    );
+    if (this.careerSeasonTitleEl) {
+      this.careerSeasonTitleEl.textContent = `Stagione ${seasonNum} — Campionato F1 2026 (Round ${roundIdx + 1}/${CALENDAR_2026_TRACKS.length})`;
+    }
+    this._syncSeasonTabsUI();
+
+    if (this.careerCalendarListEl) {
+      const results = Array.isArray(career?.roundResults) ? career.roundResults : [];
+      this.careerCalendarListEl.innerHTML = CALENDAR_2026_TRACKS.map((track, idx) => {
+        const res = results[idx];
+        const isCurrent = idx === roundIdx;
+        const isDone = Boolean(res);
+        const stateCls = isCurrent ? 'is-current' : isDone ? 'is-done' : '';
+        const badgeText = isDone
+          ? `TU P${res.playerPosition} (+${res.playerPoints}) • WIN ${res.winnerName.split(' ').slice(-1)[0].toUpperCase()}`
+          : isCurrent
+            ? 'PROSSIMO GP'
+            : 'IN PROGRAMMA';
+        return `
+          <div class="f1-season-cal-item ${stateCls}">
+            <div class="f1-season-cal-left">
+              <span class="f1-season-cal-round">ROUND ${String(track.round).padStart(2, '0')} • ${track.country.toUpperCase()}</span>
+              <span class="f1-season-cal-gp">${track.gpName}</span>
+              <span class="f1-season-cal-track">${track.name} (${(track.officialLength / 1000).toFixed(2)} km)</span>
+            </div>
+            <span class="f1-season-cal-badge">${badgeText}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const driverRows = precomputedDrivers || getCareerDriverStandings(career);
+    if (this.careerStandingsDriversEl) {
+      this.careerStandingsDriversEl.innerHTML = driverRows
+        .map(
+          (row) => `
+          <div class="f1-standings-row${row.isPlayer ? ' is-player' : ''}">
+            <span class="f1-standings-pos">P${row.position}</span>
+            <span class="f1-standings-bar" style="background:${row.color};"></span>
+            <div class="f1-standings-name">
+              <span class="f1-standings-main">#${row.number} ${row.driverName} (${row.code})</span>
+              <span class="f1-standings-sub">${row.teamName}${row.wins > 0 ? ` • ${row.wins}V` : ''}</span>
+            </div>
+            <span class="f1-standings-pts">${row.points} pt</span>
+          </div>
+        `
+        )
+        .join('');
+    }
+
+    const teamRows = precomputedTeams || getCareerConstructorStandings(career);
+    if (this.careerStandingsTeamsEl) {
+      this.careerStandingsTeamsEl.innerHTML = teamRows
+        .map(
+          (row) => `
+          <div class="f1-standings-row${row.isPlayerTeam ? ' is-player' : ''}">
+            <span class="f1-standings-pos">P${row.position}</span>
+            <span class="f1-standings-bar" style="background:${row.color};"></span>
+            <div class="f1-standings-name">
+              <span class="f1-standings-main">${row.teamName}</span>
+              <span class="f1-standings-sub">${row.wins > 0 ? `${row.wins} vittorie` : '2026 Grid'}</span>
+            </div>
+            <span class="f1-standings-pts">${row.points} pt</span>
+          </div>
+        `
+        )
+        .join('');
     }
   }
 
@@ -1692,16 +2033,14 @@ export class MenuManager {
           : `${w.toFixed(1)} m`;
     }
     if (this.trackStatLapsEl) {
-      const isCareerMode = this.state.mode === 'career';
+      const trackMode = this.quickMode || 'qualifying';
       const isInfinitePractice =
-        this.state.mode === 'practice' && this.state.lapType === 'infinite';
-      const canAdjustOnTrack = !isCareerMode && !isInfinitePractice;
+        trackMode === 'practice' && this.state.lapType === 'infinite';
+      const canAdjustOnTrack = !isInfinitePractice;
 
-      if (isCareerMode) {
-        this.trackStatLapsEl.textContent = `${CAREER_RACE_LAPS} Giri (Carriera)`;
-      } else if (isInfinitePractice) {
+      if (isInfinitePractice) {
         this.trackStatLapsEl.textContent = '∞ Giri';
-      } else if (this.state.mode === 'practice') {
+      } else if (trackMode === 'practice') {
         this.trackStatLapsEl.textContent = `${this.state.finiteLaps} Giri`;
       } else {
         this.trackStatLapsEl.textContent = `${this.state.raceLaps} Giri`;
@@ -1743,7 +2082,8 @@ export class MenuManager {
     const activeTrack = getTrackById(this.state.trackId);
     this._syncTrackRecordsUI(activeTrack);
     if (this.homeNextTrackRecordsEl) {
-      const rec = getTrackRecord(activeTrack.id);
+      const careerTrack = getCareerCurrentTrack(this.careerState);
+      const rec = getTrackRecord(careerTrack.id);
       const qStr = rec.qualifyingBestLap ? formatLapTime(rec.qualifyingBestLap.time) : '--:--.---';
       const rStr = rec.raceBestLap ? formatLapTime(rec.raceBestLap.time) : '--:--.---';
       this.homeNextTrackRecordsEl.textContent = `Record Q: ${qStr} • G: ${rStr}`;
@@ -1875,12 +2215,13 @@ export class MenuManager {
     }
 
     // Sync Screen 1, Screen 2 & Screen 3 Contents
-    this._syncHomeScreen(c, activeTeam, activeTrack);
+    const careerTrack = getCareerCurrentTrack(c);
+    this._syncHomeScreen(c, activeTeam, careerTrack, activeTrack);
     this._syncTeamScreen(activeTeam);
     this._syncTrackScreen(activeTrack);
     this._lastCarouselTab = this.activeTab;
 
-    // Sync Quick Mode / Race Laps / Career Format / Practice / Settings states
+    // Sync Quick Mode / Race Laps / Career Preset / Practice / Settings states
     this.modeButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuMode === this.quickMode);
     });
@@ -1894,8 +2235,9 @@ export class MenuManager {
     if (this.raceLapsInput && document.activeElement !== this.raceLapsInput) {
       this.raceLapsInput.value = String(this.state.raceLaps);
     }
-    this.careerFormatButtons.forEach((btn) => {
-      btn.classList.toggle('is-selected', btn.dataset.careerFormat === c.careerFormat);
+    const activePresetId = getCareerWeekendPreset(c.weekendPresetId).id;
+    this.careerPresetButtons.forEach((btn) => {
+      btn.classList.toggle('is-selected', btn.dataset.careerPreset === activePresetId);
     });
     if (this.practiceOptionsSection) {
       this.practiceOptionsSection.style.display = this.quickMode === 'practice' ? 'flex' : 'none';
@@ -1913,12 +2255,21 @@ export class MenuManager {
     this.carLevelButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuCarlevel === this.state.carLevel);
     });
-    this.difficultyButtons.forEach((btn) => {
-      btn.classList.toggle('is-selected', btn.dataset.menuDifficulty === this.state.difficultyId);
+    this._syncPhysicsUI();
+    this._syncSettingsTabsUI();
+    this._syncKeybindingsUI();
+    this.defaultCameraButtons.forEach((btn) => {
+      btn.classList.toggle(
+        'is-selected',
+        btn.dataset.menuDefaultCamera === this.state.defaultCameraMode
+      );
     });
-    const diffCfg = getDifficultyConfig(this.state.difficultyId);
-    if (this.difficultyDescEl && diffCfg) {
-      this.difficultyDescEl.textContent = diffCfg.description;
+    if (this.defaultCameraDescEl) {
+      const camKey = formatKeyCodeLabel(this.state.keybindings?.camera || 'KeyC');
+      this.defaultCameraDescEl.textContent =
+        this.state.defaultCameraMode === 'cockpit'
+          ? `Ogni sessione inizierà in Prima Persona (Abitacolo) con Halo centrale, specchietti e volante F1 LCD live (premi ${camKey} in pista per cambiare).`
+          : `Ogni sessione inizierà in Onboard (T-Cam) con Halo Telemetry HUD broadcast (premi ${camKey} in pista per passare in Prima Persona).`;
     }
     this.weatherButtons.forEach((btn) => {
       btn.classList.toggle('is-selected', btn.dataset.menuWeather === this.state.weather);
@@ -1981,6 +2332,128 @@ export class MenuManager {
     }
   }
 
+  setPhysicsSettings(nextSettings) {
+    this.state.physicsSettings = normalizePhysicsSettings(nextSettings);
+    this._syncPhysicsUI();
+  }
+
+  _syncPhysicsUI() {
+    const ps = normalizePhysicsSettings(this.state.physicsSettings);
+    this.state.physicsSettings = ps;
+
+    for (const inputEl of this.physicsToggleEls) {
+      const key = inputEl.dataset.physicsToggle;
+      if (key && key in ps) {
+        inputEl.checked = Boolean(ps[key]);
+      }
+    }
+    if (this.botAiSliderEl && document.activeElement !== this.botAiSliderEl) {
+      this.botAiSliderEl.value = String(ps.botAiLevel);
+    }
+    if (this.botAiValEl) {
+      this.botAiValEl.textContent = `${ps.botAiLevel}%`;
+    }
+    const mult = computeCareerPrizeMultiplier(ps);
+    if (this.careerBonusValEl) {
+      this.careerBonusValEl.textContent = `Bonus Carriera: ×${mult.toFixed(2)}`;
+    }
+    if (this.physicsSummaryEl) {
+      const activeCount = PHYSICS_TOGGLE_DEFS.filter((d) => Boolean(ps[d.key])).length;
+      const diffProfile = getDifficultyConfig(ps);
+      this.physicsSummaryEl.textContent =
+        `${activeCount}/${PHYSICS_TOGGLE_DEFS.length} moduli fisici attivi • Bot IA ${ps.botAiLevel}% • Premi Carriera ×${mult.toFixed(2)} (${diffProfile.label}).`;
+    }
+  }
+
+  _syncSettingsTabsUI() {
+    const active = this.activeSettingsTab || 'physics';
+    this.settingsTabBtns.forEach((btn) => {
+      const isAct = btn.dataset.settingsTab === active;
+      btn.classList.toggle('is-active', isAct);
+      btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+    });
+    this.settingsPanelEls.forEach((panel) => {
+      panel.classList.toggle('is-active', panel.dataset.settingsPanel === active);
+    });
+  }
+
+  _startKeybindCapture(actionId) {
+    const def = KEYBIND_ACTIONS.find((a) => a.id === actionId);
+    if (!def) return;
+    this._capturingActionId = actionId;
+    this._keybindStatusMessage = `Premi il nuovo tasto per "${def.label}"… (ESC per annullare)`;
+    if (this.onKeybindCaptureChange) {
+      this.onKeybindCaptureChange(true);
+    }
+    this._syncKeybindingsUI();
+  }
+
+  _cancelKeybindCapture(statusNote = null) {
+    if (!this._capturingActionId) return;
+    this._capturingActionId = null;
+    if (statusNote) {
+      this._keybindStatusMessage = statusNote;
+    }
+    if (this.onKeybindCaptureChange) {
+      this.onKeybindCaptureChange(false);
+    }
+    this._syncKeybindingsUI();
+  }
+
+  _syncKeybindingsUI() {
+    const bindings = normalizeKeybindings(this.state.keybindings);
+    this.state.keybindings = bindings;
+
+    const renderGroup = (containerEl, groupKey) => {
+      if (!containerEl) return;
+      const items = KEYBIND_ACTIONS.filter((a) => a.group === groupKey);
+      containerEl.innerHTML = items
+        .map((action) => {
+          const isListening = this._capturingActionId === action.id;
+          const labelText = isListening
+            ? 'PREMI TASTO…'
+            : formatKeyCodeLabel(bindings[action.id]);
+          return `
+            <div class="f1-keybind-row">
+              <div class="f1-keybind-copy">
+                <span class="f1-keybind-label">${action.label}</span>
+                <span class="f1-keybind-desc">${action.desc}</span>
+              </div>
+              <button
+                type="button"
+                class="f1-keybind-btn${isListening ? ' is-listening' : ''}"
+                data-rebind-action="${action.id}"
+                title="Clicca per cambiare il tasto di ${action.label}"
+              >${labelText}</button>
+            </div>
+          `;
+        })
+        .join('');
+
+      containerEl.querySelectorAll('[data-rebind-action]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.rebindAction;
+          if (!id) return;
+          if (this._capturingActionId === id) {
+            this._cancelKeybindCapture('Modifica tasto annullata.');
+          } else {
+            this._startKeybindCapture(id);
+          }
+        });
+      });
+    };
+
+    renderGroup(this.keybindsDrivingEl, 'driving');
+    renderGroup(this.keybindsActionsEl, 'actions');
+
+    if (this.allowArrowsToggleEl) {
+      this.allowArrowsToggleEl.checked = Boolean(bindings.allowArrowFallback);
+    }
+    if (this.keybindsStatusEl) {
+      this.keybindsStatusEl.textContent = this._keybindStatusMessage;
+    }
+  }
+
   setNightQuality(level, note = '') {
     const resolved = getNightQualityConfig(level).id;
     this.state.nightQuality = resolved;
@@ -1992,20 +2465,26 @@ export class MenuManager {
     if (this.state.mode === 'career') {
       const repDriver = getRepresentativeDriverForTeam(this.careerState.teamId);
       const customSpecs = buildCarSpecsFromUpgrades(this.careerState.upgrades);
-      const format = this.careerState.careerFormat === 'race' ? 'race' : 'qualifying';
+      const careerTrack = getCareerCurrentTrack(this.careerState);
+      const preset = getCareerWeekendPreset(this.careerState.weekendPresetId);
       return {
-        trackId: this.state.trackId,
-        mode: format,
+        trackId: careerTrack.id,
+        mode: 'qualifying',
         difficultyId: this.state.difficultyId,
+        physicsSettings: { ...this.state.physicsSettings },
         withBots: true,
-        raceLaps: CAREER_RACE_LAPS,
-        lapLimit: format === 'race' ? CAREER_RACE_LAPS : null,
+        raceLaps: preset.raceLaps,
+        lapLimit: null,
+        qualifyingStageDurations: { ...preset.qualifyingDurations },
         carLevel: customSpecs.id,
         skyPresetId: 'random',
         playerDriverId: repDriver.id,
         playerGridIndex: 7,
         isCareer: true,
         careerTeamId: this.careerState.teamId,
+        careerPresetId: preset.id,
+        careerRoundIndex: this.careerState.currentRoundIndex ?? 0,
+        careerSeasonNumber: this.careerState.seasonNumber ?? 1,
         playerCustomName: this.careerState.playerName,
         playerCustomCode: this.careerState.playerCode,
         playerCustomSpecs: customSpecs,
@@ -2029,6 +2508,7 @@ export class MenuManager {
       trackId: this.state.trackId,
       mode: this.state.mode,
       difficultyId: this.state.difficultyId,
+      physicsSettings: { ...this.state.physicsSettings },
       withBots: isPractice ? this.state.withBots : true,
       raceLaps: chosenRaceLaps,
       lapLimit: isPractice
@@ -2049,6 +2529,14 @@ export class MenuManager {
   }
 
   open() {
+    if (this._menuCloseTimer) {
+      clearTimeout(this._menuCloseTimer);
+      this._menuCloseTimer = null;
+    }
+    if (this._menuOpenRaf && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this._menuOpenRaf);
+      this._menuOpenRaf = null;
+    }
     this.isOpen = true;
     this.modalManager.syncVisibility('pause-modal', false);
     if (typeof document !== 'undefined') {
@@ -2056,12 +2544,31 @@ export class MenuManager {
     }
     this._syncUI();
     if (this.modalEl) {
+      this.modalEl.classList.remove('is-menu-closing');
+      this.modalEl.classList.add('is-menu-entering');
       this.modalEl.style.display = 'flex';
+      if (typeof requestAnimationFrame === 'function') {
+        this._menuOpenRaf = requestAnimationFrame(() => {
+          this._menuOpenRaf = null;
+          this.modalEl?.classList.remove('is-menu-entering');
+        });
+      } else {
+        this.modalEl.classList.remove('is-menu-entering');
+      }
     }
     this._notifyShowroom();
   }
 
-  close() {
+  close(options = {}) {
+    const instant = Boolean(options?.instant);
+    if (this._menuCloseTimer) {
+      clearTimeout(this._menuCloseTimer);
+      this._menuCloseTimer = null;
+    }
+    if (this._menuOpenRaf && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this._menuOpenRaf);
+      this._menuOpenRaf = null;
+    }
     this.isOpen = false;
     this.profileModalOpen = false;
     if (this.activeTab === 'settings' || this.activeTab === 'multiplayer') {
@@ -2070,11 +2577,25 @@ export class MenuManager {
     this.modalManager.syncVisibility('gp-customize-subcard', false);
     this.modalManager.syncVisibility('gp-multiplayer-popup', false);
     this.modalManager.syncVisibility('gp-settings-popup', false);
+    this.modalManager.syncVisibility('career-season-modal', false);
     if (typeof document !== 'undefined') {
       document.body.classList.remove('is-garage-open');
     }
     if (this.modalEl) {
-      this.modalEl.style.display = 'none';
+      this.modalEl.classList.remove('is-menu-entering');
+      if (instant) {
+        this.modalEl.classList.remove('is-menu-closing');
+        this.modalEl.style.display = 'none';
+      } else {
+        this.modalEl.classList.add('is-menu-closing');
+        this._menuCloseTimer = setTimeout(() => {
+          this._menuCloseTimer = null;
+          if (!this.isOpen && this.modalEl) {
+            this.modalEl.style.display = 'none';
+            this.modalEl.classList.remove('is-menu-closing');
+          }
+        }, 235);
+      }
     }
     this._notifyShowroom();
   }

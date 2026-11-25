@@ -54,8 +54,9 @@
       --f1-radius-panel: clamp(10px, 0.78vw, 16px);
       --f1-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
       --f1-anim-fast: 150ms;
-      --f1-anim-med: 210ms;
+      --f1-anim-med: 240ms;
       --f1-anim-row: 240ms;
+      --hud-track-map-w: clamp(188px, 13.8vw, 274px);
     }
 
     * {
@@ -196,24 +197,16 @@
 
     .overlay-subtitle {
       font-family: var(--f1-font-display);
-      font-size: clamp(10px, 1.08vh, 13.5px);
+      font-size: clamp(9.5px, 1.02vh, 12.5px);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.045em;
       color: #cbd5e1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      padding-bottom: 3px;
-      margin-bottom: 4px;
-    }
-
-    .session-badges-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
-      margin-bottom: 2px;
+      padding-bottom: 1px;
+      margin-bottom: 0;
     }
 
     .session-badge {
@@ -229,44 +222,7 @@
       color: #e2e8f0;
     }
 
-    .badge-mode-practice { background: rgba(2, 132, 199, 0.32); border-color: rgba(56, 189, 248, 0.5); color: #bae6fd; }
     .badge-mode-quali { background: rgba(147, 51, 234, 0.35); border-color: rgba(192, 132, 252, 0.5); color: #e9d5ff; }
-    .badge-mode-race { background: rgba(225, 6, 0, 0.34); border-color: rgba(248, 113, 113, 0.5); color: #fecaca; }
-    .badge-diff-beginner { background: rgba(21, 128, 61, 0.32); border-color: rgba(74, 222, 128, 0.45); color: #86efac; }
-    .badge-diff-intermediate { background: rgba(161, 98, 7, 0.34); border-color: rgba(250, 204, 21, 0.45); color: #fde047; }
-    .badge-diff-realistic { background: rgba(126, 34, 206, 0.35); border-color: rgba(192, 132, 252, 0.48); color: #e9d5ff; }
-    .badge-car-max { background: rgba(234, 88, 12, 0.32); border-color: rgba(251, 146, 60, 0.45); color: #fdba74; }
-    .badge-car-custom { background: rgba(16, 185, 129, 0.28); border-color: rgba(52, 211, 153, 0.45); color: #6ee7b7; }
-    .badge-career-money { background: rgba(234, 179, 8, 0.25); border-color: rgba(250, 204, 21, 0.5); color: #fde047; }
-
-    .controls-compact {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px 5px;
-      font-size: clamp(7.5px, 0.82vh, 9.5px);
-      font-weight: 600;
-      color: #64748b;
-      align-items: center;
-      margin-top: 2px;
-    }
-
-    @media (max-height: 760px) {
-      .controls-compact {
-        display: none;
-      }
-    }
-
-    .key-badge {
-      display: inline-block;
-      background: rgba(20, 25, 36, 0.96);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-      padding: 0 3px;
-      font-weight: 700;
-      font-family: var(--f1-font-display);
-      font-size: clamp(7.5px, 0.8vh, 9.5px);
-      color: #e2e8f0;
-    }
 
     /* 2. A sinistra: Torre Delta e Classifica F1 2026 Broadcast a tutta altezza */
     #f1-left-delta-panel {
@@ -276,43 +232,128 @@
       min-height: 0;
       overflow: hidden;
       contain: layout style;
-      padding: clamp(4px, 0.55vh, 8px) clamp(5px, 0.45vw, 8px) clamp(5px, 0.6vh, 9px);
+      padding: clamp(5px, 0.6vh, 8px) clamp(6px, 0.5vw, 9px) clamp(5px, 0.6vh, 9px);
       display: flex;
       flex-direction: column;
-      gap: clamp(3px, 0.4vh, 6px);
-      background: rgba(10, 13, 20, 0.91);
+      gap: clamp(4px, 0.48vh, 7px);
+      background: rgba(10, 13, 20, 0.92);
       background-image: none;
       border: none;
       border-radius: 0;
       box-shadow: none;
     }
 
-    .delta-header {
+    /* Banner Hero in primo piano: Numero Giri (Gara/Libere) o Fase & Cronometro Qualifiche (Q1/Q2/Q3) */
+    .hud-hero-session {
       flex-shrink: 0;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 4px;
-      background: rgba(255, 255, 255, 0.045);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: clamp(3px, 0.4vh, 5px) clamp(5px, 0.45vw, 8px);
+      justify-content: space-between;
+      gap: 6px;
+      padding: clamp(5px, 0.7vh, 9px) clamp(7px, 0.6vw, 10px);
+      border-radius: 5px;
+      background: linear-gradient(135deg, rgba(225, 6, 0, 0.24) 0%, rgba(16, 21, 34, 0.96) 58%);
+      border: 1px solid rgba(225, 6, 0, 0.52);
+      border-left: 4px solid #e10600;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
-    .lap-tag {
+    .hud-hero-session.is-practice {
+      background: linear-gradient(135deg, rgba(225, 6, 0, 0.20) 0%, rgba(15, 20, 32, 0.96) 58%);
+      border-color: rgba(248, 113, 113, 0.36);
+      border-left-color: #e10600;
+    }
+
+    .hud-hero-session.is-quali {
+      background: linear-gradient(135deg, rgba(147, 51, 234, 0.36) 0%, rgba(18, 16, 36, 0.97) 60%);
+      border-color: rgba(192, 132, 252, 0.62);
+      border-left-color: #a855f7;
+      box-shadow: 0 4px 18px rgba(126, 34, 206, 0.28), inset 0 1px 0 rgba(233, 213, 255, 0.14);
+    }
+
+    .hud-hero-session.is-quali.is-warn {
+      border-color: rgba(250, 204, 21, 0.72);
+      border-left-color: #facc15;
+    }
+
+    .hud-hero-session.is-quali.is-urgent {
+      background: linear-gradient(135deg, rgba(220, 38, 38, 0.46) 0%, rgba(28, 13, 22, 0.97) 64%);
+      border-color: rgba(248, 113, 113, 0.85);
+      border-left-color: #ef4444;
+    }
+
+    .hud-hero-session.is-quali.is-flag {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(15, 19, 30, 0.98) 60%);
+      border-color: rgba(255, 255, 255, 0.55);
+      border-left-color: #ffffff;
+    }
+
+    .hud-hero-primary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .hud-hero-stage {
       font-family: var(--f1-font-display);
-      font-size: clamp(10.5px, 1.2vh, 14px);
-      font-weight: 800;
-      letter-spacing: 0.06em;
+      font-size: clamp(9.5px, 1.05vh, 12.5px);
+      font-weight: 900;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: #e10600;
       color: #ffffff;
+      line-height: 1.15;
+      flex-shrink: 0;
+    }
+
+    .hud-hero-session.is-quali .hud-hero-stage {
+      background: #9333ea;
+      font-size: clamp(11px, 1.25vh, 14.5px);
+      padding: 2px 7px;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.55);
+    }
+
+    .hud-hero-session.is-quali.is-urgent .hud-hero-stage {
+      background: #dc2626;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    }
+
+    .hud-hero-session.is-quali.is-flag .hud-hero-stage {
+      background: #ffffff;
+      color: #090d16;
+      box-shadow: none;
+    }
+
+    .hud-hero-value {
+      font-family: var(--f1-font-mono);
+      font-size: clamp(16px, 2.15vh, 25px);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      color: #ffffff;
+      line-height: 1;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+    }
+
+    .hud-hero-session.is-quali.is-warn .hud-hero-value { color: #fef08a; }
+    .hud-hero-session.is-quali.is-urgent .hud-hero-value { color: #fecaca; }
+
+    .hud-hero-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+      flex-shrink: 0;
     }
 
     .delta-pill {
       font-family: var(--f1-font-mono);
-      font-size: clamp(9px, 1vh, 12px);
+      font-size: clamp(8.5px, 0.95vh, 11.5px);
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       padding: 1px 5px;
@@ -328,16 +369,16 @@
     .delta-invalid { color: #fecaca; background: rgba(185, 28, 28, 0.58); border: 1px solid rgba(248, 113, 113, 0.45); }
     .is-invalidated { color: #f87171 !important; text-decoration: line-through; }
 
-    /* Griglia ultra-compatta 2x2 per tempi giro così i 22 piloti hanno massima altezza */
-    .lap-times-grid {
+    /* Riga secondaria compatta Giro corrente / Ultimo giro */
+    .lap-times-live-row {
       flex-shrink: 0;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 2px 3px;
+      gap: 3px;
     }
 
     .lap-time-cell {
-      background: rgba(255, 255, 255, 0.035);
+      background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 3px;
       padding: 2px 5px;
@@ -366,13 +407,163 @@
       font-family: var(--f1-font-mono);
       font-size: clamp(9px, 1.02vh, 12px);
       font-variant-numeric: tabular-nums;
-      color: #f8fafc;
+      color: #e2e8f0;
       line-height: 1.1;
       flex-shrink: 0;
     }
 
-    .lap-time-best { color: #4ade80; }
-    .lap-time-overall { color: #d8b4fe; }
+    /* Card in RISALTO per BEST LAP personale (verde/viola) & RECORD assoluto sessione (viola) */
+    .lap-times-highlight-row {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .lap-highlight-card {
+      border-radius: 4px;
+      padding: clamp(3px, 0.4vh, 5px) clamp(5px, 0.45vw, 7px);
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .lap-highlight-card.is-personal {
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.22) 0%, rgba(12, 22, 20, 0.92) 100%);
+      border: 1px solid rgba(74, 222, 128, 0.42);
+      border-left: 3px solid #22c55e;
+      box-shadow: 0 2px 10px rgba(34, 197, 94, 0.14);
+    }
+
+    .lap-highlight-card.is-personal.is-overall-holder {
+      background: linear-gradient(135deg, rgba(147, 51, 234, 0.30) 0%, rgba(22, 14, 34, 0.94) 100%);
+      border-color: rgba(192, 132, 252, 0.65);
+      border-left-color: #a855f7;
+      box-shadow: 0 2px 12px rgba(168, 85, 247, 0.26);
+    }
+
+    .lap-highlight-card.is-record {
+      background: linear-gradient(135deg, rgba(147, 51, 234, 0.24) 0%, rgba(19, 13, 31, 0.92) 100%);
+      border: 1px solid rgba(192, 132, 252, 0.46);
+      border-left: 3px solid #a855f7;
+      box-shadow: 0 2px 10px rgba(168, 85, 247, 0.16);
+    }
+
+    .lap-highlight-kicker {
+      font-family: var(--f1-font-display);
+      font-size: clamp(7.5px, 0.78vh, 9.5px);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+
+    .lap-highlight-card.is-personal .lap-highlight-kicker { color: #86efac; }
+    .lap-highlight-card.is-personal.is-overall-holder .lap-highlight-kicker { color: #e9d5ff; }
+    .lap-highlight-card.is-record .lap-highlight-kicker { color: #d8b4fe; }
+
+    .lap-highlight-val {
+      font-family: var(--f1-font-mono);
+      font-size: clamp(11px, 1.28vh, 15px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.12;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+
+    .lap-time-best { color: #4ade80; text-shadow: 0 0 8px rgba(74, 222, 128, 0.28); }
+    .lap-highlight-card.is-personal.is-overall-holder .lap-time-best {
+      color: #f3e8ff;
+      text-shadow: 0 0 10px rgba(192, 132, 252, 0.55);
+    }
+    .lap-time-overall { color: #e9d5ff; text-shadow: 0 0 8px rgba(192, 132, 252, 0.35); }
+
+    /* Strip 3 Settori F1 live (S1 / S2 / S3) in risalto con barra colorata viola/verde/giallo */
+    .hud-left-sectors {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 3px;
+    }
+
+    .left-sector-box {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      padding: 3px 3px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .left-sector-tag {
+      font-family: var(--f1-font-display);
+      font-size: clamp(7.5px, 0.78vh, 9.5px);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      line-height: 1;
+    }
+
+    .left-sector-time {
+      font-family: var(--f1-font-mono);
+      font-size: clamp(9.5px, 1.08vh, 12.5px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #cbd5e1;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .left-sector-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: rgba(148, 163, 184, 0.25);
+    }
+
+    .left-sector-box.is-active {
+      border-color: rgba(248, 250, 252, 0.45);
+      background: rgba(255, 255, 255, 0.09);
+    }
+    .left-sector-box.is-active .left-sector-tag { color: #ffffff; }
+    .left-sector-box.is-active .left-sector-time { color: #ffffff; }
+    .left-sector-box.is-active .left-sector-bar { background: #38bdf8; }
+
+    .left-sector-box.status-purple {
+      background: linear-gradient(180deg, rgba(147, 51, 234, 0.34) 0%, rgba(88, 28, 135, 0.42) 100%);
+      border-color: rgba(192, 132, 252, 0.72);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.30);
+    }
+    .left-sector-box.status-purple .left-sector-tag { color: #e9d5ff; }
+    .left-sector-box.status-purple .left-sector-time { color: #ffffff; }
+    .left-sector-box.status-purple .left-sector-bar { background: #a855f7; height: 3.5px; }
+
+    .left-sector-box.status-green {
+      background: linear-gradient(180deg, rgba(22, 163, 74, 0.30) 0%, rgba(20, 83, 45, 0.38) 100%);
+      border-color: rgba(74, 222, 128, 0.65);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.24);
+    }
+    .left-sector-box.status-green .left-sector-tag { color: #bbf7d0; }
+    .left-sector-box.status-green .left-sector-time { color: #ffffff; }
+    .left-sector-box.status-green .left-sector-bar { background: #22c55e; height: 3.5px; }
+
+    .left-sector-box.status-yellow {
+      background: linear-gradient(180deg, rgba(202, 138, 4, 0.26) 0%, rgba(113, 63, 18, 0.36) 100%);
+      border-color: rgba(250, 204, 21, 0.58);
+    }
+    .left-sector-box.status-yellow .left-sector-tag { color: #fef08a; }
+    .left-sector-box.status-yellow .left-sector-time { color: #fef9c3; }
+    .left-sector-box.status-yellow .left-sector-bar { background: #facc15; height: 3.5px; }
 
     .driver-tower-section {
       flex: 1;
@@ -666,11 +857,13 @@
     .driver-compound.compound-h { color: #f8fafc; }
     .driver-compound.compound-w { color: #38bdf8; }
 
-    /* 3. In basso a destra: Minimappa circuito 4K */
+    /* 3. In alto a destra: Minimappa circuito 4K (Step 2 PIANO PRE STEP 4) */
     #track-map-container {
-      bottom: clamp(8px, 1.1vh, 18px);
+      top: clamp(8px, 1.1vh, 18px);
       right: clamp(8px, 1.0vw, 20px);
+      bottom: auto;
       left: auto;
+      width: var(--hud-track-map-w);
       border-left: 1px solid var(--f1-border-subtle);
       border-right: 3px solid var(--f1-accent-red);
       padding: clamp(6px, 0.85vh, 12px);
@@ -680,6 +873,331 @@
       gap: clamp(4px, 0.5vh, 8px);
       contain: layout style;
       z-index: 15;
+    }
+
+    /* 3B. In alto a destra subito a sinistra della minimappa principale: Minimappa dedicata Pit Lane */
+    #pit-map-container {
+      top: clamp(8px, 1.1vh, 18px);
+      right: calc(clamp(8px, 1.0vw, 20px) + var(--hud-track-map-w) + 10px);
+      bottom: auto;
+      left: auto;
+      border-left: 3px solid #22c55e;
+      border-right: 1px solid var(--f1-border-subtle);
+      padding: clamp(6px, 0.85vh, 12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(4px, 0.5vh, 8px);
+      contain: layout style;
+      z-index: 15;
+      opacity: 0;
+      visibility: hidden;
+      transform: translate3d(14px, 0, 0) scale(0.97);
+      pointer-events: none;
+      transition:
+        opacity 240ms var(--f1-ease-out),
+        transform 240ms var(--f1-ease-out),
+        visibility 0s linear 240ms;
+    }
+
+    #pit-map-container.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translate3d(0, 0, 0) scale(1);
+      transition:
+        opacity 240ms var(--f1-ease-out),
+        transform 240ms var(--f1-ease-out),
+        visibility 0s linear 0s;
+    }
+
+    .pit-map-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      border-bottom: 1px solid rgba(34, 197, 94, 0.35);
+      padding-bottom: 3px;
+    }
+
+    .pit-map-title {
+      font-family: var(--f1-font-display);
+      font-size: clamp(9.5px, 0.95vh, 12px);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #4ade80;
+      white-space: nowrap;
+    }
+
+    .pit-map-limit-badge {
+      font-family: var(--f1-font-mono);
+      font-size: 9px;
+      font-weight: 800;
+      color: #fecaca;
+      background: rgba(220, 38, 38, 0.28);
+      border: 1px solid rgba(248, 113, 113, 0.55);
+      border-radius: 3px;
+      padding: 1px 4px;
+      white-space: nowrap;
+    }
+
+    #pit-map-canvas {
+      display: block;
+      width: clamp(102px, 7.6vw, 162px);
+      height: clamp(148px, 11.2vw, 240px);
+    }
+
+    /* 3C. In alto al centro: Indicatore Semaforico Ingegnere di Gara Verde/Rosso (Anti Unsafe Release) */
+    #pit-release-indicator {
+      position: fixed;
+      top: clamp(12px, 1.6vh, 22px);
+      left: 50%;
+      transform: translate3d(-50%, -10px, 0) scale(0.97);
+      display: flex;
+      align-items: center;
+      gap: clamp(10px, 1vw, 16px);
+      padding: clamp(7px, 0.9vh, 11px) clamp(14px, 1.4vw, 22px);
+      border-radius: var(--f1-radius-panel);
+      background: rgba(9, 13, 21, 0.93);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-top: 3px solid #22c55e;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.75);
+      pointer-events: none;
+      z-index: 26;
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 220ms var(--f1-ease-out),
+        transform 220ms var(--f1-ease-out),
+        border-color 180ms ease,
+        visibility 0s linear 220ms;
+    }
+
+    #pit-release-indicator.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translate3d(-50%, 0, 0) scale(1);
+      transition:
+        opacity 220ms var(--f1-ease-out),
+        transform 220ms var(--f1-ease-out),
+        border-color 180ms ease,
+        visibility 0s linear 0s;
+    }
+
+    #pit-release-indicator.is-red {
+      border-top-color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.55);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.78), 0 0 22px rgba(239, 68, 68, 0.24);
+    }
+
+    #pit-release-indicator.is-green {
+      border-top-color: #22c55e;
+      border-color: rgba(34, 197, 94, 0.55);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.78), 0 0 22px rgba(34, 197, 94, 0.24);
+    }
+
+    .pit-release-leds {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(5, 8, 14, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .pit-led {
+      width: clamp(12px, 1.3vh, 16px);
+      height: clamp(12px, 1.3vh, 16px);
+      border-radius: 50%;
+      background: rgba(100, 116, 139, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    }
+
+    #pit-release-indicator.is-red .pit-led-red {
+      background: radial-gradient(circle at 35% 35%, #fecaca 0%, #ef4444 55%, #991b1b 100%);
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.95), 0 0 26px rgba(239, 68, 68, 0.55);
+      transform: scale(1.08);
+    }
+
+    #pit-release-indicator.is-green .pit-led-green {
+      background: radial-gradient(circle at 35% 35%, #dcfce7 0%, #22c55e 55%, #15803d 100%);
+      box-shadow: 0 0 14px rgba(34, 197, 94, 0.95), 0 0 26px rgba(34, 197, 94, 0.55);
+      transform: scale(1.08);
+    }
+
+    .pit-release-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .pit-release-kicker {
+      font-family: var(--f1-font-display);
+      font-size: clamp(8.5px, 0.85vh, 10.5px);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    #pit-release-text {
+      font-family: var(--f1-font-display);
+      font-size: clamp(11.5px, 1.2vh, 15px);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      white-space: nowrap;
+    }
+
+    #pit-release-indicator.is-green #pit-release-text {
+      color: #86efac;
+    }
+
+    #pit-release-indicator.is-red #pit-release-text {
+      color: #fca5a5;
+    }
+
+    #pit-release-meta {
+      font-family: var(--f1-font-mono);
+      font-size: clamp(9.5px, 0.95vh, 11.5px);
+      font-weight: 800;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 5px;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+
+    /* Barra azioni rapide Pit Lane / Bandiera a Scacchi Qualifiche (sotto l'indicatore top-center) */
+    #hud-pit-action-bar {
+      position: fixed;
+      top: clamp(72px, 8.8vh, 106px);
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-radius: var(--f1-radius-card);
+      background: rgba(9, 13, 21, 0.92);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-left: 3.5px solid #22c55e;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.72);
+      z-index: 26;
+      pointer-events: auto;
+    }
+
+    #hud-pit-action-bar.is-chequered {
+      border-left-color: #facc15;
+    }
+
+    #hud-pit-action-bar.is-inlap {
+      border-left-color: #22c55e;
+    }
+
+    #hud-pit-action-bar.is-reset-track {
+      border-left-color: #f97316;
+      border-color: rgba(251, 146, 60, 0.45);
+    }
+
+    #hud-pit-action-bar.is-recovering {
+      border-left-color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.55);
+      box-shadow: 0 12px 32px rgba(14, 165, 233, 0.25);
+    }
+
+    .hud-recovery-progress {
+      display: none;
+      width: 112px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    #hud-recovery-progress-fill {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #38bdf8 0%, #22d3ee 60%, #4ade80 100%);
+      transform-origin: left center;
+      transform: scaleX(0);
+    }
+
+    #recovery-fx-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 6;
+      opacity: 0;
+      transition: opacity 90ms linear;
+      background: radial-gradient(
+        ellipse 68% 64% at 50% 50%,
+        rgba(56, 189, 248, 0) 58%,
+        rgba(14, 165, 233, 0.24) 88%,
+        rgba(56, 189, 248, 0.36) 100%
+      );
+    }
+
+    #hud-pit-action-text {
+      font-family: var(--f1-font-display);
+      font-size: clamp(10.5px, 1.05vh, 13.5px);
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      white-space: nowrap;
+    }
+
+    .hud-pit-cta-btn {
+      font-family: var(--f1-font-display);
+      font-size: clamp(10.5px, 1.05vh, 13px);
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(74, 222, 128, 0.7);
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: #ffffff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 140ms var(--f1-ease-out), opacity 140ms ease, filter 140ms ease;
+    }
+
+    .hud-pit-cta-btn:hover:not(:disabled) {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    .hud-pit-cta-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: linear-gradient(135deg, #475569 0%, #334155 100%);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+
+    .hud-pit-cta-btn--quick {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-color: rgba(56, 189, 248, 0.72);
+    }
+
+    .hud-pit-cta-btn--reset {
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+      border-color: rgba(253, 186, 116, 0.78);
     }
 
     .track-map-header {
@@ -694,12 +1212,13 @@
 
     .track-map-title {
       font-family: var(--f1-font-display);
-      font-size: clamp(9.5px, 0.95vh, 12px);
+      font-size: clamp(9px, 0.88vh, 11.5px);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.06em;
       color: var(--f1-accent-blue);
       text-align: left;
+      white-space: nowrap;
     }
 
     .track-map-legend {
@@ -747,7 +1266,7 @@
       bottom: clamp(8px, 1.1vh, 18px);
       left: 50%;
       transform: translateX(-50%);
-      width: min(clamp(540px, 42vw, 880px), calc(100vw - clamp(220px, 15vw, 310px) * 2));
+      width: min(clamp(590px, 46vw, 920px), calc(100vw - clamp(216px, 14.8vw, 300px) * 2));
       min-width: 0;
       border-left: 1px solid rgba(255, 255, 255, 0.16);
       border-top: 2.5px solid var(--f1-accent-red);
@@ -759,8 +1278,9 @@
       z-index: 15;
     }
 
-    /* In Onboard T-Cam, sostituisce la barra classica col Broadcast Halo Telemetry HUD */
-    body[data-camera-mode="tcam"]:not(.is-garage-open) #f1-bottom-center {
+    /* In Onboard T-Cam (Halo HUD) e Prima Persona Abitacolo (Volante LCD live), nasconde la barra classica inferiore */
+    body[data-camera-mode="tcam"]:not(.is-garage-open) #f1-bottom-center,
+    body[data-camera-mode="cockpit"]:not(.is-garage-open) #f1-bottom-center {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -1043,11 +1563,12 @@
     .halo-sector-chip.status-yellow .halo-sector-bar { background: #eab308; }
     .halo-sector-chip.is-active { color: #ffffff; }
 
-    /* Pannello Diagnosi Fisica Step 6b (toggle tasto F3, nascosto di default) */
+    /* Pannello Diagnosi Fisica Step 6b (toggle tasto F3, spostato in basso a destra) */
     #physics-debug-panel {
       position: fixed;
-      top: clamp(10px, 1.4vh, 20px);
+      bottom: clamp(10px, 1.4vh, 20px);
       right: clamp(10px, 1.2vw, 20px);
+      top: auto;
       width: 320px;
       background: rgba(7, 10, 18, 0.92);
       border: 1px solid rgba(56, 189, 248, 0.45);
@@ -1320,6 +1841,7 @@
     }
 
     .surface-asphalt { background: #1e293b; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.12); }
+    .surface-pitlane { background: #064e3b; color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.48); }
     .surface-kerb { background: #b45309; color: #fef3c7; border: 1px solid rgba(251, 191, 36, 0.45); }
     .surface-grass { background: #15803d; color: #dcfce7; border: 1px solid rgba(74, 222, 128, 0.4); }
     .surface-barrier { background: #dc2626; color: #ffffff; border: 1px solid #fca5a5; }
@@ -1339,7 +1861,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: clamp(6px, 0.8vw, 14px);
+      gap: clamp(8px, 0.9vw, 14px);
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       padding-top: clamp(5px, 0.65vh, 8px);
       font-size: 11px;
@@ -1349,8 +1871,8 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      flex: 1;
-      min-width: 115px;
+      flex: 1 1 auto;
+      min-width: 175px;
     }
 
     .tire-label {
@@ -1364,7 +1886,8 @@
     }
 
     .tire-bar-bg {
-      flex: 1;
+      flex: 1 1 52px;
+      min-width: 44px;
       height: 6px;
       border-radius: 3px;
       background: rgba(7, 10, 17, 0.9);
@@ -1388,7 +1911,7 @@
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       color: #f8fafc;
-      min-width: 32px;
+      min-width: 30px;
       text-align: right;
     }
 
@@ -1396,6 +1919,8 @@
       display: flex;
       align-items: baseline;
       gap: 5px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
@@ -1502,11 +2027,11 @@
     @keyframes f1ScreenIn {
       from {
         opacity: 0;
-        transform: translate3d(0, 10px, 0);
+        transform: translate3d(0, 12px, 0) scale(0.992);
       }
       to {
         opacity: 1;
-        transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0) scale(1);
       }
     }
 
@@ -2016,6 +2541,21 @@
       color: #ffffff;
     }
 
+    .tl-banner-bw-flag {
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.97) 0%, rgba(226, 232, 240, 0.95) 14%, rgba(15, 23, 42, 0.96) 15%, rgba(9, 13, 21, 0.96) 100%);
+      border: 1.5px solid #f8fafc;
+      border-left: 6px solid #090d16;
+      color: #ffffff;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 18px rgba(255, 255, 255, 0.25);
+    }
+
+    .alert-bw-flag {
+      background: linear-gradient(135deg, #f8fafc 0%, #f8fafc 48%, #090d16 52%, #090d16 100%);
+      border: 1px solid #f8fafc;
+      color: #facc15;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+    }
+
     /* Banner Broadcast Nuovo Record Assoluto Pista / Settore */
     #track-record-banner {
       position: fixed;
@@ -2121,6 +2661,10 @@
     body.is-garage-open #hud-top-left,
     body.is-garage-open #f1-left-delta-panel,
     body.is-garage-open #track-map-container,
+    body.is-garage-open #pit-map-container,
+    body.is-garage-open #pit-release-indicator,
+    body.is-garage-open #hud-pit-action-bar,
+    body.is-garage-open #physics-debug-panel,
     body.is-garage-open #f1-bottom-center,
     body.is-garage-open #start-lights-gantry,
     body.is-garage-open #track-limits-banner,
@@ -2137,6 +2681,221 @@
       justify-content: space-between;
       z-index: 60;
       pointer-events: none;
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      transition:
+        opacity 240ms var(--f1-ease-out),
+        transform 240ms var(--f1-ease-out);
+    }
+
+    #session-menu-modal.is-menu-entering,
+    #session-menu-modal.is-menu-closing {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0) scale(0.992);
+    }
+
+    /* Schermata di Caricamento F1 Dedicata (Step 2 PIANO PRE STEP 4) */
+    #f1-loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 140;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 3vw, 48px);
+      background:
+        radial-gradient(ellipse 72% 58% at 50% 42%, rgba(225, 6, 0, 0.18) 0%, rgba(7, 9, 14, 0.94) 68%, #05070c 100%),
+        var(--f1-carbon-pattern);
+      background-color: #06080f;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition:
+        opacity 180ms var(--f1-ease-out),
+        visibility 0s linear 180ms;
+    }
+
+    #f1-loading-screen.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition:
+        opacity 180ms var(--f1-ease-out),
+        visibility 0s linear 0s;
+    }
+
+    #f1-loading-screen.is-hiding {
+      opacity: 0;
+      visibility: visible;
+      pointer-events: none;
+      transition: opacity 350ms var(--f1-ease-out);
+    }
+
+    .f1-loading-card {
+      width: min(680px, 94vw);
+      background: rgba(12, 16, 25, 0.94);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-top: 3.5px solid var(--f1-accent-red);
+      border-radius: var(--f1-radius-panel);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85), 0 0 36px rgba(225, 6, 0, 0.16);
+      padding: clamp(18px, 2.6vh, 30px) clamp(20px, 2.6vw, 34px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(14px, 2vh, 22px);
+      transform: translate3d(0, 10px, 0) scale(0.985);
+      transition: transform 240ms var(--f1-ease-out);
+    }
+
+    #f1-loading-screen.is-visible .f1-loading-card {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .f1-loading-top {
+      display: flex;
+      align-items: center;
+      gap: clamp(16px, 2.2vw, 28px);
+    }
+
+    .f1-loading-map-box {
+      flex-shrink: 0;
+      width: 196px;
+      height: 146px;
+      padding: 3px;
+      border-radius: 10px;
+      background: rgba(6, 9, 16, 0.9);
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 16px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #f1-loading-minimap {
+      width: 190px;
+      height: 140px;
+      display: block;
+    }
+
+    .f1-loading-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .f1-loading-kicker {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--f1-accent-red);
+    }
+
+    #f1-loading-gp-name {
+      font-family: var(--f1-font-display);
+      font-size: clamp(19px, 2.1vw, 26px);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #ffffff;
+      line-height: 1.15;
+    }
+
+    #f1-loading-circuit-meta {
+      font-family: var(--f1-font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .f1-loading-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 4px;
+    }
+
+    .f1-loading-pill {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 5px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #e2e8f0;
+    }
+
+    .f1-loading-pill--mode {
+      background: rgba(225, 6, 0, 0.24);
+      border-color: rgba(248, 113, 113, 0.5);
+      color: #fecaca;
+    }
+
+    .f1-loading-pill--sky {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #bae6fd;
+    }
+
+    .f1-loading-pill--pit {
+      background: rgba(34, 197, 94, 0.18);
+      border-color: rgba(74, 222, 128, 0.45);
+      color: #bbf7d0;
+    }
+
+    .f1-loading-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .f1-loading-progress-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    #f1-loading-status {
+      font-family: var(--f1-font-ui);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    #f1-loading-pct {
+      font-family: var(--f1-font-mono);
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+
+    .f1-loading-bar-bg {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    #f1-loading-bar-fill {
+      width: 100%;
+      height: 100%;
+      transform-origin: left center;
+      transform: scaleX(0.12);
+      background: linear-gradient(90deg, #e10600 0%, #f97316 65%, #facc15 100%);
+      box-shadow: 0 0 14px rgba(225, 6, 0, 0.7);
+      transition: transform 220ms var(--f1-ease-out);
     }
 
     #f1-lowpoly-bg {
@@ -3518,11 +4277,11 @@
     }
 
     .f1-career-card-body {
-      padding: clamp(14px, 1.6vh, 22px) clamp(18px, 1.8vw, 28px);
+      padding: clamp(10px, 1.2vh, 18px) clamp(16px, 1.6vw, 26px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 12px;
+      gap: 9px;
       flex: 1;
     }
 
@@ -3584,8 +4343,8 @@
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
-      gap: 16px;
-      padding: 12px 14px;
+      gap: 14px;
+      padding: 9px 12px;
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
@@ -3652,10 +4411,10 @@
 
     .f1-home-gp-banner {
       display: grid;
-      grid-template-columns: 145px 1fr;
+      grid-template-columns: 136px 1fr;
       align-items: center;
-      gap: 16px;
-      padding: 12px 14px;
+      gap: 14px;
+      padding: 9px 12px;
       background: rgba(7, 10, 16, 0.72);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-left: 3px solid var(--f1-accent-red);
@@ -3663,8 +4422,8 @@
     }
 
     #home-next-track-svg {
-      width: 145px;
-      height: 82px;
+      width: 136px;
+      height: 74px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -4560,12 +5319,1342 @@
       .gp-gold-btn,
       .menu-choice-btn,
       #menu-start-btn,
-      #f1-lowpoly-bg {
+      #f1-lowpoly-bg,
+      #pit-map-container,
+      #pit-release-indicator,
+      #session-menu-modal,
+      #f1-loading-screen,
+      .f1-loading-card,
+      #f1-loading-bar-fill {
         transition-duration: 0.01ms !important;
       }
 
       .f1-carousel-strip {
         scroll-behavior: auto !important;
+      }
+    }
+
+    /* === Step 5: Sezione Impostazioni FISICA (7 Toggle + Slider Bot IA) & Race Pit/Tire HUD === */
+    body.is-garage-open #hud-bottom-right-stack,
+    body.is-garage-open #hud-race-pit-widget,
+    body.is-garage-open #hud-tyre-perf-card,
+    body.is-garage-open #hud-pitstop-timer {
+      display: none !important;
+    }
+
+    .f1-physics-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .f1-career-bonus-pill {
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.2), rgba(34, 197, 94, 0.18));
+      border: 1px solid rgba(250, 204, 21, 0.55);
+      color: #fef08a;
+      white-space: nowrap;
+    }
+
+    .f1-phys-toggle-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 720px) {
+      .f1-phys-toggle-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .f1-phys-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+
+    .f1-phys-toggle-row:hover {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(20, 30, 52, 0.85);
+    }
+
+    .f1-phys-toggle-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .f1-phys-toggle-title {
+      font-family: var(--f1-font-display);
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      line-height: 1.2;
+    }
+
+    .f1-phys-toggle-desc {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.22;
+    }
+
+    .f1-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .f1-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .f1-switch-slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(71, 85, 105, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      transition: background 150ms ease, border-color 150ms ease;
+    }
+
+    .f1-switch-slider::before {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      left: 2px;
+      top: 2px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+
+    .f1-switch input:checked + .f1-switch-slider {
+      background: rgba(225, 6, 0, 0.88);
+      border-color: rgba(252, 165, 165, 0.75);
+    }
+
+    .f1-switch input:checked + .f1-switch-slider::before {
+      transform: translateX(18px);
+      background: #ffffff;
+    }
+
+    .f1-bot-slider-box {
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .f1-bot-slider-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .f1-bot-slider-val {
+      font-family: var(--f1-font-mono);
+      font-size: 13px;
+      font-weight: 900;
+      color: #38bdf8;
+    }
+
+    #menu-bot-ai-slider {
+      width: 100%;
+      accent-color: #e10600;
+      cursor: pointer;
+    }
+
+    .f1-bot-slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--f1-font-mono);
+      font-size: 9.5px;
+      color: #94a3b8;
+    }
+
+    /* Indicatori mescola / temperatura / graining / blistering nella barra telemetria inferiore */
+    .hud-tire-compound-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-family: var(--f1-font-display);
+      font-size: 10px;
+      font-weight: 900;
+      border: 2px solid #facc15;
+      color: #facc15;
+      background: rgba(9, 13, 21, 0.92);
+      flex-shrink: 0;
+    }
+
+    .hud-tire-compound-badge.compound-s { border-color: #ef4444; color: #f87171; }
+    .hud-tire-compound-badge.compound-m { border-color: #facc15; color: #fde047; }
+    .hud-tire-compound-badge.compound-h { border-color: #f8fafc; color: #f8fafc; }
+    .hud-tire-compound-badge.compound-w { border-color: #38bdf8; color: #7dd3fc; }
+
+    .hud-tire-temp {
+      font-family: var(--f1-font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      color: #86efac;
+      white-space: nowrap;
+    }
+    .hud-tire-temp.is-cold { color: #7dd3fc; }
+    .hud-tire-temp.is-hot { color: #fb923c; }
+    .hud-tire-temp.is-overheat { color: #f87171; }
+
+    .hud-tire-deg-chip {
+      font-family: var(--f1-font-mono);
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      white-space: nowrap;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .hud-tire-deg-chip.is-hidden { display: none; }
+    .hud-tire-deg-chip.is-graining {
+      background: rgba(148, 163, 184, 0.22);
+      border-color: rgba(203, 213, 225, 0.55);
+      color: #e2e8f0;
+    }
+    .hud-tire-deg-chip.is-blistering {
+      background: rgba(239, 68, 68, 0.24);
+      border-color: rgba(248, 113, 113, 0.65);
+      color: #fecaca;
+    }
+
+    /* Colonna fissa in basso a destra: AWS F1 TYRE PERFORMANCE + Strategia Pit Stop (zero sovrapposizioni) */
+    #hud-bottom-right-stack {
+      position: fixed;
+      right: clamp(12px, 1.3vw, 22px);
+      bottom: clamp(12px, 1.5vh, 22px);
+      z-index: 22;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 7px;
+      pointer-events: none;
+    }
+
+    #hud-tyre-perf-card {
+      pointer-events: auto;
+      width: clamp(168px, 13.6vw, 204px);
+      padding: 8px 10px 7px;
+      border-radius: var(--f1-radius-panel);
+      background: rgba(9, 13, 21, 0.86);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-top: 2.5px solid var(--f1-accent-red);
+      backdrop-filter: blur(11px);
+      -webkit-backdrop-filter: blur(11px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.72);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .tyre-card-header {
+      text-align: center;
+      font-family: var(--f1-font-display);
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #cbd5e1;
+      line-height: 1.15;
+    }
+
+    .tyre-card-driver-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #tyre-card-team-bar {
+      width: 3.5px;
+      height: 13px;
+      border-radius: 2px;
+      background: #dc0000;
+      flex-shrink: 0;
+    }
+
+    #tyre-card-driver {
+      font-family: var(--f1-font-display);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tyre-card-schematic {
+      display: grid;
+      grid-template-columns: 42px 1fr 42px;
+      align-items: stretch;
+      gap: 2px;
+      padding: 2px 0;
+    }
+
+    .tyre-card-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px 0 6px;
+    }
+
+    .tyre-card-col--left { align-items: flex-end; text-align: right; }
+    .tyre-card-col--right { align-items: flex-start; text-align: left; }
+
+    .tyre-corner-readout {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.05;
+    }
+
+    .tyre-corner-pct {
+      font-family: var(--f1-font-mono);
+      font-size: 12px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      color: #f8fafc;
+    }
+
+    .tyre-corner-temp {
+      font-family: var(--f1-font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tyre-card-car-svg {
+      width: 100%;
+      max-width: 82px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7));
+    }
+
+    .tyre-svg-pad {
+      transition: fill 180ms ease;
+    }
+
+    .tyre-card-compound-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding-top: 3px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #tyre-card-comp-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2.5px solid #facc15;
+      color: #fde047;
+      background: rgba(5, 8, 14, 0.95);
+      font-family: var(--f1-font-display);
+      font-size: 12px;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    #tyre-card-comp-badge.compound-s { border-color: #ef4444; color: #f87171; }
+    #tyre-card-comp-badge.compound-m { border-color: #facc15; color: #fde047; }
+    #tyre-card-comp-badge.compound-h { border-color: #f8fafc; color: #f8fafc; }
+    #tyre-card-comp-badge.compound-w { border-color: #38bdf8; color: #7dd3fc; }
+
+    .tyre-card-comp-meta {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    #tyre-card-comp-name {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    #tyre-card-stint-laps {
+      font-family: var(--f1-font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+
+    #tyre-card-deg-badge {
+      font-family: var(--f1-font-mono);
+      font-size: 8.5px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: none;
+    }
+
+    #tyre-card-deg-badge.is-graining {
+      display: inline-block;
+      background: rgba(148, 163, 184, 0.25);
+      color: #e2e8f0;
+    }
+
+    #tyre-card-deg-badge.is-blistering {
+      display: inline-block;
+      background: rgba(239, 68, 68, 0.28);
+      border-color: rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+
+    .tyre-card-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-top: 2px;
+    }
+
+    .tyre-card-legend-title {
+      text-align: center;
+      font-family: var(--f1-font-display);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .tyre-card-legend-bar {
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #22c55e 0%, #22c55e 28%, #eab308 46%, #f97316 70%, #ef4444 100%);
+    }
+
+    .tyre-card-legend-scale {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--f1-font-mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    /* Widget Compatto Strategia Pit & Mescola Gara (dentro colonna basso-destra) */
+    #hud-race-pit-widget {
+      pointer-events: auto;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--f1-radius-panel);
+      background: rgba(9, 13, 21, 0.88);
+      background-image: var(--f1-carbon-pattern);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
+    }
+
+    #physics-debug-panel {
+      right: clamp(230px, 17.5vw, 268px);
+    }
+
+    #hud-box-request-btn {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(30, 41, 59, 0.9);
+      color: #f8fafc;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    #hud-box-request-btn:hover {
+      border-color: rgba(74, 222, 128, 0.7);
+      background: rgba(22, 101, 52, 0.75);
+    }
+
+    #hud-box-request-btn.is-active {
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      border-color: #bbf7d0;
+      color: #052e16;
+      box-shadow: 0 0 16px rgba(34, 197, 94, 0.55);
+    }
+
+    .hud-pit-compounds-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hud-pit-comp-label {
+      font-family: var(--f1-font-display);
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-right: 2px;
+    }
+
+    .hud-pit-comp-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.24);
+      background: rgba(15, 23, 42, 0.92);
+      font-family: var(--f1-font-display);
+      font-size: 10.5px;
+      font-weight: 900;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+
+    .hud-pit-comp-btn[data-next-compound="S"] { border-color: rgba(239, 68, 68, 0.55); color: #f87171; }
+    .hud-pit-comp-btn[data-next-compound="M"] { border-color: rgba(250, 204, 21, 0.55); color: #fde047; }
+    .hud-pit-comp-btn[data-next-compound="H"] { border-color: rgba(248, 250, 252, 0.55); color: #f8fafc; }
+    .hud-pit-comp-btn[data-next-compound="W"] { border-color: rgba(56, 189, 248, 0.55); color: #7dd3fc; }
+
+    .hud-pit-comp-btn.is-selected {
+      transform: scale(1.12);
+      background: rgba(30, 41, 59, 1);
+    }
+    .hud-pit-comp-btn[data-next-compound="S"].is-selected { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.7); }
+
+    #hud-pit-comp-toast {
+      pointer-events: none;
+      display: none;
+      padding: 4px 10px;
+      border-radius: 5px;
+      background: rgba(9, 13, 21, 0.92);
+      border: 1px solid rgba(250, 204, 21, 0.55);
+      border-left: 3px solid #facc15;
+      color: #fef08a;
+      font-family: var(--f1-font-display);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65);
+    }
+
+    /* === Modale Scelta Mescola Pirelli nei Box / Pre-Partenza (dopo il caricamento, con vista meteo 3D live) === */
+    #pit-compound-select-modal {
+      background: radial-gradient(circle at 50% 62%, rgba(5, 9, 18, 0.36) 0%, rgba(4, 7, 14, 0.22) 100%);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      align-items: flex-end;
+      padding-bottom: clamp(22px, 4.2vh, 48px);
+    }
+
+    .f1-pit-comp-dialog {
+      width: min(720px, 94vw);
+      border-top: 3px solid var(--f1-accent-red);
+      background: rgba(9, 13, 21, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .f1-pit-comp-session-pill {
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      padding: 4px 11px;
+      white-space: nowrap;
+    }
+
+    .f1-pit-comp-weather-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 9px 13px;
+      border-radius: 8px;
+      border: 1px solid rgba(250, 204, 21, 0.42);
+      background: linear-gradient(135deg, rgba(217, 119, 6, 0.22) 0%, rgba(15, 23, 42, 0.88) 70%);
+    }
+
+    .f1-pit-comp-weather-banner.is-rain {
+      border-color: rgba(56, 189, 248, 0.65);
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.34) 0%, rgba(12, 22, 40, 0.92) 70%);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.18);
+    }
+
+    .f1-pit-comp-weather-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .f1-pit-comp-weather-kicker {
+      font-family: var(--f1-font-display);
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+
+    #pit-comp-weather-label {
+      font-family: var(--f1-font-display);
+      font-size: 14.5px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #fef08a;
+    }
+
+    .f1-pit-comp-weather-banner.is-rain #pit-comp-weather-label {
+      color: #7dd3fc;
+    }
+
+    #pit-comp-rec-pill {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 5px 11px;
+      border-radius: 6px;
+      background: rgba(34, 197, 94, 0.22);
+      border: 1px solid rgba(74, 222, 128, 0.58);
+      color: #bbf7d0;
+      white-space: nowrap;
+    }
+
+    .f1-pit-tyre-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    @media (max-width: 680px) {
+      .f1-pit-tyre-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .f1-pit-tyre-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 9px 10px;
+      border-radius: 9px;
+      border: 1.5px solid rgba(255, 255, 255, 0.14);
+      background: rgba(15, 21, 34, 0.88);
+      color: #f8fafc;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+
+    .f1-pit-tyre-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.42);
+      background: rgba(24, 33, 52, 0.94);
+    }
+
+    .f1-pit-tyre-rec-tag {
+      position: absolute;
+      top: -9px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #16a34a;
+      border: 1px solid #86efac;
+      color: #ffffff;
+      font-family: var(--f1-font-display);
+      font-size: 8.5px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 0 3px 10px rgba(22, 163, 74, 0.48);
+    }
+
+    .f1-pit-tyre-card.is-recommended .f1-pit-tyre-rec-tag {
+      display: inline-block;
+    }
+
+    .f1-pit-tyre-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 4px solid #94a3b8;
+      background: radial-gradient(circle at 35% 35%, #1e293b 0%, #06090f 75%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--f1-font-display);
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.75);
+    }
+
+    .f1-pit-tyre-card[data-box-compound="S"] .f1-pit-tyre-ring { border-color: #ef4444; color: #f87171; }
+    .f1-pit-tyre-card[data-box-compound="M"] .f1-pit-tyre-ring { border-color: #facc15; color: #fde047; }
+    .f1-pit-tyre-card[data-box-compound="H"] .f1-pit-tyre-ring { border-color: #f8fafc; color: #ffffff; }
+    .f1-pit-tyre-card[data-box-compound="W"] .f1-pit-tyre-ring { border-color: #38bdf8; color: #7dd3fc; }
+
+    .f1-pit-tyre-card.is-selected {
+      transform: translateY(-2px);
+    }
+    .f1-pit-tyre-card[data-box-compound="S"].is-selected {
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.22);
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.42);
+    }
+    .f1-pit-tyre-card[data-box-compound="M"].is-selected {
+      border-color: #facc15;
+      background: rgba(250, 204, 21, 0.20);
+      box-shadow: 0 0 18px rgba(250, 204, 21, 0.36);
+    }
+    .f1-pit-tyre-card[data-box-compound="H"].is-selected {
+      border-color: #f8fafc;
+      background: rgba(248, 250, 252, 0.20);
+      box-shadow: 0 0 18px rgba(248, 250, 252, 0.34);
+    }
+    .f1-pit-tyre-card[data-box-compound="W"].is-selected {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.24);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.44);
+    }
+
+    .f1-pit-tyre-name {
+      font-family: var(--f1-font-display);
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .f1-pit-tyre-stats {
+      font-size: 10.5px;
+      color: #cbd5e1;
+      line-height: 1.32;
+    }
+
+    .f1-pit-tyre-temp {
+      font-family: var(--f1-font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+
+    #pit-comp-confirm-btn {
+      padding: 10px 22px;
+      border-radius: 7px;
+      border: 1px solid rgba(252, 165, 165, 0.72);
+      background: linear-gradient(135deg, #e10600 0%, #b91c1c 100%);
+      color: #ffffff;
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(225, 6, 0, 0.45);
+      transition: transform 140ms ease, filter 140ms ease;
+    }
+
+    #pit-comp-confirm-btn:hover {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    /* === Finestra Impostazioni Organizzata a Sezioni (Tab F1 + Rimappatura Comandi) === */
+    .f1-modal-dialog--settings {
+      width: min(670px, 94vw);
+    }
+
+    .f1-settings-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 8px clamp(16px, 1.8vw, 28px);
+      background: rgba(7, 10, 17, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+      flex-shrink: 0;
+    }
+
+    .f1-settings-tab-btn {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(17, 23, 36, 0.72);
+      color: #94a3b8;
+      font-family: var(--f1-font-display);
+      font-size: clamp(10.5px, 0.85vw, 12.5px);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .f1-settings-tab-btn:hover {
+      color: #f8fafc;
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(28, 37, 56, 0.9);
+    }
+
+    .f1-settings-tab-btn.is-active {
+      background: linear-gradient(135deg, rgba(225, 6, 0, 0.88) 0%, rgba(185, 28, 28, 0.92) 100%);
+      border-color: rgba(252, 165, 165, 0.75);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(225, 6, 0, 0.32);
+    }
+
+    .f1-settings-panel {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .f1-settings-panel.is-active {
+      display: flex;
+    }
+
+    .f1-keybind-group-title {
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.24);
+    }
+
+    .f1-keybind-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    @media (max-width: 680px) {
+      .f1-settings-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .f1-keybind-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .f1-keybind-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    .f1-keybind-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .f1-keybind-label {
+      font-family: var(--f1-font-display);
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      line-height: 1.18;
+    }
+
+    .f1-keybind-desc {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-keybind-btn {
+      min-width: 78px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(7, 11, 20, 0.94);
+      color: #ffffff;
+      font-family: var(--f1-font-mono);
+      font-size: 11.5px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
+    }
+
+    .f1-keybind-btn:hover {
+      border-color: #38bdf8;
+      background: rgba(14, 116, 144, 0.35);
+    }
+
+    .f1-keybind-btn.is-listening {
+      background: rgba(225, 6, 0, 0.28);
+      border-color: #f87171;
+      color: #fef08a;
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.55);
+      min-width: 112px;
+      font-size: 10px;
+    }
+
+    .f1-settings-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+
+    .f1-settings-reset-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      background: rgba(30, 41, 59, 0.82);
+      color: #e2e8f0;
+      font-family: var(--f1-font-display);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+
+    .f1-settings-reset-btn:hover {
+      background: rgba(225, 6, 0, 0.28);
+      border-color: rgba(248, 113, 113, 0.65);
+      color: #ffffff;
+    }
+    .hud-pit-comp-btn[data-next-compound="M"].is-selected { border-color: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.7); }
+    .hud-pit-comp-btn[data-next-compound="H"].is-selected { border-color: #ffffff; box-shadow: 0 0 10px rgba(248, 250, 252, 0.7); }
+    .hud-pit-comp-btn[data-next-compound="W"].is-selected { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.7); }
+
+    /* Cronometro Broadcast F1 Pit Stop (visibile SOLO durante PIT_STOPPING) */
+    #hud-pitstop-timer {
+      position: fixed;
+      top: clamp(72px, 8.8vh, 98px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 28;
+      display: none;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      background: rgba(9, 13, 21, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-left: 4px solid #e10600;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.8);
+      pointer-events: none;
+    }
+
+    .pitstop-timer-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .pitstop-timer-kicker {
+      font-family: var(--f1-font-display);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f87171;
+    }
+
+    #hud-pitstop-phase {
+      font-family: var(--f1-font-display);
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    #hud-pitstop-clock {
+      font-family: var(--f1-font-mono);
+      font-size: 28px;
+      font-weight: 900;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+      min-width: 72px;
+      text-align: right;
+    }
+
+    #hud-pitstop-compound {
+      font-family: var(--f1-font-mono);
+      font-size: 12px;
+      font-weight: 900;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fde047;
+    }
+
+    /* Step 6: Preset Weekend Carriera + Strip Classifica & Modale Calendario/Standings */
+    .f1-career-season-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(7, 10, 17, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .f1-career-season-stats {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .f1-career-stat-chip {
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .f1-career-stat-chip.is-muted {
+      color: #94a3b8;
+    }
+
+    .f1-career-cal-btn {
+      padding: 5px 10px;
+      font-size: 11.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .f1-career-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .f1-career-preset-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #e2e8f0;
+      cursor: pointer;
+      text-align: left;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+
+    .f1-career-preset-btn:hover {
+      background: rgba(255, 255, 255, 0.11);
+      border-color: rgba(255, 255, 255, 0.34);
+    }
+
+    .f1-career-preset-btn.is-selected {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #090b10;
+      box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
+    }
+
+    .f1-career-preset-name {
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .f1-career-preset-meta {
+      font-family: var(--f1-font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.78;
+      white-space: nowrap;
+    }
+
+    .f1-modal-dialog--season {
+      width: min(880px, 94vw);
+      max-height: min(86vh, 720px);
+    }
+
+    .f1-season-calendar-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .f1-season-cal-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+    }
+
+    .f1-season-cal-item.is-current {
+      background: rgba(225, 6, 0, 0.16);
+      border-color: rgba(248, 113, 113, 0.65);
+      border-left: 3px solid #e10600;
+    }
+
+    .f1-season-cal-item.is-done {
+      background: rgba(22, 163, 74, 0.11);
+      border-color: rgba(74, 222, 128, 0.28);
+    }
+
+    .f1-season-cal-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .f1-season-cal-round {
+      font-family: var(--f1-font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      color: #94a3b8;
+    }
+
+    .f1-season-cal-item.is-current .f1-season-cal-round {
+      color: #fca5a5;
+    }
+
+    .f1-season-cal-gp {
+      font-family: var(--f1-font-display);
+      font-size: 13px;
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-season-cal-track {
+      font-size: 10.5px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-season-cal-badge {
+      font-family: var(--f1-font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      white-space: nowrap;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .f1-season-cal-item.is-current .f1-season-cal-badge {
+      background: #e10600;
+      color: #ffffff;
+    }
+
+    .f1-season-cal-item.is-done .f1-season-cal-badge {
+      background: rgba(22, 163, 74, 0.28);
+      color: #bbf7d0;
+    }
+
+    .f1-season-standings-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    .f1-modal-dialog--season .f1-settings-tab-btn {
+      flex: 0 0 auto;
+      padding: 8px 16px;
+    }
+
+    .f1-season-standings-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .f1-standings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .f1-standings-row {
+      display: grid;
+      grid-template-columns: 28px 6px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 12px;
+    }
+
+    .f1-standings-row.is-player {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    .f1-standings-pos {
+      font-family: var(--f1-font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      color: #cbd5e1;
+    }
+
+    .f1-standings-bar {
+      width: 4px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .f1-standings-name {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      line-height: 1.15;
+    }
+
+    .f1-standings-main {
+      font-weight: 700;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-standings-sub {
+      font-size: 10px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .f1-standings-pts {
+      font-family: var(--f1-font-mono);
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #fde047;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 820px) {
+      .f1-season-calendar-list,
+      .f1-season-standings-grid {
+        grid-template-columns: 1fr;
+      }
+      .f1-career-preset-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -4574,6 +6663,7 @@
 <body class="is-garage-open">
   <canvas id="game-canvas"></canvas>
   <div id="camera-vignette" aria-hidden="true"></div>
+  <div id="recovery-fx-vignette" aria-hidden="true"></div>
 
   <!-- Semaforo di partenza F1 -->
   <div id="start-lights-gantry">
@@ -4601,7 +6691,7 @@
 
   <!-- Colonna HUD sinistra a tutta altezza (Torre Broadcast F1 2026 senza scroll) -->
   <div id="hud-left-stack">
-  <!-- 1. Alto a sinistra: Intestazione F1 2026 Broadcast, stato sessione e comandi -->
+  <!-- 1. Alto a sinistra: Intestazione pulita F1 2026 Broadcast -->
   <div id="hud-top-left" class="hud-card">
     <div class="hud-top-header">
       <div class="overlay-title">
@@ -4612,33 +6702,27 @@
           <path d="M77 4H90L74 22H61L77 4Z" fill="#e10600"/>
         </svg>
         <span>2026</span>
+        <span id="hud-room-badge" class="session-badge badge-mode-quali" style="display: none;">STANZA</span>
       </div>
       <button id="hud-open-menu-btn" type="button">Menu</button>
     </div>
     <div id="track-name" class="overlay-subtitle">Albert Park Circuit — Australia</div>
-    <div class="session-badges-row">
-      <span id="hud-mode-badge" class="session-badge badge-mode-practice">Carriera</span>
-      <span id="hud-difficulty-badge" class="session-badge badge-diff-intermediate">Intermedio</span>
-      <span id="hud-carlevel-badge" class="session-badge badge-car-base">Auto Base</span>
-      <span id="hud-career-money-badge" class="session-badge badge-career-money" style="display: none;">$200.000</span>
-      <span id="hud-room-badge" class="session-badge badge-mode-quali" style="display: none;">STANZA</span>
-    </div>
-    <div class="controls-compact">
-      <span><span class="key-badge">WASD</span> / <span class="key-badge">Frecce</span> Guida</span>
-      <span><span class="key-badge">C</span> Cam</span>
-      <span><span class="key-badge">R</span> Meteo</span>
-      <span><span class="key-badge">ESC</span> Pausa</span>
-    </div>
   </div>
 
-  <!-- 2. A sinistra: Pannello Delta dei Tempi e Classifica Live (22 piloti senza scroll) -->
+  <!-- 2. A sinistra: Hero Giri/Cronometro Q, Best Lap & Settori in risalto + Classifica 22 piloti -->
   <div id="f1-left-delta-panel" class="hud-card">
-    <div class="delta-header">
-      <span id="hud-lap-number" class="lap-tag">GIRO 1 / 10</span>
-      <span id="hud-pos-badge" class="pos-badge">P8 / 22</span>
-      <span id="hud-left-delta" class="delta-pill delta-neutral">±0.000</span>
+    <div id="hud-hero-session-box" class="hud-hero-session is-race">
+      <div class="hud-hero-primary">
+        <span id="hud-hero-stage" class="hud-hero-stage">GIRO</span>
+        <span id="hud-lap-number" class="hud-hero-value">1 / 10</span>
+      </div>
+      <div class="hud-hero-meta">
+        <span id="hud-pos-badge" class="pos-badge">P8 / 22</span>
+        <span id="hud-left-delta" class="delta-pill delta-neutral">±0.000</span>
+      </div>
     </div>
-    <div class="lap-times-grid">
+
+    <div class="lap-times-live-row">
       <div class="lap-time-cell">
         <span class="lap-time-label">Giro</span>
         <span id="hud-left-current-lap" class="lap-time-val">0:00.000</span>
@@ -4647,13 +6731,34 @@
         <span class="lap-time-label">Ult</span>
         <span id="hud-left-last-lap" class="lap-time-val">--:--.---</span>
       </div>
-      <div class="lap-time-cell">
-        <span class="lap-time-label">Best</span>
-        <span id="hud-left-best-lap" class="lap-time-val lap-time-best">--:--.---</span>
+    </div>
+
+    <div class="lap-times-highlight-row">
+      <div id="hud-best-lap-card" class="lap-highlight-card is-personal">
+        <span class="lap-highlight-kicker">BEST LAP</span>
+        <span id="hud-left-best-lap" class="lap-highlight-val lap-time-best">--:--.---</span>
       </div>
-      <div class="lap-time-cell">
-        <span class="lap-time-label">Rec</span>
-        <span id="hud-left-overall-best" class="lap-time-val lap-time-overall">--:--.---</span>
+      <div id="hud-rec-lap-card" class="lap-highlight-card is-record">
+        <span class="lap-highlight-kicker">RECORD</span>
+        <span id="hud-left-overall-best" class="lap-highlight-val lap-time-overall">--:--.---</span>
+      </div>
+    </div>
+
+    <div id="hud-left-sectors" class="hud-left-sectors" aria-label="Settori live S1 S2 S3">
+      <div id="hud-left-s1" class="left-sector-box status-pending">
+        <span class="left-sector-tag">S1</span>
+        <span id="hud-left-s1-time" class="left-sector-time">--.---</span>
+        <span class="left-sector-bar"></span>
+      </div>
+      <div id="hud-left-s2" class="left-sector-box status-pending">
+        <span class="left-sector-tag">S2</span>
+        <span id="hud-left-s2-time" class="left-sector-time">--.---</span>
+        <span class="left-sector-bar"></span>
+      </div>
+      <div id="hud-left-s3" class="left-sector-box status-pending">
+        <span class="left-sector-tag">S3</span>
+        <span id="hud-left-s3-time" class="left-sector-time">--.---</span>
+        <span class="left-sector-bar"></span>
       </div>
     </div>
     <div id="qualifying-hud-controls">
@@ -4671,7 +6776,7 @@
   </div>
   </div>
 
-  <!-- 3. In basso a destra: Minimappa circuito 4K -->
+  <!-- 3. In alto a destra: Minimappa circuito 4K -->
   <div id="track-map-container" class="hud-card">
     <div class="track-map-header">
       <div class="track-map-title">Mappa Circuito</div>
@@ -4683,6 +6788,175 @@
     </div>
     <div class="track-map-canvas-wrap">
       <canvas id="track-map-canvas" width="220" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- 3B. In alto a destra (a sinistra della principale): Minimappa dedicata Pit Lane -->
+  <div id="pit-map-container" class="hud-card" aria-hidden="true">
+    <div class="pit-map-header">
+      <div class="pit-map-title">Pit Lane</div>
+      <span id="pit-map-limit-badge" class="pit-map-limit-badge">80 KM/H</span>
+    </div>
+    <div class="track-map-canvas-wrap">
+      <canvas id="pit-map-canvas" width="148" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- 3C. In alto al centro: Semaforo Ingegnere di Gara Verde/Rosso (Anti Unsafe Release) -->
+  <div id="pit-release-indicator" class="is-green" aria-hidden="true">
+    <div class="pit-release-leds" aria-hidden="true">
+      <span class="pit-led pit-led-red"></span>
+      <span class="pit-led pit-led-green"></span>
+    </div>
+    <div class="pit-release-copy">
+      <span class="pit-release-kicker">Ingegnere di Gara • Pit Release</span>
+      <span id="pit-release-text">VIA LIBERA — ESCI</span>
+    </div>
+    <span id="pit-release-meta">80 KM/H</span>
+  </div>
+
+  <!-- 3D. Barra Azioni Box / Bandiera a Scacchi Qualifiche (ESCI DAI BOX / Rientro rapido) -->
+  <div id="hud-pit-action-bar" aria-live="polite">
+    <span id="hud-pit-action-text">NEL BOX — ATTENDI VIA LIBERA</span>
+    <button id="hud-exit-pit-btn" class="hud-pit-cta-btn" type="button">Esci dai Box [W]</button>
+    <button id="hud-quick-pit-return-btn" class="hud-pit-cta-btn hud-pit-cta-btn--quick" type="button">Rientro rapido ai box</button>
+    <button id="hud-reset-track-btn" class="hud-pit-cta-btn hud-pit-cta-btn--reset" type="button" style="display: none;">Rimetti in Pista [BACK]</button>
+    <div id="hud-recovery-progress" class="hud-recovery-progress" aria-hidden="true"><span id="hud-recovery-progress-fill"></span></div>
+  </div>
+
+  <!-- 3E. Cronometro Broadcast Pit Stop in Gara (visibile solo in PIT_STOPPING) -->
+  <div id="hud-pitstop-timer" aria-live="polite">
+    <div class="pitstop-timer-meta">
+      <span class="pitstop-timer-kicker">PIT STOP LIVE</span>
+      <span id="hud-pitstop-phase">CAMBIO GOMME</span>
+    </div>
+    <span id="hud-pitstop-clock">0.0s</span>
+    <span id="hud-pitstop-compound">M → S</span>
+  </div>
+
+  <!-- 3F. Colonna Basso-Destra: Grafica F1 Broadcast TYRE PERFORMANCE + Strategia Pit Stop -->
+  <div id="hud-bottom-right-stack">
+    <div id="hud-tyre-perf-card" aria-label="Stato Gomme F1">
+      <div class="tyre-card-header">TYRE PERFORMANCE</div>
+      <div class="tyre-card-driver-row">
+        <span id="tyre-card-team-bar"></span>
+        <span id="tyre-card-driver">LECLERC</span>
+      </div>
+      <div class="tyre-card-schematic">
+        <div class="tyre-card-col tyre-card-col--left">
+          <div class="tyre-corner-readout">
+            <span id="tyre-pct-fl" class="tyre-corner-pct">100%</span>
+            <span id="tyre-temp-fl" class="tyre-corner-temp">76°</span>
+          </div>
+          <div class="tyre-corner-readout">
+            <span id="tyre-pct-rl" class="tyre-corner-pct">100%</span>
+            <span id="tyre-temp-rl" class="tyre-corner-temp">76°</span>
+          </div>
+        </div>
+
+        <svg class="tyre-card-car-svg" viewBox="0 0 96 146" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- 4 Pneumatici colorati dinamicamente per usura individuale -->
+          <rect id="tyre-svg-fl" class="tyre-svg-pad" x="7" y="19" width="16" height="31" rx="4.5" fill="#22c55e" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+          <rect id="tyre-svg-fr" class="tyre-svg-pad" x="73" y="19" width="16" height="31" rx="4.5" fill="#22c55e" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+          <rect id="tyre-svg-rl" class="tyre-svg-pad" x="5" y="95" width="18" height="33" rx="4.5" fill="#22c55e" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+          <rect id="tyre-svg-rr" class="tyre-svg-pad" x="73" y="95" width="18" height="33" rx="4.5" fill="#22c55e" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+
+          <!-- Bracci sospensioni -->
+          <g stroke="#64748b" stroke-width="2" stroke-linecap="round">
+            <line x1="23" y1="30" x2="40" y2="35"/>
+            <line x1="23" y1="40" x2="40" y2="41"/>
+            <line x1="73" y1="30" x2="56" y2="35"/>
+            <line x1="73" y1="40" x2="56" y2="41"/>
+            <line x1="23" y1="108" x2="36" y2="108"/>
+            <line x1="23" y1="116" x2="38" y2="114"/>
+            <line x1="73" y1="108" x2="60" y2="108"/>
+            <line x1="73" y1="116" x2="58" y2="114"/>
+          </g>
+
+          <!-- Ala anteriore -->
+          <path d="M 16 12 Q 48 4 80 12 L 82 17 Q 48 12 14 17 Z" fill="#1e293b" stroke="#94a3b8" stroke-width="0.9"/>
+          <!-- Musetto + Monoscocca + Pance F1 2026 -->
+          <path d="M 43 10 L 53 10 L 56 44 L 67 57 L 66 98 L 57 125 L 39 125 L 30 98 L 29 57 L 40 44 Z" fill="#0f172a" stroke="#64748b" stroke-width="1.1"/>
+          <!-- Dettagli pance e cofano -->
+          <path d="M 35 61 L 41 61 L 41 104 L 35 94 Z" fill="#1e293b"/>
+          <path d="M 61 61 L 55 61 L 55 104 L 61 94 Z" fill="#1e293b"/>
+          <!-- Abitacolo e Halo -->
+          <ellipse cx="48" cy="70" rx="6.5" ry="12" fill="#020617" stroke="#94a3b8" stroke-width="1"/>
+          <path d="M 41 66 Q 48 53 55 66" fill="none" stroke="#cbd5e1" stroke-width="1.6"/>
+          <line x1="48" y1="57" x2="48" y2="66" stroke="#cbd5e1" stroke-width="1.4"/>
+          <!-- Ala posteriore -->
+          <rect x="27" y="130" width="42" height="10" rx="2" fill="#1e293b" stroke="#94a3b8" stroke-width="0.9"/>
+        </svg>
+
+        <div class="tyre-card-col tyre-card-col--right">
+          <div class="tyre-corner-readout">
+            <span id="tyre-pct-fr" class="tyre-corner-pct">100%</span>
+            <span id="tyre-temp-fr" class="tyre-corner-temp">76°</span>
+          </div>
+          <div class="tyre-corner-readout">
+            <span id="tyre-pct-rr" class="tyre-corner-pct">100%</span>
+            <span id="tyre-temp-rr" class="tyre-corner-temp">76°</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tyre-card-compound-row">
+        <span id="tyre-card-comp-badge" class="compound-m">M</span>
+        <div class="tyre-card-comp-meta">
+          <span id="tyre-card-comp-name">MEDIUM</span>
+          <span id="tyre-card-stint-laps">0 LAPS</span>
+        </div>
+        <span id="tyre-card-deg-badge"></span>
+      </div>
+
+      <div class="tyre-card-legend">
+        <span class="tyre-card-legend-title">PERFORMANCE</span>
+        <div class="tyre-card-legend-bar"></div>
+        <div class="tyre-card-legend-scale">
+          <span>100%</span>
+          <span>50%</span>
+          <span>0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud-pit-comp-toast" aria-live="polite"></div>
+
+    <div id="hud-race-pit-widget" aria-label="Strategia Pit Stop">
+      <button id="hud-box-request-btn" type="button" title="Prenota rientro ai box">BOX [P]</button>
+      <div class="hud-pit-compounds-group" role="group" aria-label="Prossima mescola pit stop">
+        <span id="hud-pit-comp-label" class="hud-pit-comp-label">PIT [T]</span>
+        <button type="button" class="hud-pit-comp-btn" data-next-compound="S" title="Soft (Rossa)">S</button>
+        <button type="button" class="hud-pit-comp-btn is-selected" data-next-compound="M" title="Medium (Gialla)">M</button>
+        <button type="button" class="hud-pit-comp-btn" data-next-compound="H" title="Hard (Bianca)">H</button>
+        <button type="button" class="hud-pit-comp-btn" data-next-compound="W" title="Full Wet (Blu)">W</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schermata di Caricamento Dedicata F1 2026 -->
+  <div id="f1-loading-screen" role="status" aria-live="polite" aria-hidden="true">
+    <div class="f1-loading-card">
+      <div class="f1-loading-top">
+        <div class="f1-loading-map-box">
+          <canvas id="f1-loading-minimap" width="190" height="140"></canvas>
+        </div>
+        <div class="f1-loading-info">
+          <span class="f1-loading-kicker">F1 2026 WORLD CHAMPIONSHIP • CARICAMENTO SESSIONE</span>
+          <div id="f1-loading-gp-name">Gran Premio F1 2026</div>
+          <div id="f1-loading-circuit-meta">Preparazione circuito…</div>
+          <div class="f1-loading-badges">
+            <span id="f1-loading-mode-badge" class="f1-loading-pill f1-loading-pill--mode">PROVE LIBERE</span>
+            <span id="f1-loading-sky-badge" class="f1-loading-pill f1-loading-pill--sky">TRAMONTO</span>
+            <span id="f1-loading-pit-badge" class="f1-loading-pill f1-loading-pill--pit">PIT LIMIT 80 KM/H</span>
+          </div>
+        </div>
+      </div>
+      <div class="f1-loading-progress-wrap">
+        <div class="f1-loading-bar-bg">
+          <div id="f1-loading-bar-fill"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -4720,15 +6994,19 @@
 
     <div class="physics-status-row">
       <div class="tire-wear-box">
+        <span id="hud-tire-compound-badge" class="hud-tire-compound-badge compound-m" title="Mescola Pirelli attiva">M</span>
         <span class="tire-label">Gomme</span>
         <div class="tire-bar-bg">
           <div id="tire-bar-fill" class="tire-bar-fill"></div>
         </div>
         <span id="tire-health-value" class="tire-val">100%</span>
+        <span id="hud-tire-temp" class="hud-tire-temp">92°C</span>
+        <span id="hud-graining-chip" class="hud-tire-deg-chip is-graining is-hidden">GRN 0%</span>
+        <span id="hud-blistering-chip" class="hud-tire-deg-chip is-blistering is-hidden">BLS 0%</span>
       </div>
 
       <div class="aero-box">
-        <span class="tire-label">Carico Aero</span>
+        <span class="tire-label">Aero</span>
         <span id="downforce-value" class="aero-val">0 kg</span>
       </div>
 
@@ -4940,7 +7218,7 @@
   <div id="physics-debug-panel" aria-hidden="true">
     <div class="pdiag-header">
       <span>DIAGNOSI FISICA 6B</span>
-      <span>[F3]</span>
+      <span id="pdiag-key-badge">[F3]</span>
     </div>
     <div class="pdiag-row"><span class="pdiag-label">Input W / S / A-D</span><span id="pdiag-inputs" class="pdiag-val">0.0 / 0.0 / 0.0</span></div>
     <div class="pdiag-row"><span class="pdiag-label">Sterzo Raw → Eff</span><span id="pdiag-steer" class="pdiag-val">0.0° → 0.0°</span></div>
@@ -5049,8 +7327,8 @@
             <span id="pause-meta-weather" class="f1-pause-meta-val">Asciutto</span>
           </div>
           <div class="f1-pause-meta-cell">
-            <span class="f1-pause-meta-label">Difficoltà</span>
-            <span id="pause-meta-difficulty" class="f1-pause-meta-val">Intermedio</span>
+            <span class="f1-pause-meta-label">Fisica / Bot IA</span>
+            <span id="pause-meta-difficulty" class="f1-pause-meta-val">6/7 • IA 94%</span>
           </div>
         </div>
 
@@ -5129,7 +7407,7 @@
           <div class="f1-glass-panel f1-home-career-card">
             <div class="f1-career-white-header">
               <div class="f1-career-white-title">CARRIERA F1 2026</div>
-              <span class="f1-career-white-pill">CAMPIONATO ATTIVO</span>
+              <span id="home-career-season-pill" class="f1-career-white-pill">STAGIONE 1 • ROUND 1/24</span>
             </div>
 
             <div class="f1-career-card-body">
@@ -5145,24 +7423,43 @@
               <div class="f1-home-gp-banner">
                 <div id="home-next-track-svg"></div>
                 <div>
-                  <div class="menu-section-label">Prossimo Gran Premio in Calendario</div>
+                  <div class="menu-section-label">Calendario Ufficiale Fisso • Prossimo GP</div>
                   <div id="home-next-gp-title">R01 • Gran Premio d'Australia</div>
                   <div id="home-next-track-meta">5.278 KM • 14 CURVE • ALBERT PARK</div>
                   <div id="home-next-track-records">Record Q: --:--.--- • G: --:--.---</div>
                 </div>
               </div>
 
-              <div id="gp-career-format-wrap" class="menu-section">
-                <div class="menu-section-label">Formato Evento Carriera (5 Giri)</div>
-                <div class="menu-btn-group">
-                  <button type="button" class="menu-choice-btn is-selected" data-career-format="qualifying">Qualifiche Q1–Q3 + Gara (5 Giri)</button>
-                  <button type="button" class="menu-choice-btn" data-career-format="race">Gara Diretta (5 Giri)</button>
+              <div class="f1-career-season-strip">
+                <div class="f1-career-season-stats">
+                  <span id="home-career-wdc-val" class="f1-career-stat-chip">Piloti: P— • 0 pt</span>
+                  <span id="home-career-wcc-val" class="f1-career-stat-chip">Costruttori: P— • 0 pt</span>
+                  <span id="home-career-progress-val" class="f1-career-stat-chip is-muted">0/24 GP</span>
+                </div>
+                <button id="home-open-season-modal-btn" class="f1-secondary-cta f1-career-cal-btn" type="button">Calendario &amp; Classifica</button>
+              </div>
+
+              <div id="gp-career-preset-wrap" class="menu-section">
+                <div class="menu-section-label">Preset Weekend Carriera (Q1–Q3 + Gara)</div>
+                <div class="f1-career-preset-grid" role="group" aria-label="Preset Weekend Carriera">
+                  <button type="button" class="f1-career-preset-btn" data-career-preset="quick">
+                    <span class="f1-career-preset-name">Rapido</span>
+                    <span class="f1-career-preset-meta">Q 5/3/2m • 3 Giri</span>
+                  </button>
+                  <button type="button" class="f1-career-preset-btn is-selected" data-career-preset="standard">
+                    <span class="f1-career-preset-name">Standard</span>
+                    <span class="f1-career-preset-meta">Q 8/5/3m • 5 Giri</span>
+                  </button>
+                  <button type="button" class="f1-career-preset-btn" data-career-preset="long">
+                    <span class="f1-career-preset-name">Lungo</span>
+                    <span class="f1-career-preset-meta">Q 11/7/4m • 7 Giri</span>
+                  </button>
                 </div>
               </div>
 
-              <div id="career-weather-info" class="f1-career-weather-note">Meteo Carriera (Opzione A): sorteggio casuale realistico ad ogni weekend di gara.</div>
+              <div id="career-weather-info" class="f1-career-weather-note">Meteo Carriera (Opzione A): sorteggio casuale realistico ad ogni weekend di gara — sceglierai le gomme nei box dopo il caricamento!</div>
 
-              <button id="home-start-career-btn" class="f1-primary-cta" type="button">AVVIA WEEKEND CARRIERA ▶</button>
+              <button id="home-start-career-btn" class="f1-primary-cta" type="button">AVVIA WEEKEND R01 (STANDARD) ▶</button>
             </div>
           </div>
 
@@ -5562,48 +7859,180 @@
     </div>
   </div>
 
-  <!-- Modale Unificata: IMPOSTAZIONI -->
+  <!-- Modale Unificata: IMPOSTAZIONI (Organizzata in 4 Sezioni F1) -->
   <div id="gp-settings-popup" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="gp-settings-modal-title" aria-hidden="true">
-    <div class="f1-modal-dialog">
+    <div class="f1-modal-dialog f1-modal-dialog--settings">
       <div class="f1-modal-header">
-        <span id="gp-settings-modal-title" class="f1-modal-title">Impostazioni &amp; Fisica</span>
+        <span id="gp-settings-modal-title" class="f1-modal-title">Impostazioni</span>
         <button id="gp-settings-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Torna a Home (Esc)" aria-label="Chiudi">✕</button>
       </div>
+
+      <div class="f1-settings-tabs" role="tablist" aria-label="Sezioni Impostazioni">
+        <button type="button" class="f1-settings-tab-btn is-active" role="tab" aria-selected="true" data-settings-tab="physics">Fisica &amp; IA</button>
+        <button type="button" class="f1-settings-tab-btn" role="tab" aria-selected="false" data-settings-tab="controls">Comandi</button>
+        <button type="button" class="f1-settings-tab-btn" role="tab" aria-selected="false" data-settings-tab="visuals">Visuale &amp; Grafica</button>
+        <button type="button" class="f1-settings-tab-btn" role="tab" aria-selected="false" data-settings-tab="weather">Meteo &amp; Cielo</button>
+      </div>
+
       <div class="f1-modal-body">
-        <div class="menu-section">
-          <div class="menu-section-label">Livello di Difficoltà (Fisica + Velocità Bot)</div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn" data-menu-difficulty="beginner">Principiante</button>
-            <button type="button" class="menu-choice-btn is-selected" data-menu-difficulty="intermediate">Intermedio</button>
-            <button type="button" class="menu-choice-btn" data-menu-difficulty="realistic">Realistico</button>
+        <!-- SEZIONE 1: FISICA & IA -->
+        <div class="f1-settings-panel is-active" data-settings-panel="physics" role="tabpanel">
+          <div class="menu-section">
+            <div class="f1-physics-header">
+              <div class="menu-section-label" style="margin: 0;">Moduli Simulazione Fisica (7 Toggle Indipendenti)</div>
+              <span id="menu-career-bonus-val" class="f1-career-bonus-pill">Bonus Carriera: ×1.30</span>
+            </div>
+
+            <div class="f1-phys-toggle-list">
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Aerodinamica</span>
+                  <span class="f1-phys-toggle-desc">Carico deportante, grip veloce e drag</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="aerodynamics" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Degrado Gomme</span>
+                  <span class="f1-phys-toggle-desc">Usura mescole S/M/H/W, graining e blistering</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="tireDegradation" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Bloccaggio Ruote</span>
+                  <span class="f1-phys-toggle-desc">Lockup senza ABS in staccata al limite</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="wheelLockup" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Trazione Manuale (No TC)</span>
+                  <span class="f1-phys-toggle-desc">Sovrasterzo di potenza in uscita curva</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="tractionControlOff" /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Frenata Ad Alta Velocità</span>
+                  <span class="f1-phys-toggle-desc">Instabilità d'imbardata oltre 180 km/h</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="highSpeedBrakeInstability" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Penalità Erba &amp; Cordoli</span>
+                  <span class="f1-phys-toggle-desc">Grip severo e drag realistico fuori pista</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="offTrackPenalties" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+
+              <label class="f1-phys-toggle-row">
+                <span class="f1-phys-toggle-copy">
+                  <span class="f1-phys-toggle-title">Fisica Pioggia</span>
+                  <span class="f1-phys-toggle-desc">Scivolosità asfalto, cordoli viscidissimi e Wet</span>
+                </span>
+                <span class="f1-switch"><input type="checkbox" data-physics-toggle="rainPhysics" checked /><span class="f1-switch-slider"></span></span>
+              </label>
+            </div>
+
+            <div class="f1-bot-slider-box">
+              <div class="f1-bot-slider-top">
+                <span class="menu-section-label" style="margin: 0;">Livello Bot IA (Velocità &amp; Aggressività)</span>
+                <span id="menu-bot-ai-val" class="f1-bot-slider-val">94%</span>
+              </div>
+              <input id="menu-bot-ai-slider" type="range" min="75" max="105" step="1" value="94" aria-label="Livello Bot IA" />
+              <div class="f1-bot-slider-ticks">
+                <span>75% Facile</span>
+                <span>90% Intermedio</span>
+                <span>98% Pro</span>
+                <span>105% Alien</span>
+              </div>
+            </div>
+
+            <div class="f1-settings-actions-row">
+              <div id="menu-physics-summary" class="menu-desc-box" style="flex: 1; margin: 0;"></div>
+              <button id="settings-reset-physics-btn" class="f1-settings-reset-btn" type="button">Ripristina Fisica</button>
+            </div>
           </div>
-          <div id="menu-difficulty-desc" class="menu-desc-box"></div>
         </div>
 
-        <div class="menu-section">
-          <div class="menu-section-label">Condizioni Meteo Iniziali</div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn is-selected" data-menu-weather="dry">Asciutto</button>
-            <button type="button" class="menu-choice-btn" data-menu-weather="rain">Pioggia</button>
+        <!-- SEZIONE 2: COMANDI TASTIERA PERSONALIZZABILI -->
+        <div class="f1-settings-panel" data-settings-panel="controls" role="tabpanel">
+          <div class="menu-section">
+            <div class="f1-keybind-group-title">Guida Monoposto</div>
+            <div id="settings-keybinds-driving" class="f1-keybind-grid"></div>
           </div>
-          <div class="menu-section-label" style="margin-top: 8px;">Cielo &amp; Atmosfera (HDRI 2K Pure Skies)</div>
-          <select id="menu-sky-select"></select>
+
+          <div class="menu-section">
+            <div class="f1-keybind-group-title">Azioni Pista, Visuale &amp; Pit Stop</div>
+            <div id="settings-keybinds-actions" class="f1-keybind-grid"></div>
+          </div>
+
+          <label class="f1-phys-toggle-row">
+            <span class="f1-phys-toggle-copy">
+              <span class="f1-phys-toggle-title">Consenti anche Frecce Direzionali</span>
+              <span class="f1-phys-toggle-desc">Usa ↑ ↓ ← → come alternativa secondaria per guidare (se non assegnate ad altre azioni)</span>
+            </span>
+            <span class="f1-switch"><input id="settings-allow-arrows-toggle" type="checkbox" checked /><span class="f1-switch-slider"></span></span>
+          </label>
+
+          <div class="f1-settings-actions-row">
+            <div id="settings-keybinds-status" class="menu-desc-box" style="flex: 1; margin: 0;">Clicca su un tasto per cambiarlo. Premi ESC per annullare la modifica.</div>
+            <button id="settings-reset-keybinds-btn" class="f1-settings-reset-btn" type="button">Ripristina Predefiniti</button>
+          </div>
         </div>
 
-        <div class="menu-section">
-          <div class="menu-section-label">Qualità Grafica Notturna (Stelle, Fari &amp; Bloom)</div>
-          <div class="menu-btn-group">
-            <button type="button" class="menu-choice-btn" data-menu-night-quality="low">Bassa</button>
-            <button type="button" class="menu-choice-btn is-selected" data-menu-night-quality="medium">Media</button>
-            <button type="button" class="menu-choice-btn" data-menu-night-quality="high">Alta</button>
+        <!-- SEZIONE 3: VISUALE & GRAFICA -->
+        <div class="f1-settings-panel" data-settings-panel="visuals" role="tabpanel">
+          <div class="menu-section">
+            <div class="menu-section-label">Visuale Predefinita in Pista (Avvio Sessione)</div>
+            <div class="menu-btn-group">
+              <button type="button" class="menu-choice-btn is-selected" data-menu-default-camera="tcam">Onboard (T-Cam)</button>
+              <button type="button" class="menu-choice-btn" data-menu-default-camera="cockpit">Prima Persona (Abitacolo)</button>
+            </div>
+            <div id="menu-default-camera-desc" class="menu-desc-box"></div>
           </div>
-          <div id="menu-night-quality-desc" class="menu-desc-box"></div>
+
+          <div class="menu-section">
+            <div class="menu-section-label">Qualità Grafica Notturna (Stelle, Fari &amp; Bloom)</div>
+            <div class="menu-btn-group">
+              <button type="button" class="menu-choice-btn" data-menu-night-quality="low">Bassa</button>
+              <button type="button" class="menu-choice-btn is-selected" data-menu-night-quality="medium">Media</button>
+              <button type="button" class="menu-choice-btn" data-menu-night-quality="high">Alta</button>
+            </div>
+            <div id="menu-night-quality-desc" class="menu-desc-box"></div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 4: METEO & CIELO -->
+        <div class="f1-settings-panel" data-settings-panel="weather" role="tabpanel">
+          <div class="menu-section">
+            <div class="menu-section-label">Condizioni Meteo Iniziali</div>
+            <div class="menu-btn-group">
+              <button type="button" class="menu-choice-btn is-selected" data-menu-weather="dry">Asciutto</button>
+              <button type="button" class="menu-choice-btn" data-menu-weather="rain">Pioggia</button>
+            </div>
+          </div>
+
+          <div class="menu-section">
+            <div class="menu-section-label">Cielo &amp; Atmosfera (HDRI 2K Pure Skies)</div>
+            <select id="menu-sky-select"></select>
+            <div class="menu-desc-box" style="margin-top: 6px;">
+              Valido per Sessione Rapida, Prove Libere e Multiplayer. In modalità Carriera il meteo viene sorteggiato automaticamente a ogni GP (Opzione A).
+            </div>
+          </div>
         </div>
       </div>
       <div class="f1-modal-footer">
         <div class="f1-modal-hints">
           <span><kbd>←/→</kbd>Opzione</span>
-          <span><kbd>↑/↓</kbd>Sezione</span>
+          <span><kbd>↑/↓</kbd>Voce</span>
           <span><kbd data-key-role="primary">Invio</kbd>Conferma</span>
           <span><kbd data-key-role="back">Esc</kbd>Chiudi</span>
         </div>
@@ -5679,6 +8108,107 @@
           <span><kbd data-key-role="back">Esc</kbd>Chiudi</span>
         </div>
         <button type="button" class="f1-modal-action-sec" data-modal-close>Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Calendario Fisso 24 GP & Classifica Stagione Carriera (Step 6) -->
+  <div id="career-season-modal" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="career-season-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-modal-dialog--season">
+      <div class="f1-modal-header">
+        <span id="career-season-modal-title" class="f1-modal-title">Stagione 1 — Campionato F1 2026</span>
+        <button id="career-season-close-btn" class="f1-modal-close-btn" type="button" data-modal-close title="Chiudi (Esc)" aria-label="Chiudi">✕</button>
+      </div>
+
+      <div class="f1-settings-tabs" role="tablist" aria-label="Viste Campionato Carriera">
+        <button type="button" class="f1-settings-tab-btn is-active" role="tab" aria-selected="true" data-season-tab="calendar">Calendario 24 GP</button>
+        <button type="button" class="f1-settings-tab-btn" role="tab" aria-selected="false" data-season-tab="standings">Classifica Piloti &amp; Team</button>
+      </div>
+
+      <div class="f1-modal-body">
+        <div class="f1-settings-panel is-active" data-season-panel="calendar" role="tabpanel">
+          <div id="career-calendar-list" class="f1-season-calendar-list"></div>
+        </div>
+
+        <div class="f1-settings-panel" data-season-panel="standings" role="tabpanel">
+          <div class="f1-season-standings-grid">
+            <div class="f1-season-standings-col">
+              <div class="menu-section-label">Classifica Piloti (22)</div>
+              <div id="career-standings-drivers" class="f1-standings-list"></div>
+            </div>
+            <div class="f1-season-standings-col">
+              <div class="menu-section-label">Classifica Costruttori (11)</div>
+              <div id="career-standings-teams" class="f1-standings-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd data-key-role="back">Esc</kbd>Chiudi</span>
+        </div>
+        <button type="button" class="f1-modal-action-sec" data-modal-close data-modal-primary>Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Scelta Mescola Pirelli nel Box / Pre-Partenza (dopo caricamento, vista meteo 3D live) -->
+  <div id="pit-compound-select-modal" class="f1-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pit-comp-modal-title" aria-hidden="true">
+    <div class="f1-modal-dialog f1-pit-comp-dialog">
+      <div class="f1-modal-header">
+        <span id="pit-comp-modal-title" class="f1-modal-title">Box Scuderia • Scelta Mescola Gomme</span>
+        <span id="pit-comp-session-pill" class="f1-pit-comp-session-pill">MONZA • QUALIFICHE Q1</span>
+      </div>
+      <div class="f1-modal-body" style="gap: 11px;">
+        <div id="pit-comp-weather-banner" class="f1-pit-comp-weather-banner">
+          <div class="f1-pit-comp-weather-left">
+            <span class="f1-pit-comp-weather-kicker">Condizioni Meteo &amp; Asfalto Rilevate in Pista</span>
+            <span id="pit-comp-weather-label">☀️ ASCIUTTO — TRAMONTO</span>
+          </div>
+          <span id="pit-comp-rec-pill">INGEGNERE: CONSIGLIATA SOFT (S)</span>
+        </div>
+
+        <div class="f1-pit-tyre-grid" role="group" aria-label="Scegli mescola Pirelli">
+          <button type="button" class="f1-pit-tyre-card" data-box-compound="S">
+            <span class="f1-pit-tyre-rec-tag">CONSIGLIATA</span>
+            <span class="f1-pit-tyre-ring">S</span>
+            <span class="f1-pit-tyre-name">SOFT</span>
+            <span class="f1-pit-tyre-stats">Massimo grip giro secco<br/>Durata breve</span>
+            <span class="f1-pit-tyre-temp">82–108°C</span>
+          </button>
+
+          <button type="button" class="f1-pit-tyre-card is-selected" data-box-compound="M">
+            <span class="f1-pit-tyre-rec-tag">CONSIGLIATA</span>
+            <span class="f1-pit-tyre-ring">M</span>
+            <span class="f1-pit-tyre-name">MEDIUM</span>
+            <span class="f1-pit-tyre-stats">Equilibrio grip e passo<br/>Durata media</span>
+            <span class="f1-pit-tyre-temp">86–112°C</span>
+          </button>
+
+          <button type="button" class="f1-pit-tyre-card" data-box-compound="H">
+            <span class="f1-pit-tyre-rec-tag">CONSIGLIATA</span>
+            <span class="f1-pit-tyre-ring">H</span>
+            <span class="f1-pit-tyre-name">HARD</span>
+            <span class="f1-pit-tyre-stats">Stint lunghi e costanti<br/>Durata elevata</span>
+            <span class="f1-pit-tyre-temp">92–118°C</span>
+          </button>
+
+          <button type="button" class="f1-pit-tyre-card" data-box-compound="W">
+            <span class="f1-pit-tyre-rec-tag">CONSIGLIATA</span>
+            <span class="f1-pit-tyre-ring">W</span>
+            <span class="f1-pit-tyre-name">FULL WET</span>
+            <span class="f1-pit-tyre-stats">Asfalto bagnato / pioggia<br/>Anti-aquaplaning</span>
+            <span class="f1-pit-tyre-temp">55–85°C</span>
+          </button>
+        </div>
+      </div>
+      <div class="f1-modal-footer">
+        <div class="f1-modal-hints">
+          <span><kbd>←/→</kbd>Mescola</span>
+          <span><kbd data-key-role="primary">Invio</kbd>Monta &amp; Inizia</span>
+        </div>
+        <button id="pit-comp-confirm-btn" type="button" data-modal-primary>MONTA GOMME &amp; INIZIA ▶</button>
       </div>
     </div>
   </div>

@@ -5,12 +5,15 @@
  */
 
 import * as THREE from 'three';
+import { F1_2026_DRIVERS } from '../config/f1_2026_data.js';
 import { computeStartingGridTransforms } from '../race/RaceManager.js';
 import { assetManager3D } from '../rendering/AssetManager3D.js';
+import { isInsidePitFootprint } from './PitLaneGeometry.js';
 import { getTrackBiomeConfig } from './TrackBiomes.js';
 import { createTrackSurface, queryTrackSurface } from './TrackSurface.js';
 
 function createAsphaltTexture() {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
@@ -49,6 +52,7 @@ const KERB_PALETTES = {
 };
 
 function createKerbTexture(style, repeatY) {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 256;
@@ -72,6 +76,7 @@ function createKerbTexture(style, repeatY) {
 }
 
 function createGrassTexture(repeatX, repeatY, baseColor = '#2d5a27', altColor = '#33652c') {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
@@ -93,6 +98,7 @@ function createGrassTexture(repeatX, repeatY, baseColor = '#2d5a27', altColor = 
 }
 
 function createBarrierTexture(repeatX) {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
@@ -120,6 +126,7 @@ function createBarrierTexture(repeatX) {
 }
 
 function createCheckerTexture() {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
@@ -279,7 +286,8 @@ function buildBarrierGeometry(
   sideSign,
   defaultBarrierHalfWidth,
   thickness = 0.45,
-  height = 1.15
+  height = 1.15,
+  skipSegmentFn = null
 ) {
   const count = samples.length;
   const positions = [];
@@ -313,7 +321,7 @@ function buildBarrierGeometry(
     uvs.push(u, 0);
     uvs.push(u, 1);
 
-    if (i < count) {
+    if (i < count && (!skipSegmentFn || !skipSegmentFn(i))) {
       const b = i * 4;
       const n = b + 4;
       // Faccia interna
@@ -356,7 +364,11 @@ function addParkTrees(group, trackSurface, biome) {
       const tz = s.z + s.nz * side * distOut;
 
       const check = queryTrackSurface(trackSurface, tx, tz);
-      if (check.absOffset > (check.barrierHalfWidth ?? barrierHalfWidth) + 8.0) {
+      if (
+        check.surface !== 'pitlane' &&
+        !isInsidePitFootprint(trackSurface.pitLane, tx, tz, 14.0) &&
+        check.absOffset > (check.barrierHalfWidth ?? barrierHalfWidth) + 8.0
+      ) {
         treePositions.push({
           x: tx,
           z: tz,
@@ -496,6 +508,636 @@ function addDistantHorizonHills(group, biome, centerX, centerZ, bounds, groundMa
   group.add(hillsMesh);
 }
 
+function createTeamSignboardTexture(garage, driverNumbers = []) {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // Sfondo carbon scuro ad alto contrasto
+  ctx.fillStyle = '#0b1018';
+  ctx.fillRect(0, 0, 512, 128);
+
+  // Banda colore scuderia a sinistra e bordo inferiore luminoso
+  ctx.fillStyle = garage.primaryColor || '#e10600';
+  ctx.fillRect(0, 0, 24, 128);
+  ctx.fillRect(0, 114, 512, 14);
+
+  // Badge numero box (01..11)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fillRect(36, 18, 76, 82);
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = '900 40px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(garage.teamIndex + 1).padStart(2, '0'), 74, 59);
+
+  // Nome scuderia maiuscolo nitido
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = '900 34px Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const label = (garage.teamName || garage.teamId).toUpperCase();
+  ctx.fillText(label, 128, 48, 366);
+
+  // Numeri pilota del team
+  const numsText = driverNumbers.length > 0 ? driverNumbers.map((n) => `#${n}`).join('   •   ') : 'F1 2026';
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = '700 22px Arial, sans-serif';
+  ctx.fillText(numsText, 128, 88, 366);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/**
+ * Costruisce una geometria a nastro orizzontale sui campioni aperti della pit lane.
+ */
+function buildOpenPitRibbon(pitSamples, sideSign, innerFn, outerFn, yOffset = 0.022, uvOpts = null) {
+  const count = pitSamples.length;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const indices = [];
+
+  for (let i = 0; i < count; i++) {
+    const s = pitSamples[i];
+    const inOff = innerFn(s, i);
+    const outOff = outerFn(s, i);
+    const y = (s.y ?? 0) + yOffset;
+
+    const ix = s.trackX + s.trackNx * sideSign * inOff;
+    const iz = s.trackZ + s.trackNz * sideSign * inOff;
+    const ox = s.trackX + s.trackNx * sideSign * outOff;
+    const oz = s.trackZ + s.trackNz * sideSign * outOff;
+
+    // Orientamento triangoli coerente con normale +Y indipendentemente da sideSign (+1 o -1)
+    if (sideSign > 0) {
+      positions.push(ox, y, oz);
+      positions.push(ix, y, iz);
+    } else {
+      positions.push(ix, y, iz);
+      positions.push(ox, y, oz);
+    }
+    normals.push(0, 1, 0, 0, 1, 0);
+
+    if (uvOpts) {
+      const vCoord = s.pitArcDist / uvOpts.vTileMeters;
+      const uSpan = Math.max(0.1, Math.abs(outOff - inOff)) / uvOpts.uTileMeters;
+      uvs.push(0, vCoord);
+      uvs.push(uSpan, vCoord);
+    } else {
+      const t = i / Math.max(1, count - 1);
+      uvs.push(0, t);
+      uvs.push(1, t);
+    }
+
+    if (i < count - 1) {
+      const base = i * 2;
+      indices.push(base, base + 1, base + 2);
+      indices.push(base + 1, base + 3, base + 2);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  return geo;
+}
+
+/**
+ * Costruisce un muretto 3D aperto (pit wall o barriera rampa ingresso/uscita) lungo una sequenza di campioni.
+ */
+function buildOpenPitWallGeometry(
+  pitSamples,
+  sideSign,
+  innerFn,
+  outerFn,
+  height = 1.12,
+  filterSegFn = null,
+  uDivisor = 8.0
+) {
+  const count = pitSamples.length;
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+  for (let i = 0; i < count; i++) {
+    const s = pitSamples[i];
+    const inOff = innerFn(s, i);
+    const outOff = outerFn(s, i);
+    const baseY = s.y ?? 0;
+    const u = s.pitArcDist / Math.max(1e-3, uDivisor);
+
+    const ix = s.trackX + s.trackNx * sideSign * inOff;
+    const iz = s.trackZ + s.trackNz * sideSign * inOff;
+    const ox = s.trackX + s.trackNx * sideSign * outOff;
+    const oz = s.trackZ + s.trackNz * sideSign * outOff;
+
+    positions.push(ix, baseY, iz);          // 0: inner bottom
+    positions.push(ix, baseY + height, iz); // 1: inner top
+    positions.push(ox, baseY + height, oz); // 2: outer top
+    positions.push(ox, baseY, oz);          // 3: outer bottom
+
+    uvs.push(u, 1);
+    uvs.push(u, 0);
+    uvs.push(u, 0);
+    uvs.push(u, 1);
+
+    if (i < count - 1 && (!filterSegFn || filterSegFn(s, pitSamples[i + 1], i))) {
+      const b = i * 4;
+      const n = b + 4;
+      indices.push(b + 0, b + 1, n + 0);
+      indices.push(b + 1, n + 1, n + 0);
+      indices.push(b + 1, b + 2, n + 1);
+      indices.push(b + 2, n + 2, n + 1);
+      indices.push(b + 2, b + 3, n + 2);
+      indices.push(b + 3, n + 3, n + 2);
+    }
+  }
+
+  if (indices.length === 0) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Costruisce il gruppo 3D completo della Pit Lane (asfalto, pit wall, barriere rampa,
+ * segnaletica 60/80 km/h e gli 11 Box Scuderie con piazzole pit-stop).
+ * Viene aggiunto al TrackGroup DOPO group.children[3] per preservare l'indice asfalto pista.
+ */
+function buildPitLaneMeshGroup(trackSurface, biome, sharedBarrierMat) {
+  const pitLane = trackSurface?.pitLane;
+  if (!pitLane || !pitLane.samples || pitLane.samples.length < 4) {
+    return null;
+  }
+
+  const pitGroup = new THREE.Group();
+  pitGroup.name = 'PitLaneGroup';
+
+  const { samples, sideSign, garages } = pitLane;
+
+  // 1. Nastro asfalto Pit Lane (fast lane + working lane + raccordi ingresso/uscita)
+  const pitAsphaltMat = new THREE.MeshPhysicalMaterial({
+    map: createAsphaltTexture(),
+    color: 0x8f97a3,
+    roughness: 0.92,
+    metalness: 0.0,
+    specularIntensity: 0.24,
+    envMapIntensity: 0.18,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  pitAsphaltMat.userData.baseTintHex = 0x8f97a3;
+  pitAsphaltMat.userData.colorScale = 1.0;
+
+  const pitAsphaltGeo = buildOpenPitRibbon(
+    samples,
+    sideSign,
+    (s) => (s.zone === 'speed_zone' ? s.pitWallOuter - 0.1 : Math.max(s.trackHalfWidth - 0.25, s.innerEdge)),
+    (s) => (s.zone === 'speed_zone' ? s.garageFront + 0.35 : s.outerEdge + 0.2),
+    0.022,
+    { uTileMeters: 6.0, vTileMeters: 8.0 }
+  );
+  const pitAsphaltMesh = new THREE.Mesh(pitAsphaltGeo, pitAsphaltMat);
+  pitAsphaltMesh.name = 'PitLaneAsphalt';
+  pitAsphaltMesh.receiveShadow = true;
+  pitGroup.add(pitAsphaltMesh);
+
+  // 2. Pavimento cemento interno dei 11 Box Scuderie
+  const garageFloorSamples = samples.filter(
+    (s) => s.sMeters >= pitLane.garageRowStartM - 3.0 && s.sMeters <= pitLane.garageRowEndM + 3.0
+  );
+  const garageFloorMat = new THREE.MeshStandardMaterial({
+    color: 0x4b5563,
+    roughness: 0.82,
+    metalness: 0.04,
+    envMapIntensity: 0.24,
+  });
+  if (garageFloorSamples.length >= 2) {
+    const garageFloorGeo = buildOpenPitRibbon(
+      garageFloorSamples,
+      sideSign,
+      (s) => s.garageFront - 0.1,
+      (s) => s.garageBack + 0.3,
+      0.026,
+      { uTileMeters: 4.0, vTileMeters: 4.0 }
+    );
+    const garageFloorMesh = new THREE.Mesh(garageFloorGeo, garageFloorMat);
+    garageFloorMesh.name = 'PitGarageFloor';
+    garageFloorMesh.receiveShadow = true;
+    pitGroup.add(garageFloorMesh);
+  }
+
+  // 3. Muretto separatore Pit Wall + fascia superiore + attenuatore d'urto all'ingresso
+  const pitWallMat = new THREE.MeshStandardMaterial({
+    color: 0xa6aeb8,
+    roughness: 0.84,
+    metalness: 0.04,
+    envMapIntensity: 0.24,
+    side: THREE.DoubleSide,
+  });
+  const pitWallGeo = buildOpenPitWallGeometry(
+    samples,
+    sideSign,
+    (s) => s.pitWallInner,
+    (s) => s.pitWallOuter,
+    1.12,
+    (a, b) => a.hasPitWall && b.hasPitWall
+  );
+  if (pitWallGeo) {
+    const pitWallMesh = new THREE.Mesh(pitWallGeo, pitWallMat);
+    pitWallMesh.name = 'PitWallConcrete';
+    pitWallMesh.castShadow = true;
+    pitWallMesh.receiveShadow = true;
+    pitGroup.add(pitWallMesh);
+  }
+
+  // Corrimano metallico + fascia rossa/bianca sopra il pit wall
+  const pitRailMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.52,
+    metalness: 0.45,
+    envMapIntensity: 0.35,
+    side: THREE.DoubleSide,
+  });
+  const pitWallCapGeo = buildOpenPitWallGeometry(
+    samples,
+    sideSign,
+    (s) => s.pitWallInner + 0.08,
+    (s) => s.pitWallOuter - 0.08,
+    0.12,
+    (a, b) => a.hasPitWall && b.hasPitWall
+  );
+  if (pitWallCapGeo) {
+    pitWallCapGeo.translate(0, 1.12, 0);
+    const capMat = new THREE.MeshStandardMaterial({
+      color: 0xe10600,
+      roughness: 0.65,
+      metalness: 0.08,
+      envMapIntensity: 0.32,
+      side: THREE.DoubleSide,
+    });
+    const pitWallCapMesh = new THREE.Mesh(pitWallCapGeo, capMat);
+    pitWallCapMesh.name = 'PitWallTopTrim';
+    pitGroup.add(pitWallCapMesh);
+  }
+
+  // Attenuatore giallo/nero sul muso d'ingresso del pit wall
+  const firstWallSample = samples.find((s) => s.hasPitWall);
+  if (firstWallSample) {
+    const noseOffset = (firstWallSample.pitWallInner + firstWallSample.pitWallOuter) * 0.5;
+    const noseMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(pitLane.config.pitWallThickness + 0.16, 1.05, 1.4),
+      new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        roughness: 0.58,
+        metalness: 0.06,
+        envMapIntensity: 0.32,
+      })
+    );
+    noseMesh.position.set(
+      firstWallSample.trackX + firstWallSample.trackNx * sideSign * noseOffset - firstWallSample.trackTx * 0.7,
+      (firstWallSample.y ?? 0) + 0.525,
+      firstWallSample.trackZ + firstWallSample.trackNz * sideSign * noseOffset - firstWallSample.trackTz * 0.7
+    );
+    noseMesh.rotation.y = Math.atan2(firstWallSample.trackTx, firstWallSample.trackTz);
+    noseMesh.castShadow = true;
+    noseMesh.receiveShadow = true;
+    pitGroup.add(noseMesh);
+  }
+
+  // 4. Barriere esterne delle rampe di ingresso e uscita (chiudono il varco verso il guardrail principale)
+  // Usa uDivisor = trackSurface.totalLength per allineare 1:1 il tiling rosso-bianco di sharedBarrierMat
+  const outerEntryBarrierGeo = buildOpenPitWallGeometry(
+    samples,
+    sideSign,
+    (s) => s.outerBarrierOffset,
+    (s) => s.outerBarrierOffset + 0.45,
+    1.15,
+    (a, b) => a.sMeters < pitLane.garageRowStartM && b.sMeters <= pitLane.garageRowStartM + 3.0,
+    trackSurface.totalLength
+  );
+  if (outerEntryBarrierGeo) {
+    const m = new THREE.Mesh(outerEntryBarrierGeo, sharedBarrierMat);
+    m.name = 'PitEntryOuterBarrier';
+    m.castShadow = true;
+    m.receiveShadow = true;
+    pitGroup.add(m);
+  }
+
+  const outerExitBarrierGeo = buildOpenPitWallGeometry(
+    samples,
+    sideSign,
+    (s) => s.outerBarrierOffset,
+    (s) => s.outerBarrierOffset + 0.45,
+    1.15,
+    (a, b) => a.sMeters >= pitLane.garageRowEndM - 3.0 && b.sMeters > pitLane.garageRowEndM,
+    trackSurface.totalLength
+  );
+  if (outerExitBarrierGeo) {
+    const m = new THREE.Mesh(outerExitBarrierGeo, sharedBarrierMat);
+    m.name = 'PitExitOuterBarrier';
+    m.castShadow = true;
+    m.receiveShadow = true;
+    pitGroup.add(m);
+  }
+
+  // 5. Segnaletica orizzontale: linea bianca divisoria Fast Lane / Working Lane + linee Speed Limit
+  const whiteLineMat = new THREE.MeshStandardMaterial({
+    color: 0xe8edf5,
+    roughness: 0.84,
+    metalness: 0.0,
+    envMapIntensity: 0.35,
+  });
+  const redStripeMat = new THREE.MeshStandardMaterial({
+    color: 0xe10600,
+    roughness: 0.78,
+    metalness: 0.0,
+    envMapIntensity: 0.35,
+  });
+
+  const speedSamples = samples.filter((s) => s.zone === 'speed_zone');
+  if (speedSamples.length >= 2) {
+    const dividerGeo = buildOpenPitRibbon(
+      speedSamples,
+      sideSign,
+      (s) => s.fastLaneOuter - 0.08,
+      (s) => s.fastLaneOuter + 0.08,
+      0.032
+    );
+    const dividerMesh = new THREE.Mesh(dividerGeo, whiteLineMat);
+    dividerMesh.name = 'PitFastLaneDivider';
+    dividerMesh.receiveShadow = true;
+    pitGroup.add(dividerMesh);
+  }
+
+  // Linee trasversali inizio/fine zona pit lane sull'asfalto (senza cartelli verticali km/h)
+  const addSpeedLimitGate = (frame, isEndSign) => {
+    if (!frame) return;
+    const laneSpan = Math.max(4.0, frame.garageFront - frame.pitWallOuter);
+    const midOffset = (frame.pitWallOuter + frame.garageFront) * 0.5;
+    const gateHeading = Math.atan2(frame.trackTx, frame.trackTz);
+
+    const gateGroup = new THREE.Group();
+    gateGroup.position.set(
+      frame.trackX + frame.trackNx * sideSign * midOffset,
+      frame.y ?? 0,
+      frame.trackZ + frame.trackNz * sideSign * midOffset
+    );
+    gateGroup.rotation.y = gateHeading;
+
+    // Linea bianca + fascia rossa FIA sull'asfalto
+    const whiteStrip = new THREE.Mesh(new THREE.PlaneGeometry(laneSpan, 0.42), whiteLineMat);
+    whiteStrip.rotation.x = -Math.PI / 2;
+    whiteStrip.position.set(0, 0.035, 0);
+    gateGroup.add(whiteStrip);
+
+    const redStrip = new THREE.Mesh(
+      new THREE.PlaneGeometry(laneSpan, 0.24),
+      isEndSign ? pitRailMat : redStripeMat
+    );
+    redStrip.rotation.x = -Math.PI / 2;
+    redStrip.position.set(0, 0.036, isEndSign ? 0.34 : -0.34);
+    gateGroup.add(redStrip);
+
+    pitGroup.add(gateGroup);
+  };
+
+  addSpeedLimitGate(pitLane.speedLimitStartFrame, false);
+  addSpeedLimitGate(pitLane.speedLimitEndFrame, true);
+
+  // 6. Edificio Paddock + 11 Box Scuderie (colori F1 2026, insegne, interni aperti, piazzole pit-stop)
+  const garageWallMat = new THREE.MeshStandardMaterial({
+    color: 0x222834,
+    roughness: 0.84,
+    metalness: 0.08,
+    envMapIntensity: 0.24,
+  });
+  const garageInteriorMat = new THREE.MeshStandardMaterial({
+    color: 0x11151d,
+    roughness: 0.90,
+    metalness: 0.05,
+    envMapIntensity: 0.16,
+  });
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0x2b3240,
+    roughness: 0.78,
+    metalness: 0.16,
+    envMapIntensity: 0.26,
+  });
+  const upperGlassMat = new THREE.MeshStandardMaterial({
+    color: 0x0f1a2b,
+    roughness: 0.24,
+    metalness: 0.55,
+    envMapIntensity: 0.65,
+  });
+  const ledStripMat = new THREE.MeshBasicMaterial({
+    color: biome?.isNight ? 0xe0f2fe : 0xf8fafc,
+  });
+  const yellowBoxMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.76,
+    metalness: 0.0,
+    envMapIntensity: 0.35,
+  });
+
+  // Mappa rapida numeri piloti per scuderia
+  const driversByTeam = {};
+  for (const drv of F1_2026_DRIVERS) {
+    if (!driversByTeam[drv.teamId]) driversByTeam[drv.teamId] = [];
+    driversByTeam[drv.teamId].push(drv.number);
+  }
+
+  for (let idx = 0; idx < garages.length; idx++) {
+    const g = garages[idx];
+    const bayW = g.bayWidth;
+    const depth = g.depth;
+    const height = g.height;
+    const pillarW = 0.48;
+    const fasciaH = 0.58;
+    const openingH = height - 1.28; // ~3.32 m luce libera portale box
+    const canopyOverhang = 1.95;
+
+    // Sistema locale del box:
+    // +Z locale = direzione marcia pit lane (tx, tz)
+    // +X locale = verso la pista (outX, outZ = -sideSign * trackN) → così la facciata aperta guarda sempre +X locale?
+    // Verifichiamo: in Three.js se rotation.y = heading = atan2(tx, tz):
+    // local +Z = (tx, tz), local +X = (tz, -tx) = trackN!
+    // Quindi direzione verso l'esterno (dal fronte box verso il retro box) è local X = sideSign!
+    // E direzione verso la fast lane (dal fronte box verso la pista) è local X = -sideSign!
+    const bayGroup = new THREE.Group();
+    bayGroup.name = `PitGarage_${g.teamId}`;
+    bayGroup.position.set(g.frontPos.x, g.frontPos.y ?? 0, g.frontPos.z);
+    bayGroup.rotation.y = g.heading;
+
+    const toBack = sideSign;     // +1 se pit a sinistra, -1 se pit a destra
+    const toLane = -sideSign;    // verso fast lane
+
+    // Parete posteriore box
+    const backWall = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, height, bayW + 0.04),
+      garageWallMat
+    );
+    backWall.position.set(toBack * (depth - 0.22), height * 0.5, 0);
+    backWall.castShadow = true;
+    backWall.receiveShadow = true;
+    bayGroup.add(backWall);
+
+    // Parete interna scura per profondità box
+    const backInner = new THREE.Mesh(
+      new THREE.PlaneGeometry(bayW - 0.3, openingH),
+      garageInteriorMat
+    );
+    backInner.position.set(toBack * (depth - 0.46), openingH * 0.5, 0);
+    backInner.rotation.y = toLane > 0 ? Math.PI / 2 : -Math.PI / 2;
+    bayGroup.add(backInner);
+
+    // Divisori laterali (sinistra e destra lungo Z locale)
+    const sideWallGeo = new THREE.BoxGeometry(depth, height, 0.34);
+    const sideWallA = new THREE.Mesh(sideWallGeo, garageWallMat);
+    sideWallA.position.set(toBack * (depth * 0.5), height * 0.5, -bayW * 0.5 + 0.17);
+    sideWallA.castShadow = true;
+    sideWallA.receiveShadow = true;
+    bayGroup.add(sideWallA);
+
+    if (idx === garages.length - 1) {
+      const sideWallB = new THREE.Mesh(sideWallGeo, garageWallMat);
+      sideWallB.position.set(toBack * (depth * 0.5), height * 0.5, bayW * 0.5 - 0.17);
+      sideWallB.castShadow = true;
+      sideWallB.receiveShadow = true;
+      bayGroup.add(sideWallB);
+    }
+
+    // Pilastri anteriori che incorniciano l'ingresso aperto del box
+    const pillarGeo = new THREE.BoxGeometry(0.48, openingH, pillarW);
+    const frontPillarA = new THREE.Mesh(pillarGeo, garageWallMat);
+    frontPillarA.position.set(toBack * 0.24, openingH * 0.5, -bayW * 0.5 + pillarW * 0.5);
+    frontPillarA.castShadow = true;
+    const frontPillarB = new THREE.Mesh(pillarGeo, garageWallMat);
+    frontPillarB.position.set(toBack * 0.24, openingH * 0.5, bayW * 0.5 - pillarW * 0.5);
+    frontPillarB.castShadow = true;
+    bayGroup.add(frontPillarA, frontPillarB);
+
+    // Tetto box + pensilina aggettante verso la working lane
+    const roofDepth = depth + canopyOverhang;
+    const roofCenterLocalX = toBack * (depth * 0.5 - canopyOverhang * 0.5);
+    const roofMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(roofDepth, 0.38, bayW + 0.04),
+      roofMat
+    );
+    roofMesh.position.set(roofCenterLocalX, height - 0.19, 0);
+    roofMesh.castShadow = true;
+    roofMesh.receiveShadow = true;
+    bayGroup.add(roofMesh);
+
+    // Architrave superiore frontale + fascia colore ufficiale scuderia
+    const headerH = height - openingH;
+    const headerMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, headerH, bayW + 0.02),
+      garageWallMat
+    );
+    headerMesh.position.set(toBack * 0.27, openingH + headerH * 0.5, 0);
+    headerMesh.castShadow = true;
+    bayGroup.add(headerMesh);
+
+    const teamAccentMat = new THREE.MeshStandardMaterial({
+      color: g.primaryColor,
+      roughness: 0.42,
+      metalness: 0.12,
+      envMapIntensity: 0.42,
+    });
+    const fasciaStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, fasciaH, bayW - 0.12),
+      teamAccentMat
+    );
+    fasciaStrip.position.set(toLane * (canopyOverhang - 0.05), height - 0.28, 0);
+    bayGroup.add(fasciaStrip);
+
+    // Insegna frontale scuderia con CanvasTexture nitida rivolta verso la pit lane e la pista
+    const signW = Math.min(bayW - 1.2, 11.5);
+    const signH = 1.18;
+    const signTex = createTeamSignboardTexture(g, driversByTeam[g.teamId] || []);
+    const signMat = new THREE.MeshStandardMaterial({
+      map: signTex,
+      color: 0xffffff,
+      roughness: 0.46,
+      metalness: 0.06,
+      envMapIntensity: 0.35,
+      emissive: biome?.isNight ? new THREE.Color(0x1e293b) : new THREE.Color(0x000000),
+      emissiveMap: biome?.isNight ? signTex : null,
+      emissiveIntensity: biome?.isNight ? 0.55 : 0.0,
+    });
+    const signBoard = new THREE.Mesh(new THREE.PlaneGeometry(signW, signH), signMat);
+    signBoard.position.set(toLane * (canopyOverhang + 0.05), height + 0.48, 0);
+    signBoard.rotation.y = toLane > 0 ? Math.PI / 2 : -Math.PI / 2;
+    bayGroup.add(signBoard);
+
+    // Striscia LED sottoporta box (illumina l'ingresso del garage, molto visibile di notte)
+    const ledBar = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, bayW - 1.4), ledStripMat);
+    ledBar.position.set(toLane * (canopyOverhang * 0.45), openingH + 0.08, 0);
+    bayGroup.add(ledBar);
+
+    // Piano superiore Paddock Club vetrato (volume architettonico pulito)
+    const upperH = 2.65;
+    const upperLevel = new THREE.Mesh(
+      new THREE.BoxGeometry(depth * 0.86, upperH, bayW + 0.04),
+      upperGlassMat
+    );
+    upperLevel.position.set(toBack * (depth * 0.52), height + upperH * 0.5, 0);
+    upperLevel.castShadow = true;
+    upperLevel.receiveShadow = true;
+    bayGroup.add(upperLevel);
+
+    // Piazzola Pit-Stop dipinta a terra sulla working lane davanti al box
+    const stopDeltaLat = g.garageFrontOffset - g.workingLaneOffset; // positivo verso la pista
+    const stopLocalX = toLane * stopDeltaLat;
+    const boxW = 2.55;
+    const boxL = 5.6;
+
+    const frontStopBar = new THREE.Mesh(new THREE.PlaneGeometry(boxW, 0.24), yellowBoxMat);
+    frontStopBar.rotation.x = -Math.PI / 2;
+    frontStopBar.position.set(stopLocalX, 0.036, boxL * 0.5);
+    bayGroup.add(frontStopBar);
+
+    const rearStopBar = new THREE.Mesh(new THREE.PlaneGeometry(boxW, 0.18), whiteLineMat);
+    rearStopBar.rotation.x = -Math.PI / 2;
+    rearStopBar.position.set(stopLocalX, 0.036, -boxL * 0.5);
+    bayGroup.add(rearStopBar);
+
+    const sideLineL = new THREE.Mesh(new THREE.PlaneGeometry(0.16, boxL), teamAccentMat);
+    sideLineL.rotation.x = -Math.PI / 2;
+    sideLineL.position.set(stopLocalX - boxW * 0.5, 0.036, 0);
+    bayGroup.add(sideLineL);
+
+    const sideLineR = new THREE.Mesh(new THREE.PlaneGeometry(0.16, boxL), teamAccentMat);
+    sideLineR.rotation.x = -Math.PI / 2;
+    sideLineR.position.set(stopLocalX + boxW * 0.5, 0.036, 0);
+    bayGroup.add(sideLineR);
+
+    pitGroup.add(bayGroup);
+  }
+
+  return {
+    group: pitGroup,
+    pitAsphaltMat,
+    pitWallMat,
+    garageFloorMat,
+    garageWallMat,
+  };
+}
+
 function hydrateTrackPbrMaterials({
   biome,
   asphaltMat,
@@ -505,6 +1147,10 @@ function hydrateTrackPbrMaterials({
   barrierMat,
   bridgeDeckMat,
   gantryMat,
+  pitAsphaltMat,
+  pitWallMat,
+  garageFloorMat,
+  garageWallMat,
   groundRepeatX,
   groundRepeatY,
   kerbRepeatY,
@@ -653,6 +1299,46 @@ function hydrateTrackPbrMaterials({
       applySurfaceDetailOnly(gantryMat, set, { normalScale: 0.5 });
     });
 
+  if (pitAsphaltMat) {
+    assetManager3D
+      .loadPBRTextureSet('asphalt_pit_lane', { repeatX: 1, repeatY: 1, anisotropy: 10 })
+      .then((set) => {
+        applyFullPbrSet(pitAsphaltMat, set, {
+          tintHex: pitAsphaltMat.userData?.baseTintHex ?? 0x8f97a3,
+          normalScale: 0.95,
+        });
+        if (pitAsphaltMat && !disposed) {
+          const baseTint = pitAsphaltMat.userData?.baseTintHex ?? 0x8f97a3;
+          const colorScale = pitAsphaltMat.userData?.colorScale ?? 1.0;
+          pitAsphaltMat.color.setHex(baseTint).multiplyScalar(colorScale);
+        }
+      });
+  }
+
+  if (pitWallMat) {
+    assetManager3D
+      .loadPBRTextureSet('concrete_wall_007', { repeatX: 1, repeatY: 1, anisotropy: 8 })
+      .then((set) => {
+        applyFullPbrSet(pitWallMat, set, { tintHex: 0xb0b8c2, normalScale: 0.65 });
+      });
+  }
+
+  if (garageFloorMat) {
+    assetManager3D
+      .loadPBRTextureSet('concrete_floor_painted', { repeatX: 1, repeatY: 1, anisotropy: 8 })
+      .then((set) => {
+        applyFullPbrSet(garageFloorMat, set, { tintHex: 0x6b7280, normalScale: 0.5 });
+      });
+  }
+
+  if (garageWallMat) {
+    assetManager3D
+      .loadPBRTextureSet('concrete_wall_007', { repeatX: 2, repeatY: 2, anisotropy: 4 })
+      .then((set) => {
+        applyFullPbrSet(garageWallMat, set, { tintHex: 0x2a3140, normalScale: 0.5 });
+      });
+  }
+
   return () => {
     disposed = true;
     for (const tex of ownedTextures) {
@@ -763,7 +1449,11 @@ export function buildTrackMeshGroup(trackData) {
   asphaltMesh.receiveShadow = true;
   group.add(asphaltMesh);
 
-  // Linee bianche continue FIA in PBR (rispondono a sole, ombre e HDRI senza effetto plastica)
+  // Linee bianche continue FIA in PBR (aperte sui varchi ingresso/uscita pit lane)
+  const pitLane = trackSurface.pitLane;
+  const isLeftPitOpen = (i) => Boolean(pitLane && pitLane.sideSign > 0 && pitLane.pitOpeningSkipMask?.[i]);
+  const isRightPitOpen = (i) => Boolean(pitLane && pitLane.sideSign < 0 && pitLane.pitOpeningSkipMask?.[i]);
+
   const edgeLineMat = new THREE.MeshStandardMaterial({
     color: 0xe2e8f0,
     roughness: 0.85,
@@ -774,13 +1464,15 @@ export function buildTrackMeshGroup(trackData) {
     samples,
     0.1,
     (s) => (s.halfWidth ?? halfTrackWidth) - 0.18,
-    0.026
+    0.026,
+    (_s, i) => !isLeftPitOpen(i)
   );
   const rightEdgeLineGeo = buildRibbonFromSamples(
     samples,
     0.1,
     (s) => -((s.halfWidth ?? halfTrackWidth) - 0.18),
-    0.026
+    0.026,
+    (_s, i) => !isRightPitOpen(i)
   );
   const leftEdgeLineMesh = new THREE.Mesh(leftEdgeLineGeo, edgeLineMat);
   const rightEdgeLineMesh = new THREE.Mesh(rightEdgeLineGeo, edgeLineMat);
@@ -820,14 +1512,14 @@ export function buildTrackMeshGroup(trackData) {
     halfKerb,
     (s) => (s.halfWidth ?? halfTrackWidth) + halfKerb * 0.92,
     0.03,
-    (s) => s.hasKerb
+    (s, i) => s.hasKerb && !isLeftPitOpen(i)
   );
   const rightKerbGeo = buildRibbonFromSamples(
     samples,
     halfKerb,
     (s) => -((s.halfWidth ?? halfTrackWidth) + halfKerb * 0.92),
     0.03,
-    (s) => s.hasKerb
+    (s, i) => s.hasKerb && !isRightPitOpen(i)
   );
   const leftKerbMesh = new THREE.Mesh(leftKerbGeo, kerbMat);
   const rightKerbMesh = new THREE.Mesh(rightKerbGeo, kerbMat);
@@ -845,8 +1537,13 @@ export function buildTrackMeshGroup(trackData) {
     side: THREE.DoubleSide,
   });
 
-  const leftBarrierGeo = buildBarrierGeometry(samples, 1, barrierHalfWidth);
-  const rightBarrierGeo = buildBarrierGeometry(samples, -1, barrierHalfWidth);
+  const skipLeftBarrier =
+    pitLane && pitLane.sideSign > 0 ? (i) => Boolean(pitLane.mainBarrierSkipMask[i]) : null;
+  const skipRightBarrier =
+    pitLane && pitLane.sideSign < 0 ? (i) => Boolean(pitLane.mainBarrierSkipMask[i]) : null;
+
+  const leftBarrierGeo = buildBarrierGeometry(samples, 1, barrierHalfWidth, 0.45, 1.15, skipLeftBarrier);
+  const rightBarrierGeo = buildBarrierGeometry(samples, -1, barrierHalfWidth, 0.45, 1.15, skipRightBarrier);
   const leftBarrierMesh = new THREE.Mesh(leftBarrierGeo, barrierMat);
   const rightBarrierMesh = new THREE.Mesh(rightBarrierGeo, barrierMat);
   leftBarrierMesh.castShadow = true;
@@ -877,8 +1574,18 @@ export function buildTrackMeshGroup(trackData) {
   gantryGroup.position.set(s0.x, s0.y ?? 0, s0.z);
   gantryGroup.rotation.y = Math.atan2(s0.tx, s0.tz);
 
-  const leftPillarX = Math.max(startHalfW + kerbWidth + 1.2, startBarrierL + 0.65);
-  const rightPillarX = -Math.max(startHalfW + kerbWidth + 1.2, startBarrierR + 0.65);
+  const startOnPitWall = Boolean(pitLane && pitLane.pitWallStartM <= 0 && pitLane.pitWallEndM >= 0);
+  const pitWallCenterAtStart = pitLane
+    ? startHalfW + pitLane.config.pitWallGap + pitLane.config.pitWallThickness * 0.5
+    : 0;
+  const leftPillarX =
+    startOnPitWall && pitLane.sideSign > 0
+      ? pitWallCenterAtStart
+      : Math.max(startHalfW + kerbWidth + 1.2, startBarrierL + 0.65);
+  const rightPillarX =
+    startOnPitWall && pitLane.sideSign < 0
+      ? -pitWallCenterAtStart
+      : -Math.max(startHalfW + kerbWidth + 1.2, startBarrierR + 0.65);
   const gantrySpan = leftPillarX - rightPillarX;
 
   const pillarGeo = new THREE.BoxGeometry(0.6, 6.5, 0.6);
@@ -939,6 +1646,12 @@ export function buildTrackMeshGroup(trackData) {
     group.add(slotGroup);
   }
 
+  // 5b. Pit Lane, Pit Wall, Segnaletica 60/80 e 11 Box Scuderie (aggiunti DOPO group.children[3])
+  const builtPitLane = buildPitLaneMeshGroup(trackSurface, biome, barrierMat);
+  if (builtPitLane?.group) {
+    group.add(builtPitLane.group);
+  }
+
   // 6. Alberi del parco & colline perimetrali lontane (istanziati / mesh leggera per alte prestazioni)
   addParkTrees(group, trackSurface, biome);
   addDistantHorizonHills(group, biome, centerX, centerZ, bounds, grassMat);
@@ -953,6 +1666,10 @@ export function buildTrackMeshGroup(trackData) {
     barrierMat,
     bridgeDeckMat,
     gantryMat,
+    pitAsphaltMat: builtPitLane?.pitAsphaltMat || null,
+    pitWallMat: builtPitLane?.pitWallMat || null,
+    garageFloorMat: builtPitLane?.garageFloorMat || null,
+    garageWallMat: builtPitLane?.garageWallMat || null,
     groundRepeatX,
     groundRepeatY,
     kerbRepeatY,
@@ -963,6 +1680,7 @@ export function buildTrackMeshGroup(trackData) {
     group,
     trackSurface,
     asphaltMaterial: asphaltMat,
+    pitAsphaltMaterial: builtPitLane?.pitAsphaltMat || null,
     kerbMaterial: kerbMat,
     edgeLineMaterial: edgeLineMat,
     biome,
