@@ -19,7 +19,6 @@ import {
   RACE_TOTAL_LAPS,
   getCareerWeekendPreset,
 } from '../config/f1_2026_data.js';
-import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { createInitialCarState, stepCarPhysics } from '../physics/CarPhysics.js';
 import {
   resolveCarToCarCollisions,
@@ -363,13 +362,12 @@ export class WorldState {
   }
 
   /**
-   * Avvia una sessione configurata (Prove Libere o Gara 10 Giri) con difficoltà e livello vettura.
+   * Avvia una sessione configurata (Prove Libere, Qualifiche o Gara) con fisica e impostazioni pista.
    * @param {{
-   *   mode?: 'practice' | 'race',
+   *   mode?: 'practice' | 'qualifying' | 'race',
    *   difficultyId?: string,
    *   withBots?: boolean,
    *   lapLimit?: number | null,
-   *   carLevel?: 'base' | 'max',
    *   playerDriverId?: string,
    *   playerGridIndex?: number,
    *   weather?: 'dry' | 'rain',
@@ -410,7 +408,6 @@ export class WorldState {
         : mode === 'qualifying'
           ? null
           : (config.lapLimit ?? null);
-    const carLevel = config.carLevel === 'max' ? 'max' : 'base';
     const playerDriverId = config.playerDriverId || 'leclerc';
     const playerGridIndex = config.playerGridIndex ?? 7;
 
@@ -473,9 +470,9 @@ export class WorldState {
       lapLimit,
       raceLaps: resolvedRaceLaps,
       qualifyingStageDurations,
-      carLevel,
       playerDriverId: humanPlayers?.[0]?.driverId || playerDriverId,
       playerGridIndex,
+      playerGridPosition: playerGridIndex + 1,
       requiredPlayerIds,
       humanPlayers,
       isCareer: Boolean(config.isCareer),
@@ -489,7 +486,6 @@ export class WorldState {
         : null,
       playerCustomName: config.playerCustomName || null,
       playerCustomCode: config.playerCustomCode || null,
-      playerCustomSpecs: config.playerCustomSpecs ? { ...config.playerCustomSpecs } : null,
       customPrimaryColor: config.customPrimaryColor || null,
       paintRoughness: config.paintRoughness ?? null,
       paintMetalness: config.paintMetalness ?? null,
@@ -514,7 +510,6 @@ export class WorldState {
         totalLaps: lapLimit,
         skipCountdown: mode === 'practice',
         mode,
-        carLevel,
         difficultyId,
         physicsSettings: this.physicsSettings,
       });
@@ -542,7 +537,6 @@ export class WorldState {
     const team = F1_2026_TEAMS[playerDriver.teamId];
     const startTransform = this.trackData?.startTransform ?? { x: 0, y: 0, z: 0, heading: 0 };
 
-    const customSpecs = config.playerCustomSpecs ? { ...config.playerCustomSpecs } : null;
     const isRainStart = this.weather === 'rain';
     const startCompound =
       config.startingCompound && TIRE_COMPOUNDS[config.startingCompound]
@@ -562,8 +556,6 @@ export class WorldState {
       paintRoughness: config.paintRoughness ?? 0.25,
       paintMetalness: config.paintMetalness ?? 0.35,
       isBot: false,
-      carLevel: customSpecs ? customSpecs.id : carLevel,
-      carSpecs: customSpecs || getCarSpecsForLevel(carLevel),
       gridPosition: 1,
       compound: startCompound,
       nextPitCompound: this._resolveDefaultNextPitCompound(startCompound, isRainStart, 10),
@@ -578,7 +570,7 @@ export class WorldState {
    * @param {string} [playerDriverId='leclerc']
    * @param {number} [playerGridIndex=7] - 0 = Pole Position (P1), 7 = P8
    * @param {string} [localPlayerId=LOCAL_PLAYER_ID]
-   * @param {{ totalLaps?: number | null, skipCountdown?: boolean, mode?: string, carLevel?: string, difficultyId?: string }} [options]
+   * @param {{ totalLaps?: number | null, skipCountdown?: boolean, mode?: string, difficultyId?: string }} [options]
    */
   spawnFullGrid(
     playerDriverId = 'leclerc',
@@ -591,7 +583,6 @@ export class WorldState {
     const totalLaps = options.totalLaps !== undefined ? options.totalLaps : RACE_TOTAL_LAPS;
     const skipCountdown = Boolean(options.skipCountdown);
     const mode = options.mode ?? 'race';
-    const carLevel = options.carLevel ?? 'base';
     if (options.physicsSettings && typeof options.physicsSettings === 'object') {
       this.physicsSettings = normalizePhysicsSettings(options.physicsSettings);
     } else if (options.difficultyId) {
@@ -696,12 +687,6 @@ export class WorldState {
       const carId = humanEntry ? humanEntry.carId : isPlayerSlot ? localPlayerId : `bot_${driver.id}`;
 
       const performance = driver.skill * (team?.pace ?? 0.97);
-      const activeLevel = isPlayerSlot ? carLevel : 'base';
-      const customSpecs = humanEntry?.carSpecs
-        ? humanEntry.carSpecs
-        : isPlayerSlot
-          ? options.playerCustomSpecs || this.sessionConfig?.playerCustomSpecs || null
-          : null;
       const customName = humanEntry?.playerName
         ? humanEntry.playerName
         : isPlayerSlot
@@ -729,10 +714,6 @@ export class WorldState {
           : isPlayerSlot
             ? options.paintMetalness ?? this.sessionConfig?.paintMetalness ?? 0.35
             : 0.35;
-      const effectiveLevel = customSpecs ? customSpecs.id : activeLevel;
-      const effectiveSpecs = customSpecs
-        ? { ...customSpecs }
-        : getCarSpecsForLevel(activeLevel);
       const isRainGrid = this.weather === 'rain';
       const requestedPlayerCompound =
         options.startingCompound || this.sessionConfig?.startingCompound || null;
@@ -758,8 +739,6 @@ export class WorldState {
         paintRoughness: customRoughness,
         paintMetalness: customMetalness,
         isBot: !isPlayerSlot,
-        carLevel: effectiveLevel,
-        carSpecs: effectiveSpecs,
         skillFactor: performance,
         driverProfile: getDriverProfile(driver.id),
         maxSpeedMultiplier: isPlayerSlot ? 1.0 : 0.942 + Math.max(0, (performance - 0.90) / 0.09) * 0.064,
@@ -830,7 +809,6 @@ export class WorldState {
       totalLaps: null,
       skipCountdown: true,
       mode: 'qualifying',
-      carLevel: cfg.carLevel || 'base',
       difficultyId: cfg.difficultyId || this.difficultyId,
       physicsSettings: cfg.physicsSettings || this.physicsSettings,
       orderedDriverIds: driverIds,
@@ -838,7 +816,6 @@ export class WorldState {
       humanPlayers: cfg.humanPlayers || null,
       playerCustomName: cfg.playerCustomName || null,
       playerCustomCode: cfg.playerCustomCode || null,
-      playerCustomSpecs: cfg.playerCustomSpecs || null,
     });
 
     // Step 3: Posiziona tutte le vetture attive (22 in Q1, 16 in Q2, 10 in Q3) dentro i rispettivi box
@@ -1080,6 +1057,7 @@ export class WorldState {
       lapLimit: targetRaceLaps,
       raceLaps: targetRaceLaps,
       playerGridIndex: playerGridIdx,
+      playerGridPosition: playerGridIdx + 1,
       qualifiedPole,
     };
 
@@ -1088,7 +1066,6 @@ export class WorldState {
       skipCountdown: false,
       gridWaitSeconds: GRID_WAIT_AFTER_QUALI_SECONDS,
       mode: 'race',
-      carLevel: cfg.carLevel || 'base',
       difficultyId: cfg.difficultyId || this.difficultyId,
       physicsSettings: cfg.physicsSettings || this.physicsSettings,
       orderedDriverIds,
@@ -1096,7 +1073,6 @@ export class WorldState {
       humanPlayers: cfg.humanPlayers || null,
       playerCustomName: cfg.playerCustomName || null,
       playerCustomCode: cfg.playerCustomCode || null,
-      playerCustomSpecs: cfg.playerCustomSpecs || null,
     });
   }
 
@@ -1403,7 +1379,6 @@ export class WorldState {
     for (const [id, car] of Object.entries(this.cars)) {
       carsCopy[id] = {
         ...car,
-        carSpecs: car.carSpecs ? { ...car.carSpecs } : null,
         driverProfile: car.driverProfile ? { ...car.driverProfile } : null,
         pitAutoAlign: car.pitAutoAlign ? { ...car.pitAutoAlign } : null,
         trackRecoveryAnim: car.trackRecoveryAnim ? { ...car.trackRecoveryAnim } : null,
@@ -1523,7 +1498,6 @@ export class WorldState {
       for (const [id, carData] of Object.entries(snapshot.cars)) {
         this.cars[id] = {
           ...carData,
-          carSpecs: carData.carSpecs ? { ...carData.carSpecs } : null,
           driverProfile: carData.driverProfile ? { ...carData.driverProfile } : null,
           pitAutoAlign: carData.pitAutoAlign ? { ...carData.pitAutoAlign } : null,
           trackRecoveryAnim: carData.trackRecoveryAnim ? { ...carData.trackRecoveryAnim } : null,

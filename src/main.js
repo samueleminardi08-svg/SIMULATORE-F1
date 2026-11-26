@@ -240,8 +240,14 @@ function initGame() {
       const myId = roomManager.getLocalCarId();
       const fastestLap = ws.sessionTiming?.overallBestCarId === myId;
       const polePosition = Boolean(ws.sessionConfig?.qualifiedPole);
+      const gridPosition = Number.isFinite(Number(ws.sessionConfig?.playerGridPosition))
+        ? Number(ws.sessionConfig.playerGridPosition)
+        : Number.isFinite(Number(playerCar.gridPosition))
+          ? Number(playerCar.gridPosition)
+          : (ws.sessionConfig?.playerGridIndex ?? 0) + 1;
       const result = recordCareerRaceResult(careerState, {
         position: playerCar.racePosition,
+        gridPosition,
         difficultyId: ws.difficultyId,
         physicsSettings: ws.physicsSettings,
         fastestLap,
@@ -252,7 +258,7 @@ function initGame() {
         raceLaps: ws.raceState?.totalLaps ?? ws.sessionConfig?.raceLaps,
       });
       careerState = result.state;
-      hudOverlay.setCareerBalance(careerState.money);
+      sceneManager.setTrophyMuseumCareerData(careerState);
       if (menuManager) {
         menuManager.setCareerState(careerState);
       }
@@ -261,7 +267,6 @@ function initGame() {
   });
   hudOverlay.setTrackName(`${activeTrack.name} — ${activeTrack.country}`);
   hudOverlay.setCameraMode(sceneManager.getCameraMode());
-  hudOverlay.setCareerBalance(careerState.money);
 
   trackMapHud = trackMapCanvas
     ? new TrackMapHud(trackMapCanvas, worldState.trackSurface, { size: 220, padding: 20 })
@@ -625,7 +630,7 @@ function initGame() {
     onSettingsClose: () => syncPauseModalMeta(),
     onCareerChange: (nextCareerState) => {
       careerState = nextCareerState;
-      hudOverlay.setCareerBalance(careerState.money);
+      sceneManager.setTrophyMuseumCareerData(careerState);
     },
     onTrackChange: (trackId) => {
       if (!menuManager?.hasActiveSession) {
@@ -641,6 +646,37 @@ function initGame() {
     onResetGarageOrbit: () => sceneManager.resetGarageOrbit(),
     onOrbitRotate: (dYaw, dPitch) => sceneManager.rotateGarageOrbit(dYaw, dPitch),
     onOrbitZoom: (dZoom) => sceneManager.zoomGarageOrbit(dZoom),
+    onGetMuseumState: () => sceneManager.getTrophyMuseumState(),
+    onMuseumAction: (action, payload) => {
+      switch (action) {
+        case 'cycle_pedestal':
+          return sceneManager.cycleTrophyMuseumPedestal(payload);
+        case 'enter_wall':
+          return sceneManager.enterTrophyMuseumWall(payload);
+        case 'return_corridor':
+          return sceneManager.returnTrophyMuseumCorridor();
+        case 'shelf_preset':
+          return sceneManager.setTrophyMuseumShelfPreset(payload);
+        case 'inspect_slot':
+          return sceneManager.inspectTrophyMuseumGpSlot(payload);
+        case 'clear_inspect':
+          return sceneManager.clearTrophyMuseumGpInspection();
+        case 'select_career':
+          return sceneManager.selectTrophyMuseumCareer(payload?.careerId, Boolean(payload?.openWall));
+        case 'orbit':
+          sceneManager.rotateTrophyMuseumOrbit(payload?.dx || 0, payload?.dy || 0);
+          return null;
+        case 'zoom':
+          sceneManager.zoomTrophyMuseumOrbit(payload || 0);
+          return null;
+        case 'pointer_hover':
+          return sceneManager.hoverTrophyMuseumPointer(payload?.ndcX || 0, payload?.ndcY || 0);
+        case 'pointer_click':
+          return sceneManager.clickTrophyMuseumPointer(payload?.ndcX || 0, payload?.ndcY || 0);
+        default:
+          return sceneManager.getTrophyMuseumState();
+      }
+    },
     onWeatherChange: (weatherId) => {
       sceneManager.setWeatherPreview(weatherId);
       if (!menuManager?.isOpen && !roomManager.isClient()) {
@@ -694,7 +730,8 @@ function initGame() {
     },
   });
 
-  // Inizializza la vista Showroom Garage 3D dietro al menu iniziale
+  // Inizializza la vista Showroom Garage 3D & Stanza Museo Trofei 3D dietro al menu iniziale
+  sceneManager.setTrophyMuseumCareerData(careerState);
   sceneManager.setWeatherPreview(menuManager.state.weather);
   sceneManager.setGarageMode(
     menuManager.isOpen,

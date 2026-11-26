@@ -6,7 +6,6 @@
 
 import { ADVANCED_PHYSICS_CONFIG, TIRE_COMPOUNDS } from '../config/constants.js';
 import { getDifficultyConfig } from '../config/difficulty.js';
-import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -76,8 +75,7 @@ export function updateAeroAndTires(
   dt,
   surfaceProps,
   weatherProps,
-  difficultyProps = getDifficultyConfig('realistic'),
-  carSpecs = getCarSpecsForLevel('base')
+  difficultyProps = getDifficultyConfig('realistic')
 ) {
   const isRain = weatherProps?.id === 'rain';
   if (!car.aeroTire) {
@@ -118,9 +116,8 @@ export function updateAeroAndTires(
   // 1. Aerodinamica: carico proporzionale a v² (neutralizzato se toggle Aerodinamica OFF)
   const vSq = vRatio * vRatio;
   if (aeroEnabled) {
-    const downforceMult = carSpecs?.aeroDownforceMult ?? 1.0;
-    aero.downforceKg = Math.round(cfg.maxDownforceKg * vSq * downforceMult);
-    aero.aeroGripBonus = 1.0 + cfg.downforceGripGain * vSq * downforceMult;
+    aero.downforceKg = Math.round(cfg.maxDownforceKg * vSq);
+    aero.aeroGripBonus = 1.0 + cfg.downforceGripGain * vSq;
   } else {
     aero.downforceKg = 0;
     aero.aeroGripBonus = 1.0;
@@ -164,8 +161,7 @@ export function updateAeroAndTires(
       surfaceLockFactor *
       aero.tireGripFactor *
       (1.0 + 0.35 * vRatio) *
-      (difficultyProps?.lockupResistanceMultiplier ?? 1.0) *
-      (carSpecs?.brakeMult ?? 1.0);
+      (difficultyProps?.lockupResistanceMultiplier ?? 1.0);
 
     const steerRatio = Math.abs(car.steerAngle / 0.48);
     const steerLoad = 1.0 + steerRatio * cfg.lockupSteerSensitivity;
@@ -294,8 +290,7 @@ export function updateAeroAndTires(
         wearRate += cfg.tireWearLockupMult * aero.lockupIntensity;
       }
 
-      wearRate *=
-        (difficultyProps?.tireWearMultiplier ?? 1.0) * (carSpecs?.tireWearMult ?? 1.0);
+      wearRate *= difficultyProps?.tireWearMultiplier ?? 1.0;
 
       if (car.isBot && typeof car.driverProfile?.tyreManagement === 'number') {
         const tmScale = clamp(1.18 - car.driverProfile.tyreManagement * 0.28, 0.85, 1.08);

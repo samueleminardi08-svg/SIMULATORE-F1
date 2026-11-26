@@ -174,28 +174,11 @@ export function savePhysicsSettings(settings, explicitStorage = null) {
 }
 
 /**
- * Calcola il moltiplicatore premi Carriera dinamico (0.90× – 1.45×)
- * in funzione dei 7 toggle realistici attivi e dello slider Livello Bot IA (75%–105%).
- */
-export function computeCareerPrizeMultiplier(settings) {
-  const s = normalizePhysicsSettings(settings);
-  let activeCount = 0;
-  for (const def of PHYSICS_TOGGLE_DEFS) {
-    if (s[def.key]) activeCount++;
-  }
-  const toggleBonus = (activeCount / PHYSICS_TOGGLE_DEFS.length) * 0.35;
-  const aiRatio = (s.botAiLevel - BOT_AI_MIN_LEVEL) / (BOT_AI_MAX_LEVEL - BOT_AI_MIN_LEVEL);
-  const aiBonus = clamp(aiRatio, 0, 1) * 0.20;
-  return Math.round((0.90 + toggleBonus + aiBonus) * 100) / 100;
-}
-
-/**
  * Traduce i 7 toggle FISICA + slider Bot IA nei coefficienti numerici letti
  * da CarPhysics.js, AeroAndTires.js, BotController.js e VirtualInputFilter.js.
  */
 export function resolveEffectivePhysicsProfile(physicsSettings) {
   const s = normalizePhysicsSettings(physicsSettings);
-  const prizeMultiplier = computeCareerPrizeMultiplier(s);
   const activeCount = PHYSICS_TOGGLE_DEFS.reduce((acc, d) => acc + (s[d.key] ? 1 : 0), 0);
 
   return {
@@ -203,10 +186,9 @@ export function resolveEffectivePhysicsProfile(physicsSettings) {
     settings: s,
     activeRealisticCount: activeCount,
     totalToggleCount: PHYSICS_TOGGLE_DEFS.length,
-    prizeMultiplier,
     label: `Fisica (${activeCount}/7) • IA ${s.botAiLevel}%`,
     shortLabel: `IA ${s.botAiLevel}%`,
-    description: `${activeCount}/${PHYSICS_TOGGLE_DEFS.length} sistemi realistici attivi • Bot IA ${s.botAiLevel}% • Bonus Carriera x${prizeMultiplier.toFixed(2)}`,
+    description: `${activeCount}/${PHYSICS_TOGGLE_DEFS.length} sistemi realistici attivi • Bot IA ${s.botAiLevel}%`,
     // Coefficienti effettivi di simulazione
     aerodynamicsEnabled: s.aerodynamics,
     tireDegradationEnabled: s.tireDegradation,

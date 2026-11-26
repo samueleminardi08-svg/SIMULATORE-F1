@@ -1,6 +1,6 @@
 /**
- * Gestione Carriera, Economia (premi in denaro), 5 Aree Upgrade, Campionato Stagionale 24 GP
- * e Salvataggio Persistente v2 (con migrazione automatica v1 -> v2).
+ * Gestione Carriera, Campionato Stagionale 24 GP, Ciclo di Vita v3,
+ * Premi Reali F1 e Storico Carriere Concluse.
  * Puro JavaScript compatibile sia con localStorage nel browser sia con storage iniettato nei test.
  */
 
@@ -11,46 +11,21 @@ import {
   F1_2026_TEAMS,
   getCareerWeekendPreset,
 } from '../config/f1_2026_data.js';
-import { UPGRADE_CATEGORIES, UPGRADE_MAX_LEVEL } from '../cars/CarSpecs.js';
-import { computeCareerPrizeMultiplier } from '../config/physicsSettings.js';
 import { CALENDAR_2026_TRACKS } from '../tracks/calendar2026/index.js';
+import {
+  F1_AWARDS,
+  countCareerAwards,
+  createSimulatedCompletedCareer,
+  evaluateGpAwards,
+  evaluateSeasonAwards,
+} from './F1Awards.js';
 
 export const CAREER_STORAGE_KEY = 'f1_game_career_v1';
-export const CAREER_SCHEMA_VERSION = 2;
-export const INITIAL_CAREER_MONEY = 200000;
-
-export const RACE_PRIZE_BY_POSITION = [
-  1000000, // P1
-  700000,  // P2
-  500000,  // P3
-  380000,  // P4
-  310000,  // P5
-  260000,  // P6
-  220000,  // P7
-  190000,  // P8
-  165000,  // P9
-  145000,  // P10
-  125000,  // P11
-  110000,  // P12
-  100000,  // P13
-  92000,   // P14
-  85000,   // P15
-  80000,   // P16
-  75000,   // P17
-  70000,   // P18
-  65000,   // P19
-  60000,   // P20
-  55000,   // P21
-  50000,   // P22
-];
+export const CAREER_SCHEMA_VERSION = 3;
 
 export const F1_POINTS_BY_POSITION = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 
-export const DIFFICULTY_PRIZE_MULTIPLIER = {
-  beginner: 1.0,
-  intermediate: 1.15,
-  realistic: 1.35,
-};
+export { F1_AWARDS };
 
 let memoryFallbackJson = null;
 
@@ -63,12 +38,6 @@ function resolveStorage(explicitStorage = null) {
     return globalThis.localStorage;
   }
   return null;
-}
-
-export function formatCurrencyEUR(amount) {
-  const num = Math.max(0, Math.round(Number(amount) || 0));
-  const formatted = String(num).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `${formatted} €`;
 }
 
 export function deriveDriverCode(playerName = 'Pilota') {
@@ -87,9 +56,10 @@ export function getRepresentativeDriverForTeam(teamId = 'ferrari') {
   return teamDrivers[1] || teamDrivers[0] || F1_2026_DRIVERS[2];
 }
 
-function clampUpgrade(val) {
-  const n = Math.floor(Number(val) || 0);
-  return Math.max(0, Math.min(UPGRADE_MAX_LEVEL, n));
+function clampPos(val, fallback = 22) {
+  const n = Math.floor(Number(val));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(22, n));
 }
 
 function clampByte(val, fallback = 0) {
@@ -159,6 +129,21 @@ function normalizeRoundResults(rawList = null) {
     const item = rawList[i];
     if (!item || typeof item !== 'object') continue;
     const track = CALENDAR_2026_TRACKS[i];
+    const finishPosition = clampPos(item.finishPosition ?? item.playerPosition, 22);
+    const polePosition = Boolean(item.polePosition);
+    const fastestLap = Boolean(item.fastestLap);
+    const gridPosition = clampPos(
+      item.gridPosition !== undefined && item.gridPosition !== null
+        ? item.gridPosition
+        : polePosition
+          ? 1
+          : finishPosition,
+      finishPosition
+    );
+    const awards = Array.isArray(item.awards)
+      ? item.awards.filter((id) => Boolean(F1_AWARDS[id]))
+      : evaluateGpAwards({ position: finishPosition, polePosition, fastestLap });
+
     out[i] = {
       roundIndex: i,
       round: track.round,
@@ -167,13 +152,20 @@ function normalizeRoundResults(rawList = null) {
       trackName: item.trackName || track.name,
       winnerDriverId: item.winnerDriverId || null,
       winnerName: item.winnerName || 'Pilota F1',
-      winnerTeamId: item.winnerTeamId && F1_2026_TEAMS[item.winnerTeamId] ? item.winnerTeamId : 'ferrari',
-      playerPosition: Math.max(1, Math.min(22, Math.floor(Number(item.playerPosition) || 22))),
+      winnerTeamId:
+        item.winnerTeamId && F1_2026_TEAMS[item.winnerTeamId] ? item.winnerTeamId : 'ferrari',
+      gridPosition,
+      finishPosition,
+      playerPosition: finishPosition,
       playerPoints: Math.max(0, Math.floor(Number(item.playerPoints) || 0)),
-      polePosition: Boolean(item.polePosition),
-      fastestLap: Boolean(item.fastestLap),
+      polePosition,
+      fastestLap,
+      awards,
       presetId: CAREER_WEEKEND_PRESETS[item.presetId] ? item.presetId : DEFAULT_CAREER_PRESET_ID,
-      raceLaps: Math.max(1, Math.floor(Number(item.raceLaps) || getCareerWeekendPreset(item.presetId).raceLaps)),
+      raceLaps: Math.max(
+        1,
+        Math.floor(Number(item.raceLaps) || getCareerWeekendPreset(item.presetId).raceLaps)
+      ),
     };
   }
   return out;
@@ -192,10 +184,125 @@ function normalizeSeasonHistory(rawHistory = null) {
       championTeamId: entry.championTeamId || 'ferrari',
       championTeamName: entry.championTeamName || 'F1 Team',
       championTeamPoints: Math.max(0, Math.floor(Number(entry.championTeamPoints) || 0)),
-      playerPosition: Math.max(1, Math.min(22, Math.floor(Number(entry.playerPosition) || 22))),
+      playerPosition: clampPos(entry.playerPosition, 22),
+      playerTeamPosition: Math.max(
+        1,
+        Math.min(11, Math.floor(Number(entry.playerTeamPosition) || 1))
+      ),
       playerPoints: Math.max(0, Math.floor(Number(entry.playerPoints) || 0)),
       playerWins: Math.max(0, Math.floor(Number(entry.playerWins) || 0)),
+      seasonAwards: Array.isArray(entry.seasonAwards)
+        ? entry.seasonAwards.filter((id) => Boolean(F1_AWARDS[id]))
+        : [],
+      completedCareerId: entry.completedCareerId || null,
     }));
+}
+
+function normalizeCompletedCareers(rawList = undefined) {
+  if (!Array.isArray(rawList)) {
+    return [createSimulatedCompletedCareer()];
+  }
+  return rawList
+    .filter((entry) => entry && typeof entry === 'object')
+    .slice(0, 24)
+    .map((entry, idx) => {
+      const teamId = entry.teamId && F1_2026_TEAMS[entry.teamId] ? entry.teamId : 'ferrari';
+      const teamMeta = F1_2026_TEAMS[teamId];
+      const normalizedRounds = normalizeRoundResults(entry.roundResults);
+      const completedRounds = normalizedRounds.filter(Boolean);
+      const computedWins = completedRounds.filter((r) => r.finishPosition === 1).length;
+      const computedPodiums = completedRounds.filter((r) => r.finishPosition <= 3).length;
+      const computedPoles = completedRounds.filter((r) => r.polePosition).length;
+      const computedFl = completedRounds.filter((r) => r.fastestLap).length;
+      const computedPts = completedRounds.reduce((sum, r) => sum + (r.playerPoints || 0), 0);
+      const rawStats = entry.stats || {};
+      const playerPosition = clampPos(entry.playerPosition, 22);
+      const playerTeamPosition = Math.max(
+        1,
+        Math.min(11, Math.floor(Number(entry.playerTeamPosition) || 1))
+      );
+      const seasonAwards = Array.isArray(entry.seasonAwards)
+        ? entry.seasonAwards.filter((id) => Boolean(F1_AWARDS[id]))
+        : evaluateSeasonAwards({
+            playerDriverPosition: playerPosition,
+            playerTeamPosition,
+          });
+      const stats = {
+        racesCompleted: Math.max(
+          completedRounds.length,
+          Math.floor(Number(rawStats.racesCompleted) || 0)
+        ),
+        wins: Math.max(0, Math.floor(Number(rawStats.wins ?? computedWins) || 0)),
+        podiums: Math.max(0, Math.floor(Number(rawStats.podiums ?? computedPodiums) || 0)),
+        poles: Math.max(0, Math.floor(Number(rawStats.poles ?? computedPoles) || 0)),
+        fastestLaps: Math.max(0, Math.floor(Number(rawStats.fastestLaps ?? computedFl) || 0)),
+        points: Math.max(0, Math.floor(Number(rawStats.points ?? computedPts) || 0)),
+      };
+
+      return {
+        id:
+          typeof entry.id === 'string' && entry.id.trim()
+            ? entry.id.trim()
+            : `career_s${entry.seasonNumber || 1}_${idx + 1}`,
+        isSimulated: Boolean(entry.isSimulated),
+        seasonNumber: Math.max(1, Math.floor(Number(entry.seasonNumber) || 1)),
+        playerName:
+          typeof entry.playerName === 'string' && entry.playerName.trim()
+            ? entry.playerName.trim().slice(0, 24)
+            : 'Pilota F1',
+        playerCode: deriveDriverCode(entry.playerName || 'Pilota F1'),
+        teamId,
+        teamName: entry.teamName || teamMeta?.name || 'F1 Team',
+        teamColor: entry.teamColor || teamMeta?.primaryColor || '#DC0000',
+        weekendPresetId: CAREER_WEEKEND_PRESETS[entry.weekendPresetId]
+          ? entry.weekendPresetId
+          : DEFAULT_CAREER_PRESET_ID,
+        startedAt: typeof entry.startedAt === 'string' ? entry.startedAt : null,
+        completedAt: typeof entry.completedAt === 'string' ? entry.completedAt : null,
+        championDriverId: entry.championDriverId || null,
+        championDriverName: entry.championDriverName || 'Pilota F1',
+        championDriverPoints: Math.max(0, Math.floor(Number(entry.championDriverPoints) || 0)),
+        championTeamId:
+          entry.championTeamId && F1_2026_TEAMS[entry.championTeamId]
+            ? entry.championTeamId
+            : teamId,
+        championTeamName: entry.championTeamName || teamMeta?.name || 'F1 Team',
+        championTeamPoints: Math.max(0, Math.floor(Number(entry.championTeamPoints) || 0)),
+        playerPosition,
+        playerTeamPosition,
+        playerPoints: Math.max(0, Math.floor(Number(entry.playerPoints ?? stats.points) || 0)),
+        playerWins: Math.max(0, Math.floor(Number(entry.playerWins ?? stats.wins) || 0)),
+        stats,
+        seasonAwards,
+        awardCounts: countCareerAwards(normalizedRounds, seasonAwards),
+        roundResults: normalizedRounds,
+      };
+    });
+}
+
+function computeLifetimeStatsFromCompletedCareers(completedCareers = []) {
+  const realCareers = Array.isArray(completedCareers)
+    ? completedCareers.filter((c) => c && !c.isSimulated)
+    : [];
+  const totals = {
+    racesCompleted: 0,
+    wins: 0,
+    podiums: 0,
+    poles: 0,
+    fastestLaps: 0,
+    points: 0,
+    lastRacePosition: null,
+  };
+  for (const c of realCareers) {
+    const s = c.stats || {};
+    totals.racesCompleted += Math.max(0, Math.floor(Number(s.racesCompleted) || 0));
+    totals.wins += Math.max(0, Math.floor(Number(s.wins) || 0));
+    totals.podiums += Math.max(0, Math.floor(Number(s.podiums) || 0));
+    totals.poles += Math.max(0, Math.floor(Number(s.poles) || 0));
+    totals.fastestLaps += Math.max(0, Math.floor(Number(s.fastestLaps) || 0));
+    totals.points += Math.max(0, Math.floor(Number(s.points) || 0));
+  }
+  return totals;
 }
 
 export function createDefaultCareerState(overrides = {}) {
@@ -204,28 +311,48 @@ export function createDefaultCareerState(overrides = {}) {
       ? overrides.playerName.trim().slice(0, 24)
       : 'Pilota F1';
   const teamId = overrides.teamId && F1_2026_TEAMS[overrides.teamId] ? overrides.teamId : 'ferrari';
-  const rawUpgrades = overrides.upgrades || {};
   const rawStats = overrides.stats || {};
   const rawPaint = overrides.paint || {};
   const racesCompleted = Math.max(0, Math.floor(Number(rawStats.racesCompleted) || 0));
   const seasonNumber = Math.max(1, Math.floor(Number(overrides.seasonNumber) || 1));
   const normalizedRoundResults = normalizeRoundResults(overrides.roundResults);
   const hasCompletedRounds = normalizedRoundResults.some(Boolean);
+  const completedCareers = normalizeCompletedCareers(overrides.completedCareers);
 
-  // Migrazione automatica v1 -> v2: se non ha ancora disputato gare, inizia sempre da R01 (Melbourne)
+  const hasExplicitStatus =
+    overrides.careerStatus === 'active' || overrides.careerStatus === 'not_started';
+  const careerStatus = hasExplicitStatus
+    ? overrides.careerStatus
+    : racesCompleted > 0 || hasCompletedRounds
+      ? 'active'
+      : 'not_started';
+  const startedAt =
+    careerStatus === 'active'
+      ? typeof overrides.startedAt === 'string' && overrides.startedAt
+        ? overrides.startedAt
+        : new Date().toISOString()
+      : null;
+
+  // Migrazione automatica v1/v2 -> v3: se non ha ancora disputato gare o è not_started, parte sempre da R01
   let currentRoundIndex = 0;
   const hasExplicitRoundIndex =
     overrides.currentRoundIndex !== undefined &&
     overrides.currentRoundIndex !== null &&
     Number.isFinite(Number(overrides.currentRoundIndex));
-  if (hasExplicitRoundIndex) {
-    currentRoundIndex = clampCareerRoundIndex(overrides.currentRoundIndex);
-  } else if (racesCompleted > 0 && typeof overrides.selectedTrackId === 'string' && overrides.selectedTrackId) {
-    const legacyIdx = CALENDAR_2026_TRACKS.findIndex((t) => t.id === overrides.selectedTrackId);
-    currentRoundIndex = legacyIdx >= 0 ? legacyIdx : 0;
-  }
-  if (seasonNumber === 1 && racesCompleted === 0 && !hasCompletedRounds) {
-    currentRoundIndex = 0;
+  if (careerStatus === 'active') {
+    if (hasExplicitRoundIndex) {
+      currentRoundIndex = clampCareerRoundIndex(overrides.currentRoundIndex);
+    } else if (
+      racesCompleted > 0 &&
+      typeof overrides.selectedTrackId === 'string' &&
+      overrides.selectedTrackId
+    ) {
+      const legacyIdx = CALENDAR_2026_TRACKS.findIndex((t) => t.id === overrides.selectedTrackId);
+      currentRoundIndex = legacyIdx >= 0 ? legacyIdx : 0;
+    }
+    if (seasonNumber === 1 && racesCompleted === 0 && !hasCompletedRounds) {
+      currentRoundIndex = 0;
+    }
   }
   const activeCareerTrack = CALENDAR_2026_TRACKS[currentRoundIndex] || CALENDAR_2026_TRACKS[0];
   const weekendPresetId = CAREER_WEEKEND_PRESETS[overrides.weekendPresetId]
@@ -234,6 +361,8 @@ export function createDefaultCareerState(overrides = {}) {
 
   return {
     version: CAREER_SCHEMA_VERSION,
+    careerStatus,
+    startedAt,
     playerName,
     playerCode: deriveDriverCode(playerName),
     teamId,
@@ -244,10 +373,7 @@ export function createDefaultCareerState(overrides = {}) {
     seasonStandings: normalizeSeasonStandings(overrides.seasonStandings),
     roundResults: normalizedRoundResults,
     seasonHistory: normalizeSeasonHistory(overrides.seasonHistory),
-    money:
-      Number.isFinite(overrides.money) && overrides.money >= 0
-        ? Math.round(overrides.money)
-        : INITIAL_CAREER_MONEY,
+    completedCareers,
     paint: {
       r: clampByte(rawPaint.r, 220),
       g: clampByte(rawPaint.g, 0),
@@ -256,22 +382,14 @@ export function createDefaultCareerState(overrides = {}) {
       metallic: clampUnit(rawPaint.metallic, 0.35),
       useCustomPaint: Boolean(rawPaint.useCustomPaint),
     },
-    upgrades: {
-      engine: clampUpgrade(rawUpgrades.engine),
-      tires: clampUpgrade(rawUpgrades.tires),
-      suspension: clampUpgrade(rawUpgrades.suspension),
-      brakes: clampUpgrade(rawUpgrades.brakes),
-      aero: clampUpgrade(rawUpgrades.aero),
-    },
     stats: {
       racesCompleted,
       wins: Math.max(0, Math.floor(Number(rawStats.wins) || 0)),
       podiums: Math.max(0, Math.floor(Number(rawStats.podiums) || 0)),
       poles: Math.max(0, Math.floor(Number(rawStats.poles) || 0)),
+      fastestLaps: Math.max(0, Math.floor(Number(rawStats.fastestLaps) || 0)),
       points: Math.max(0, Math.floor(Number(rawStats.points) || 0)),
-      totalEarnings: Math.max(0, Math.floor(Number(rawStats.totalEarnings) || 0)),
       lastRacePosition: rawStats.lastRacePosition ?? null,
-      lastPrizeMoney: rawStats.lastPrizeMoney ?? null,
     },
   };
 }
@@ -324,11 +442,59 @@ export function resetCareerState(overrides = {}, explicitStorage = null) {
   return saveCareerState(fresh, explicitStorage);
 }
 
-export function updateCareerProfile(state, updates = {}, explicitStorage = null) {
+export function startNewCareer(
+  state,
+  { teamId, playerName, weekendPresetId } = {},
+  explicitStorage = null
+) {
+  const current = createDefaultCareerState(state);
+  const nextTeamId = teamId && F1_2026_TEAMS[teamId] ? teamId : current.teamId;
+  const nextPlayerName =
+    typeof playerName === 'string' && playerName.trim()
+      ? playerName.trim().slice(0, 24)
+      : current.playerName;
+  const nextPresetId = CAREER_WEEKEND_PRESETS[weekendPresetId]
+    ? weekendPresetId
+    : current.weekendPresetId;
+
   const next = createDefaultCareerState({
-    ...state,
+    ...current,
+    careerStatus: 'active',
+    startedAt: new Date().toISOString(),
+    teamId: nextTeamId,
+    playerName: nextPlayerName,
+    weekendPresetId: nextPresetId,
+    currentRoundIndex: 0,
+    selectedTrackId: CALENDAR_2026_TRACKS[0].id,
+    seasonStandings: createEmptySeasonStandings(),
+    roundResults: Array(CALENDAR_2026_TRACKS.length).fill(null),
+    stats: computeLifetimeStatsFromCompletedCareers(current.completedCareers),
+  });
+  return saveCareerState(next, explicitStorage);
+}
+
+export function resetActiveCareer(state, explicitStorage = null) {
+  const current = createDefaultCareerState(state);
+  const next = createDefaultCareerState({
+    ...current,
+    careerStatus: 'not_started',
+    startedAt: null,
+    currentRoundIndex: 0,
+    selectedTrackId: CALENDAR_2026_TRACKS[0].id,
+    seasonStandings: createEmptySeasonStandings(),
+    roundResults: Array(CALENDAR_2026_TRACKS.length).fill(null),
+    stats: computeLifetimeStatsFromCompletedCareers(current.completedCareers),
+  });
+  return saveCareerState(next, explicitStorage);
+}
+
+export function updateCareerProfile(state, updates = {}, explicitStorage = null) {
+  const current = createDefaultCareerState(state);
+  const canChangeTeam = current.careerStatus !== 'active';
+  const next = createDefaultCareerState({
+    ...current,
     ...(updates.playerName !== undefined ? { playerName: updates.playerName } : {}),
-    ...(updates.teamId !== undefined ? { teamId: updates.teamId } : {}),
+    ...(canChangeTeam && updates.teamId !== undefined ? { teamId: updates.teamId } : {}),
     ...(updates.weekendPresetId !== undefined ? { weekendPresetId: updates.weekendPresetId } : {}),
   });
   return saveCareerState(next, explicitStorage);
@@ -344,84 +510,6 @@ export function updateCareerPaint(state, paintUpdates = {}, explicitStorage = nu
     },
   });
   return saveCareerState(next, explicitStorage);
-}
-
-export function grantCareerFreeCash(state, amount = 250000, explicitStorage = null) {
-  const current = createDefaultCareerState(state);
-  current.money += Math.max(0, Math.round(Number(amount) || 0));
-  return saveCareerState(current, explicitStorage);
-}
-
-export function getUpgradeCost(categoryId, currentLevel) {
-  const cat = UPGRADE_CATEGORIES[categoryId];
-  if (!cat) return null;
-  const lvl = clampUpgrade(currentLevel);
-  if (lvl >= UPGRADE_MAX_LEVEL) return null;
-  return cat.costs[lvl] ?? null;
-}
-
-export function purchaseCareerUpgrade(state, categoryId, explicitStorage = null) {
-  const cat = UPGRADE_CATEGORIES[categoryId];
-  if (!cat) {
-    return { ok: false, reason: 'Reparto non valido.', state };
-  }
-
-  const current = createDefaultCareerState(state);
-  const curLvl = current.upgrades[categoryId] ?? 0;
-  if (curLvl >= UPGRADE_MAX_LEVEL) {
-    return { ok: false, reason: `${cat.label} già al livello massimo.`, state: current };
-  }
-
-  const cost = getUpgradeCost(categoryId, curLvl);
-  if (cost === null || current.money < cost) {
-    return {
-      ok: false,
-      reason: `Fondi insufficienti per ${cat.label} (servono ${formatCurrencyEUR(cost)}).`,
-      cost,
-      state: current,
-    };
-  }
-
-  current.money -= cost;
-  current.upgrades[categoryId] = curLvl + 1;
-  const saved = saveCareerState(current, explicitStorage);
-
-  return {
-    ok: true,
-    categoryId,
-    cost,
-    newLevel: saved.upgrades[categoryId],
-    state: saved,
-  };
-}
-
-export function calculateRacePrize(
-  position,
-  difficultyOrPhysics = 'intermediate',
-  fastestLap = false
-) {
-  const safePos = Math.max(1, Math.min(22, Math.floor(Number(position) || 22)));
-  const basePrize = RACE_PRIZE_BY_POSITION[safePos - 1] ?? 50000;
-  let difficultyMultiplier = 1.0;
-  if (difficultyOrPhysics && typeof difficultyOrPhysics === 'object') {
-    difficultyMultiplier = Number.isFinite(difficultyOrPhysics.prizeMultiplier)
-      ? difficultyOrPhysics.prizeMultiplier
-      : computeCareerPrizeMultiplier(difficultyOrPhysics);
-  } else {
-    difficultyMultiplier = DIFFICULTY_PRIZE_MULTIPLIER[difficultyOrPhysics] ?? 1.0;
-  }
-  const fastestLapBonus = fastestLap ? 75000 : 0;
-  const totalPrize = Math.round(basePrize * difficultyMultiplier) + fastestLapBonus;
-  const points = F1_POINTS_BY_POSITION[safePos - 1] ?? 0;
-
-  return {
-    position: safePos,
-    basePrize,
-    difficultyMultiplier,
-    fastestLapBonus,
-    totalPrize,
-    points,
-  };
 }
 
 export function getCareerDriverStandings(careerState = null) {
@@ -485,6 +573,7 @@ export function recordCareerRaceResult(
   state,
   {
     position,
+    gridPosition = null,
     difficultyId = 'intermediate',
     physicsSettings = null,
     fastestLap = false,
@@ -497,7 +586,36 @@ export function recordCareerRaceResult(
   explicitStorage = null
 ) {
   const current = createDefaultCareerState(state);
-  const reward = calculateRacePrize(position, physicsSettings || difficultyId, fastestLap);
+  if (current.careerStatus !== 'active') {
+    current.careerStatus = 'active';
+    current.startedAt = current.startedAt || new Date().toISOString();
+  }
+
+  const safeFinishPos = clampPos(position, 22);
+  const safePole = Boolean(polePosition);
+  const safeFastestLap = Boolean(fastestLap);
+  const safeGridPos = clampPos(
+    gridPosition !== null && gridPosition !== undefined && Number.isFinite(Number(gridPosition))
+      ? gridPosition
+      : safePole
+        ? 1
+        : safeFinishPos,
+    safeFinishPos
+  );
+  const awards = evaluateGpAwards({
+    position: safeFinishPos,
+    polePosition: safePole,
+    fastestLap: safeFastestLap,
+  });
+  const reward = {
+    gridPosition: safeGridPos,
+    finishPosition: safeFinishPos,
+    position: safeFinishPos,
+    points: F1_POINTS_BY_POSITION[safeFinishPos - 1] ?? 0,
+    fastestLap: safeFastestLap,
+    polePosition: safePole,
+    awards,
+  };
   const roundIndex = clampCareerRoundIndex(current.currentRoundIndex);
   const roundTrack = CALENDAR_2026_TRACKS[roundIndex] || CALENDAR_2026_TRACKS[0];
   const usedPreset = getCareerWeekendPreset(presetId || current.weekendPresetId);
@@ -508,15 +626,13 @@ export function recordCareerRaceResult(
       ? playerDriverId
       : repDriver.id;
 
-  current.money += reward.totalPrize;
   current.stats.racesCompleted += 1;
   if (reward.position === 1) current.stats.wins += 1;
   if (reward.position <= 3) current.stats.podiums += 1;
-  if (polePosition) current.stats.poles += 1;
+  if (safePole) current.stats.poles += 1;
+  if (safeFastestLap) current.stats.fastestLaps += 1;
   current.stats.points += reward.points;
-  current.stats.totalEarnings += reward.totalPrize;
   current.stats.lastRacePosition = reward.position;
-  current.stats.lastPrizeMoney = reward.totalPrize;
 
   let winnerDriverId = effectivePlayerDriverId;
   let winnerName = current.playerName;
@@ -592,10 +708,13 @@ export function recordCareerRaceResult(
     winnerDriverId,
     winnerName,
     winnerTeamId,
+    gridPosition: safeGridPos,
+    finishPosition: reward.finishPosition,
     playerPosition: reward.position,
     playerPoints: reward.points,
-    polePosition: Boolean(polePosition),
-    fastestLap: Boolean(fastestLap),
+    polePosition: safePole,
+    fastestLap: safeFastestLap,
+    awards,
     presetId: usedPreset.id,
     raceLaps: resolvedRaceLaps,
   };
@@ -603,30 +722,89 @@ export function recordCareerRaceResult(
   const completedSeasonNumber = current.seasonNumber;
   let seasonCompleted = false;
   let seasonSummary = null;
+  let completedCareer = null;
 
   if (roundIndex < CALENDAR_2026_TRACKS.length - 1) {
     current.currentRoundIndex = roundIndex + 1;
     current.selectedTrackId = CALENDAR_2026_TRACKS[current.currentRoundIndex].id;
   } else {
     seasonCompleted = true;
+    const completedAt = new Date().toISOString();
     const finalDrivers = getCareerDriverStandings(current);
     const finalTeams = getCareerConstructorStandings(current);
     const champDriver = finalDrivers[0];
     const champTeam = finalTeams[0];
     const playerStanding = finalDrivers.find((d) => d.isPlayer) || finalDrivers[0];
-    seasonSummary = {
+    const playerTeamStanding = finalTeams.find((t) => t.isPlayerTeam) || finalTeams[0];
+    const playerDriverPosition = playerStanding?.position || reward.position;
+    const playerTeamPosition = playerTeamStanding?.position || 11;
+    const seasonAwards = evaluateSeasonAwards({
+      playerDriverPosition,
+      playerTeamPosition,
+    });
+    const archivedRounds = current.roundResults.map((r) =>
+      r ? { ...r, awards: Array.isArray(r.awards) ? [...r.awards] : [] } : null
+    );
+    const validRounds = archivedRounds.filter(Boolean);
+    const seasonStats = {
+      racesCompleted: validRounds.length,
+      wins: validRounds.filter((r) => r.finishPosition === 1).length,
+      podiums: validRounds.filter((r) => r.finishPosition <= 3).length,
+      poles: validRounds.filter((r) => r.polePosition).length,
+      fastestLaps: validRounds.filter((r) => r.fastestLap).length,
+      points: validRounds.reduce((sum, r) => sum + (r.playerPoints || 0), 0),
+    };
+    const teamMeta = F1_2026_TEAMS[current.teamId] || F1_2026_TEAMS.ferrari;
+    const completedCareerId = `career_s${completedSeasonNumber}_${Date.now()}`;
+
+    completedCareer = {
+      id: completedCareerId,
+      isSimulated: false,
       seasonNumber: completedSeasonNumber,
+      playerName: current.playerName,
+      playerCode: current.playerCode,
+      teamId: current.teamId,
+      teamName: teamMeta?.name || 'F1 Team',
+      teamColor: teamMeta?.primaryColor || '#DC0000',
+      weekendPresetId: usedPreset.id,
+      startedAt: current.startedAt || completedAt,
+      completedAt,
       championDriverId: champDriver?.driverId || null,
       championDriverName: champDriver?.driverName || current.playerName,
       championDriverPoints: champDriver?.points || 0,
       championTeamId: champTeam?.teamId || current.teamId,
       championTeamName: champTeam?.teamName || 'F1 Team',
       championTeamPoints: champTeam?.points || 0,
-      playerPosition: playerStanding?.position || reward.position,
-      playerPoints: playerStanding?.points || 0,
-      playerWins: playerStanding?.wins || 0,
+      playerPosition: playerDriverPosition,
+      playerTeamPosition,
+      playerPoints: playerStanding?.points ?? seasonStats.points,
+      playerWins: playerStanding?.wins ?? seasonStats.wins,
+      stats: seasonStats,
+      seasonAwards,
+      awardCounts: countCareerAwards(archivedRounds, seasonAwards),
+      roundResults: archivedRounds,
     };
+
+    seasonSummary = {
+      seasonNumber: completedSeasonNumber,
+      championDriverId: completedCareer.championDriverId,
+      championDriverName: completedCareer.championDriverName,
+      championDriverPoints: completedCareer.championDriverPoints,
+      championTeamId: completedCareer.championTeamId,
+      championTeamName: completedCareer.championTeamName,
+      championTeamPoints: completedCareer.championTeamPoints,
+      playerPosition: completedCareer.playerPosition,
+      playerTeamPosition: completedCareer.playerTeamPosition,
+      playerPoints: completedCareer.playerPoints,
+      playerWins: completedCareer.playerWins,
+      seasonAwards,
+      completedCareerId,
+    };
+
+    current.completedCareers = [completedCareer, ...(current.completedCareers || [])].slice(0, 24);
     current.seasonHistory.push(seasonSummary);
+    current.careerStatus = 'not_started';
+    current.startedAt = null;
     current.seasonNumber = completedSeasonNumber + 1;
     current.currentRoundIndex = 0;
     current.selectedTrackId = CALENDAR_2026_TRACKS[0].id;
@@ -643,6 +821,7 @@ export function recordCareerRaceResult(
     completedSeasonNumber,
     seasonCompleted,
     seasonSummary,
+    completedCareer,
     nextTrack: getCareerCurrentTrack(saved),
   };
 }

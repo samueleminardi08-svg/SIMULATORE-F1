@@ -33,7 +33,6 @@ export const DIFFICULTY_LEVELS = {
     highSpeedBrakeInstabilityMultiplier: 0.0,
     botAiLevel: 85,
     botPaceMultiplier: 0.85,
-    prizeMultiplier: 1.0,
   },
   intermediate: {
     id: 'intermediate',
@@ -59,7 +58,6 @@ export const DIFFICULTY_LEVELS = {
     highSpeedBrakeInstabilityMultiplier: 0.55,
     botAiLevel: 94,
     botPaceMultiplier: 0.94,
-    prizeMultiplier: 1.15,
   },
   realistic: {
     id: 'realistic',
@@ -85,7 +83,6 @@ export const DIFFICULTY_LEVELS = {
     highSpeedBrakeInstabilityMultiplier: 1.00,
     botAiLevel: 100,
     botPaceMultiplier: 1.00,
-    prizeMultiplier: 1.35,
   },
 };
 

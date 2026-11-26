@@ -13,7 +13,6 @@ import {
   WEATHER_CONFIG,
 } from '../config/constants.js';
 import { getDifficultyConfig } from '../config/difficulty.js';
-import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { createTrackSurface } from '../tracks/TrackSurface.js';
 import { getTrackById } from '../tracks/calendar2026/index.js';
 import { createInitialCarState, stepCarPhysics } from './CarPhysics.js';
@@ -37,7 +36,6 @@ export function computeCarTelemetrySnapshot(
   const rainPhysicsEnabled = difficultyProps.rainPhysicsEnabled !== false;
   const weatherProps = rainPhysicsEnabled ? rawWeatherProps : WEATHER_CONFIG.dry;
   const surfaceProps = SURFACE_PHYSICS[car.surface] || SURFACE_PHYSICS.asphalt;
-  const carSpecs = car.carSpecs || getCarSpecsForLevel(car.carLevel || 'base');
   const aero = car.aeroTire || {};
 
   const forwardSpeed = car.forwardSpeed ?? 0;
@@ -64,8 +62,7 @@ export function computeCarTelemetrySnapshot(
     : surfaceLockFactor *
       (aero.tireGripFactor ?? 1.0) *
       (1.0 + 0.35 * vRatio) *
-      (difficultyProps.lockupResistanceMultiplier ?? 1.0) *
-      (carSpecs.brakeMult ?? 1.0);
+      (difficultyProps.lockupResistanceMultiplier ?? 1.0);
 
   const lockupResistance =
     typeof aero.lastLockupResistance === 'number'
@@ -116,7 +113,6 @@ export function computeCarTelemetrySnapshot(
 
 function makeTestCar(initialSpeedMs = 0, surface = 'asphalt') {
   const car = createInitialCarState('diag_car', { x: 0, y: 0, z: 0, heading: 0 }, {
-    carLevel: 'base',
     teamId: 'ferrari',
   });
   car.vx = 0;

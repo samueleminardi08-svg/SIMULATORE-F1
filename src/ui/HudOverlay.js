@@ -22,8 +22,7 @@ import {
 import { PHYSICS_TOGGLE_DEFS, normalizePhysicsSettings } from '../config/physicsSettings.js';
 import { computePitStopVisualState } from '../race/PitLaneManager.js';
 import { CAREER_RACE_LAPS, RACE_TOTAL_LAPS } from '../config/f1_2026_data.js';
-import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
-import { formatCurrencyEUR } from '../career/CareerStorage.js';
+import { formatAwardsSummary } from '../career/F1Awards.js';
 import { evaluateLapRecord, evaluateSectorRecord } from '../career/TrackRecordsStorage.js';
 import { formatDeltaTime, formatLapTime, formatSectorTime } from '../race/TimingSystem.js';
 import { computeCarTelemetrySnapshot } from '../physics/PhysicsDiagnostics.js';
@@ -89,7 +88,6 @@ export class HudOverlay {
     this.onQualiModalClose = options.onQualiModalClose || null;
     this.onTrackRecordUpdated = options.onTrackRecordUpdated || null;
     this.modalManager = options.modalManager || new ModalManager();
-    this._careerWalletAmount = null;
     this._roomCode = '';
     this._roomRole = 'offline';
 
@@ -464,10 +462,6 @@ export class HudOverlay {
       );
     }
     return this._physicsDebugVisible;
-  }
-
-  setCareerBalance(amount) {
-    this._careerWalletAmount = amount;
   }
 
   setRoomInfo(roomCode = '', role = 'offline') {
@@ -923,7 +917,6 @@ export class HudOverlay {
         const isCareer = Boolean(worldState.sessionConfig?.isCareer && race.mode === 'race');
         if (isCareer && playerCar) {
           let reward = worldState.lastCareerReward;
-          let updatedWallet = this._careerWalletAmount;
           let careerMetaRes = worldState._lastCareerFinishMeta || null;
           if (!worldState.careerRewardGranted && this.onCareerRaceFinished) {
             const res = this.onCareerRaceFinished(worldState, playerCar);
@@ -932,33 +925,30 @@ export class HudOverlay {
               worldState.careerRewardGranted = true;
               worldState.lastCareerReward = reward;
             }
-            if (res?.careerState) {
-              updatedWallet = res.careerState.money;
-              this._careerWalletAmount = updatedWallet;
-            }
             careerMetaRes = res || null;
             worldState._lastCareerFinishMeta = careerMetaRes;
           }
           if (reward) {
-            const fastestStr = reward.fastestLapBonus > 0 ? ' • Giro Veloce +75.000 €' : '';
-            const walletStr =
-              updatedWallet !== null && updatedWallet !== undefined
-                ? ` • Nuovo Saldo: ${formatCurrencyEUR(updatedWallet)}`
-                : '';
+            const gridPos = reward.gridPosition ?? playerCar.gridPosition ?? reward.position;
+            const finishPos = reward.finishPosition ?? reward.position;
+            const awardsSummary = formatAwardsSummary(reward.awards);
+            const awardsStr = awardsSummary ? ` • Premi F1: ${awardsSummary}` : '';
             let seasonProgressStr = '';
             if (careerMetaRes?.seasonCompleted && careerMetaRes?.seasonSummary) {
               const ss = careerMetaRes.seasonSummary;
-              seasonProgressStr = ` • STAGIONE ${ss.seasonNumber} COMPLETATA! Campione Piloti: ${ss.championDriverName} (${ss.championDriverPoints} pt) • Campione Costruttori: ${ss.championTeamName} • Tu: ${ss.playerPosition}° posto (${ss.playerPoints} pt) — Via alla Stagione ${ss.seasonNumber + 1} da Melbourne!`;
+              const fiaSummary = formatAwardsSummary(ss.seasonAwards);
+              const fiaStr = fiaSummary ? ` • Titoli FIA: ${fiaSummary}` : '';
+              seasonProgressStr = ` • CARRIERA COMPLETATA! Campione Piloti: ${ss.championDriverName} (${ss.championDriverPoints} pt) • Campione Costruttori: ${ss.championTeamName} • Tu: P${ss.playerPosition} (${ss.playerPoints} pt)${fiaStr} — Carriera archiviata nello Storico!`;
             } else if (careerMetaRes?.nextTrack && careerMetaRes?.careerState) {
               const nextR = (careerMetaRes.careerState.currentRoundIndex ?? 0) + 1;
               seasonProgressStr = ` • Prossimo GP: R${String(nextR).padStart(2, '0')}/24 ${careerMetaRes.nextTrack.gpName}`;
             }
             this.careerRewardBoxEl.style.display = 'block';
             this.careerRewardBoxEl.textContent =
-              `Premio Carriera (${reward.position}° posto, Bonus Fisica ×${reward.difficultyMultiplier}): +${formatCurrencyEUR(reward.totalPrize)} (+${reward.points} pt)${fastestStr}${walletStr}${seasonProgressStr}`;
+              `Risultato Carriera: Griglia P${gridPos} → Arrivo P${finishPos} (+${reward.points} pt)${awardsStr}${seasonProgressStr}`;
           }
           if (this.finishOpenMenuBtnEl) {
-            this.finishOpenMenuBtnEl.textContent = 'Officina Carriera';
+            this.finishOpenMenuBtnEl.textContent = 'Menu Carriera';
           }
         } else {
           this.careerRewardBoxEl.style.display = 'none';

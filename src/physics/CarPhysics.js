@@ -12,7 +12,6 @@ import {
   WEATHER_CONFIG,
 } from '../config/constants.js';
 import { getDifficultyConfig } from '../config/difficulty.js';
-import { getCarSpecsForLevel } from '../cars/CarSpecs.js';
 import { queryTrackSurface } from '../tracks/TrackSurface.js';
 import { createInitialAeroTireState, updateAeroAndTires } from './AeroAndTires.js';
 import { createInitialSuspensionState, updateSuspension } from './Suspension.js';
@@ -281,8 +280,6 @@ export function createInitialCarState(
     paintRoughness: meta.paintRoughness ?? 0.25,
     paintMetalness: meta.paintMetalness ?? 0.35,
     isBot: Boolean(meta.isBot),
-    carLevel: meta.carLevel ?? 'base',
-    carSpecs: meta.carSpecs ?? getCarSpecsForLevel(meta.carLevel ?? 'base'),
     skillFactor: meta.skillFactor ?? 1.0,
     driverProfile: meta.driverProfile ? { ...meta.driverProfile } : null,
     maxSpeedMultiplier: meta.maxSpeedMultiplier ?? 1.0,
@@ -436,7 +433,6 @@ export function stepCarPhysics(
   const adv = ADVANCED_PHYSICS_CONFIG;
   const weatherProps = WEATHER_CONFIG[weatherId] || WEATHER_CONFIG.dry;
   const difficultyProps = getDifficultyConfig(difficultyId);
-  const carSpecs = car.carSpecs || getCarSpecsForLevel(car.carLevel || 'base');
 
   const forward = Boolean(input?.forward);
   const backward = Boolean(input?.backward);
@@ -503,14 +499,14 @@ export function stepCarPhysics(
   const prevForwardSpeed = forwardSpeed;
 
   // 2. Aerodinamica, mescole reali, graining/blistering, bloccaggio e frenata brusca
-  updateAeroAndTires(car, input, dt, surfaceProps, weatherProps, difficultyProps, carSpecs);
+  updateAeroAndTires(car, input, dt, surfaceProps, weatherProps, difficultyProps);
 
   const rawWeatherGrip =
     car.surface === 'kerb' ? weatherProps.kerbGripMultiplier : weatherProps.gripMultiplier;
   const weatherGrip = rainPhysEnabled
     ? 1.0 - (1.0 - rawWeatherGrip) * difficultyProps.rainGripPenaltyMultiplier
     : 1.0;
-  const tireFactor = car.aeroTire.tireGripFactor * carSpecs.tireGripMult;
+  const tireFactor = car.aeroTire.tireGripFactor;
   const aeroBonus = car.aeroTire.aeroGripBonus;
 
   // 3. Aggiornamento cambio automatico e giri motore (RPM)
@@ -565,8 +561,7 @@ export function stepCarPhysics(
         surfaceProps.tractionMultiplier *
         weatherGrip *
         tireFactor *
-        (car.accelMultiplier ?? 1.0) *
-        carSpecs.engineAccelMult;
+        (car.accelMultiplier ?? 1.0);
     }
   } else if (brakeAmount > 0.01 && throttleAmount <= 0.01) {
     if (forwardSpeed > 0.25) {
@@ -580,8 +575,7 @@ export function stepCarPhysics(
         weatherGrip *
         tireFactor *
         aeroBrakeBoost *
-        lockPenalty *
-        carSpecs.brakeMult;
+        lockPenalty;
     } else if (forwardSpeed > -cfg.maxReverseSpeed && backward) {
       driveAccel = -cfg.reverseAccel * brakeAmount * surfaceProps.tractionMultiplier * weatherGrip;
     }
@@ -625,8 +619,7 @@ export function stepCarPhysics(
     forwardSpeed = 0;
   }
 
-  const maxTopSpeed =
-    cfg.gearTopSpeeds[8] * (car.maxSpeedMultiplier ?? 1.0) * carSpecs.topSpeedMult;
+  const maxTopSpeed = cfg.gearTopSpeeds[8] * (car.maxSpeedMultiplier ?? 1.0);
   const effectiveMaxSpeed = pitLimiterActive
     ? Math.min(maxTopSpeed, Math.max(pitLimitMs, forwardSpeed))
     : maxTopSpeed;
@@ -653,9 +646,8 @@ export function stepCarPhysics(
       car.yawRate = rawYawRate;
     }
 
-    // Instabilità in frenata brusca ad alta velocità (attenuata in Principiante/Intermedio e da sospensioni upgrade)
-    const brakeInstabMult =
-      difficultyProps.highSpeedBrakeInstabilityMultiplier / carSpecs.suspensionStabilityMult;
+    // Instabilità in frenata brusca ad alta velocità (attenuata in Principiante/Intermedio)
+    const brakeInstabMult = difficultyProps.highSpeedBrakeInstabilityMultiplier;
     if (
       brakeInstabMult > 0 &&
       car.aeroTire.highSpeedBraking &&

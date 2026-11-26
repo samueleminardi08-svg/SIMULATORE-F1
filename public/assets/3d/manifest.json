@@ -137,6 +137,56 @@
         "draco": true
       }
     },
+    "trophies": {
+      "fia_wdc": {
+        "path": "assets/3d/models/trophies/fia_wdc_trophy.glb",
+        "format": "glb",
+        "sizeBytes": 720144,
+        "draco": false
+      },
+      "fia_wcc": {
+        "path": "assets/3d/models/trophies/fia_wcc_trophy.glb",
+        "format": "glb",
+        "sizeBytes": 346192,
+        "draco": false
+      },
+      "pirelli_pole": {
+        "path": "assets/3d/models/trophies/pirelli_pole_award.glb",
+        "format": "glb",
+        "sizeBytes": 114588,
+        "draco": false
+      },
+      "dhl_fastest_lap": {
+        "path": "assets/3d/models/trophies/dhl_fastest_lap_award.glb",
+        "format": "glb",
+        "sizeBytes": 314296,
+        "draco": false
+      },
+      "gp_classic": {
+        "path": "assets/3d/models/trophies/gp_trophy_classic.glb",
+        "format": "glb",
+        "sizeBytes": 74164,
+        "draco": false
+      },
+      "gp_monaco": {
+        "path": "assets/3d/models/trophies/gp_trophy_monaco.glb",
+        "format": "glb",
+        "sizeBytes": 159704,
+        "draco": false
+      },
+      "gp_modern": {
+        "path": "assets/3d/models/trophies/gp_trophy_modern.glb",
+        "format": "glb",
+        "sizeBytes": 397096,
+        "draco": false
+      },
+      "gp_chalice": {
+        "path": "assets/3d/models/trophies/gp_trophy_chalice.glb",
+        "format": "glb",
+        "sizeBytes": 45984,
+        "draco": false
+      }
+    },
     "optional": {}
   },
   "cars": {

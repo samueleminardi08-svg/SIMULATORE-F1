@@ -181,7 +181,6 @@ export class RoomManager {
           customPrimaryColor: profile.customPrimaryColor || null,
           paintRoughness: profile.paintRoughness ?? 0.25,
           paintMetalness: profile.paintMetalness ?? 0.35,
-          carSpecs: profile.carSpecs || null,
           isHost: false,
         };
 
@@ -305,7 +304,6 @@ export class RoomManager {
         customPrimaryColor: localProfile.customPrimaryColor || null,
         paintRoughness: localProfile.paintRoughness ?? 0.25,
         paintMetalness: localProfile.paintMetalness ?? 0.35,
-        carSpecs: localProfile.carSpecs || null,
         isHost: true,
       },
     ];

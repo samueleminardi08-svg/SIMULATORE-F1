@@ -1,4 +1,4 @@
-# PIANO GRAFICA 3D — Upgrade Asset 3D Ad Alta Risoluzione (Monoposto 2026, Piloti, Natura, Piste PBR, Garage 3D & Pit Lane/Box 24 Piste)
+# PIANO A — Upgrade Asset 3D Ad Alta Risoluzione (Monoposto 2026, Piloti, Natura, Piste PBR, Garage 3D & Pit Lane/Box 24 Piste)
 
 ## Goal Description
 

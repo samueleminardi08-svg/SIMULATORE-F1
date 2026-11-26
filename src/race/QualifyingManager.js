@@ -148,24 +148,10 @@ export function computeSimulatedQualifyingLap(driverId, car, worldState, stageIn
   const jitter = (hashDriverStage(driverId, stageIndex) - 0.5) * 0.44;
   const weatherFactor = isRain ? 1.125 : 1.0;
   const difficultyPace = 1.0 / Math.max(0.75, botPace);
-  const specs = car?.carSpecs;
-  let carLevelFactor = 1.0;
-  if (!car?.isBot) {
-    if (specs) {
-      const boost =
-        ((specs.engineAccelMult - 1) / 0.13 +
-          (specs.aeroDownforceMult - 1) / 0.2 +
-          (specs.tireGripMult - 1) / 0.1) /
-        3;
-      carLevelFactor = 1.0 - 0.045 * Math.max(0, Math.min(1, boost));
-    } else if (car?.carLevel === 'max') {
-      carLevelFactor = 0.955;
-    }
-  }
 
   return Math.max(
     72.0,
-    (baseRefLap * stageFactor + perfSpread + jitter) * weatherFactor * difficultyPace * carLevelFactor
+    (baseRefLap * stageFactor + perfSpread + jitter) * weatherFactor * difficultyPace
   );
 }
 

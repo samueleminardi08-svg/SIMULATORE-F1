@@ -16,6 +16,7 @@ import { createF1CarMesh } from '../cars/CarModel3D.js';
 import { assetManager3D } from './AssetManager3D.js';
 import { CameraController } from './CameraController.js';
 import { GarageScene3D } from './GarageScene3D.js';
+import { TrophyMuseumScene3D } from './TrophyMuseumScene3D.js';
 import { DaySkyDome } from './DaySkyDome.js';
 import { NightSky } from './NightSky.js';
 import { PitGuideOverlay3D } from './PitGuideOverlay3D.js';
@@ -205,6 +206,8 @@ export class SceneManager {
     this.scene.add(this.weatherFx.group);
     this.garageScene = new GarageScene3D();
     this.scene.add(this.garageScene.group);
+    this.trophyMuseumScene = new TrophyMuseumScene3D();
+    this.scene.add(this.trophyMuseumScene.group);
     this._recoveryMarker = this._createRecoveryLandingMarker();
     this.scene.add(this._recoveryMarker.group);
     this._applyStudioEnvironment();
@@ -573,6 +576,40 @@ export class SceneManager {
       this.scene.environment = envMap;
       this.scene.environmentIntensity = 0.85;
       this._activeEnvKey = 'studio';
+    });
+  }
+
+  _applyTrophyMuseumEnvironment() {
+    const reqId = ++this._envRequestId;
+    this._isNightActive = false;
+    if (this.daySkyDome) this.daySkyDome.group.visible = false;
+    if (this.nightSky) this.nightSky.group.visible = false;
+    if (this.moonLight) this.moonLight.visible = false;
+    if (this.floodlights) this.floodlights.group.visible = false;
+    this.weatherFx?.setVisible(false);
+
+    // Ambiente showroom museo luminoso (stile bianco perla / lucernari / pavimento riflettente)
+    this._bgColor.setHex(0xdce2ea);
+    this.scene.background = this._bgColor;
+    this.scene.backgroundBlurriness = 0;
+    this.scene.backgroundIntensity = 1.0;
+    this.scene.backgroundRotation.set(0, 0, 0);
+    this.scene.environmentRotation.set(0, 0, 0);
+    this.scene.fog.color.setHex(0xdce2ea);
+    this.scene.fog.density = 0.0022;
+    this.sunLight.castShadow = false;
+    this.sunLight.color.setHex(0xffffff);
+    this.sunLight.intensity = 0.88;
+    this.hemiLight.color.setHex(0xffffff);
+    this.hemiLight.groundColor.setHex(0xbac4d4);
+    this.hemiLight.intensity = 0.96;
+    this.renderer.toneMappingExposure = 0.94;
+
+    assetManager3D.loadHDRI('studio', this.renderer).then((envMap) => {
+      if (reqId !== this._envRequestId || !envMap) return;
+      this.scene.environment = envMap;
+      this.scene.environmentIntensity = 1.15;
+      this._activeEnvKey = 'studio_museum';
     });
   }
 
@@ -951,14 +988,16 @@ export class SceneManager {
     this.isGarageMode = Boolean(isOpen);
     this._garageViewMode = viewMode || 'home';
     const isTrackPreview = this.isGarageMode && this._garageViewMode === 'track';
+    const isTrophiesMode = this.isGarageMode && this._garageViewMode === 'trophies';
 
-    this.garageScene.group.visible = this.isGarageMode && !isTrackPreview;
+    this.garageScene.group.visible = this.isGarageMode && !isTrackPreview && !isTrophiesMode;
+    this.trophyMuseumScene.group.visible = isTrophiesMode;
     this.trackGroup.visible = !this.isGarageMode || isTrackPreview;
 
     if (appearance) {
       this.garageScene.updateAppearance(appearance);
     }
-    if (viewMode) {
+    if (viewMode && !isTrophiesMode) {
       this.garageScene.setViewMode(this._garageViewMode);
     }
 
@@ -967,6 +1006,14 @@ export class SceneManager {
       this.weatherFx?.reset();
       this.weatherFx?.setVisible(false);
       this._updateWeatherVisuals(this._previewWeather || this._lastRenderedWeather || 'dry');
+      for (const carModel of this.carMeshes.values()) {
+        carModel.root.visible = false;
+      }
+    } else if (isTrophiesMode) {
+      this._currentWeather = null;
+      this.weatherFx?.reset();
+      this.weatherFx?.setVisible(false);
+      this._applyTrophyMuseumEnvironment();
       for (const carModel of this.carMeshes.values()) {
         carModel.root.visible = false;
       }
@@ -987,6 +1034,65 @@ export class SceneManager {
         carModel.root.visible = true;
       }
     }
+  }
+
+  setTrophyMuseumCareerData(careerState) {
+    this.trophyMuseumScene.setCareerData(careerState);
+  }
+
+  getTrophyMuseumState() {
+    return this.trophyMuseumScene.getState();
+  }
+
+  cycleTrophyMuseumPedestal(delta = 1) {
+    this.trophyMuseumScene.cyclePedestal(delta);
+    return this.trophyMuseumScene.getState();
+  }
+
+  enterTrophyMuseumWall(careerId = null) {
+    this.trophyMuseumScene.enterWallRoom(careerId);
+    return this.trophyMuseumScene.getState();
+  }
+
+  returnTrophyMuseumCorridor() {
+    this.trophyMuseumScene.returnToCorridor();
+    return this.trophyMuseumScene.getState();
+  }
+
+  setTrophyMuseumShelfPreset(preset = 'all') {
+    this.trophyMuseumScene.setWallShelfPreset(preset);
+    return this.trophyMuseumScene.getState();
+  }
+
+  inspectTrophyMuseumGpSlot(roundIndex) {
+    this.trophyMuseumScene.inspectGpSlot(roundIndex);
+    return this.trophyMuseumScene.getState();
+  }
+
+  clearTrophyMuseumGpInspection() {
+    this.trophyMuseumScene.clearGpInspection();
+    return this.trophyMuseumScene.getState();
+  }
+
+  selectTrophyMuseumCareer(careerId, openWall = false) {
+    this.trophyMuseumScene.selectCareerInMuseum(careerId, openWall);
+    return this.trophyMuseumScene.getState();
+  }
+
+  rotateTrophyMuseumOrbit(deltaYaw = 0, deltaPitch = 0) {
+    this.trophyMuseumScene.rotateOrbit(deltaYaw, deltaPitch);
+  }
+
+  zoomTrophyMuseumOrbit(deltaZoom = 0) {
+    this.trophyMuseumScene.zoomOrbit(deltaZoom);
+  }
+
+  hoverTrophyMuseumPointer(ndcX, ndcY) {
+    return this.trophyMuseumScene.handlePointerHover(ndcX, ndcY, this.menuCamera);
+  }
+
+  clickTrophyMuseumPointer(ndcX, ndcY) {
+    return this.trophyMuseumScene.handlePointerClick(ndcX, ndcY, this.menuCamera);
   }
 
   rotateGarageOrbit(deltaYaw = 0, deltaPitch = 0) {
@@ -1178,6 +1284,17 @@ export class SceneManager {
         return;
       }
 
+      if (this._garageViewMode === 'trophies') {
+        this.garageScene.group.visible = false;
+        this.trackGroup.visible = false;
+        this.trophyMuseumScene.group.visible = true;
+        this.trophyMuseumScene.update(renderDt);
+        this.trophyMuseumScene.updateCamera(this.menuCamera, renderDt);
+        this.renderer.render(this.scene, this.menuCamera);
+        return;
+      }
+
+      this.trophyMuseumScene.group.visible = false;
       this.garageScene.group.visible = true;
       this.trackGroup.visible = false;
       this.garageScene.updateCamera(this.menuCamera, renderDt);
@@ -1185,6 +1302,7 @@ export class SceneManager {
       return;
     }
 
+    this.trophyMuseumScene.group.visible = false;
     this.garageScene.group.visible = false;
     this.trackGroup.visible = true;
     const weatherId = worldState.weather || 'dry';
